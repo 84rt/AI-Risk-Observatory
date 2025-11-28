@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Mention {
+  mention_id         String   @id
+  firm_id            String
+  firm_name          String
+  sector             String
+  sector_code        String?
+  report_year        Int
+  report_section     String?
+
+  // Source Text
+  text_excerpt       String
+  page_number        Int?
+
+  // Mention Type & AI Context
+  mention_type       String
+  ai_specificity     String
+  frontier_tech_flag Boolean  @default(false)
+
+  // Risk Classification
+  tier_1_category    String?
+  tier_2_driver      String?
+
+  // Severity & Substance
+  specificity_level  String
+  materiality_signal String?
+
+  // Governance
+  mitigation_mentioned Boolean @default(false)
+  governance_maturity  String?
+
+  // Meta
+  confidence_score   Float?
+  reasoning_summary  String?
+  model_version      String?
+  extraction_date    DateTime?
+  review_status      String   @default("unreviewed")
+  reviewer_notes     String?
+
+  firm               Firm     @relation(fields: [firm_id, report_year], references: [firm_id, report_year])
+
+  @@map("mentions")
+}
+
+model Firm {
+  firm_id                String
+  firm_name              String
+  sector                 String
+  sector_code            String?
+  report_year            Int
+
+  // AI Adoption Indicators
+  ai_mentioned           Boolean  @default(false)
+  ai_risk_mentioned      Boolean  @default(false)
+  frontier_ai_mentioned  Boolean  @default(false)
+  total_ai_mentions      Int      @default(0)
+  total_ai_risk_mentions Int      @default(0)
+
+  // Risk Profile (Aggregated)
+  dominant_tier_1_category String?
+  tier_1_distribution      String? // Stored as JSON string
+  max_specificity_level    String?
+  max_materiality_signal   String?
+
+  // Governance Profile
+  has_ai_governance        Boolean  @default(false)
+  max_governance_maturity  String?
+  ai_in_principal_risks    Boolean  @default(false)
+
+  // Derived Metrics
+  specificity_ratio        Float?
+  mitigation_gap_score     Float?
+
+  last_updated             DateTime?
+
+  mentions                 Mention[]
+
+  @@id([firm_id, report_year])
+  @@map("firms")
+}

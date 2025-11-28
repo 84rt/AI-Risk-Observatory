@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #222830;
+  --muted: #40444c;
+  --muted-foreground: #6b7280;
+  --card: #ffffff;
+  --card-foreground: #222830;
+  --popover: #ffffff;
+  --popover-foreground: #222830;
+  --primary: #222830;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #222830;
+  --radius: 0.5rem;
+  /* Font Stack matching the clean geometric sans used by AISI (likely Onest or similar) */
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  --font-sans: var(--font-sans);
+}
+
+/* Force light mode styling regardless of system preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #ffffff;
+    --foreground: #222830;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Utilities for AISI style */
+@layer utilities {
+  .aisi-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .aisi-h1 {
+    @apply text-4xl sm:text-5xl md:text-6xl font-normal tracking-tight text-primary;
+  }
+
+  .aisi-h2 {
+    @apply text-2xl sm:text-3xl font-normal tracking-tight text-primary;
+  }
+
+  .aisi-nav-link {
+    @apply text-sm font-medium text-muted hover:text-foreground transition-colors;
+  }
+}
