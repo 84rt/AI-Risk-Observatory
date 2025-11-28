@@ -20,7 +20,7 @@ export default function Dashboard() {
   const riskChartData = Object.entries(riskCounts).map(([name, value]) => ({ name, value }));
 
   // B. Line Chart: Trends (2020-2024)
-  const trendDataMap: Record<number, Record<string, number>> = {};
+  const trendDataMap: Record<number, { year: number; [key: string]: number }> = {};
   MOCK_DATA.forEach(d => {
     if (!trendDataMap[d.year]) trendDataMap[d.year] = { year: d.year };
     if (d.dominant_risk) {
