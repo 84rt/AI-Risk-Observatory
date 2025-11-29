@@ -1,0 +1,438 @@
+.page {
+  --background: #fafafa;
+  --foreground: #ffffff;
+
+  --text-primary: #000;
+  --text-secondary: #666;
+
+  --button-primary-hover: #383838;
+  --button-secondary-hover: #f2f2f2;
+  --button-secondary-border: #ebebeb;
+
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-geist-sans);
+  background-color: var(--background);
+}
+
+.main {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1120px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  background-color: var(--foreground);
+  padding: 40px 40px 80px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+  border-radius: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.headerSubtitle {
+  max-width: 720px;
+  font-size: 18px;
+  line-height: 32px;
+  color: var(--text-secondary);
+}
+
+.nav {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f3f4f6;
+}
+
+.navButton,
+.navButtonActive {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #4b5563;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.navButtonActive {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.viewContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  padding: 20px 20px 18px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.caption {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.heatmapGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.heatmapCell {
+  padding: 10px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heatmapSector {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.heatmapValue {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.velocityRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.velocityPoint {
+  display: grid;
+  grid-template-columns: minmax(80px, 100px) 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.velocityLabel {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.velocityBarWrapper {
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.velocityBar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #3b82f6);
+}
+
+.velocityValue {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.tickerList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tickerItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.tickerCategory {
+  font-size: 13px;
+}
+
+.tickerGrowthUp {
+  font-size: 13px;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.tickerGrowthDown {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.cardHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.label {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.label select {
+  margin-left: 4px;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+}
+
+.scatterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.scatterItem {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  background: #f9fafb;
+}
+
+.scatterHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.scatterCompany {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scatterSector {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.scatterRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.scatterLabel {
+  color: #6b7280;
+}
+
+.scatterValue {
+  font-weight: 500;
+}
+
+.harmGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.harmRow {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.harmSector {
+  font-size: 13px;
+}
+
+.harmBarWrapper {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+
+.harmSegment {
+  height: 100%;
+}
+
+.harmOperational {
+  background: #3b82f6;
+}
+
+.harmReputational {
+  background: #f97316;
+}
+
+.harmSocietal {
+  background: #10b981;
+}
+
+.harmPhysical {
+  background: #ef4444;
+}
+
+.harmTotal {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+.snippetCell {
+  max-width: 420px;
+}
+
+@media (max-width: 900px) {
+  .main {
+    padding: 24px 16px 40px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
+
+  .headerSubtitle {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .harmRow {
+    grid-template-columns: 120px 1fr auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .main {
+    padding: 48px 24px;
+  }
+
+  .harmRow {
+    grid-template-columns: 100px 1fr auto;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .page {
+    --background: #000;
+    --foreground: #020617;
+
+    --text-primary: #f9fafb;
+    --text-secondary: #9ca3af;
+
+    --button-primary-hover: #e5e7eb;
+    --button-secondary-hover: #111827;
+    --button-secondary-border: #1f2937;
+  }
+
+  .card {
+    background: #020617;
+    border-color: #0f172a;
+  }
+
+  .nav {
+    background: #020617;
+  }
+
+  .navButton {
+    color: #9ca3af;
+  }
+
+  .navButtonActive {
+    background: #111827;
+    color: #e5e7eb;
+  }
+
+  .tickerItem {
+    background: #020617;
+  }
+
+  .scatterItem {
+    background: #020617;
+  }
+
+  .table th {
+    background: #020617;
+  }
+
+  .velocityBarWrapper,
+  .harmBarWrapper {
+    background: #1f2937;
+  }
+}
