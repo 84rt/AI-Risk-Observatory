@@ -14,6 +14,7 @@ from .config import get_settings
 from .database import Database
 from .llm_classifier import classify_candidates
 from .pdf_extractor import extract_text_from_pdf
+from .ixbrl_extractor import extract_text_from_ixbrl
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -75,16 +76,16 @@ class Pipeline:
         # Step 1: Download reports
         if not skip_download:
             logger.info("\n[1/5] Downloading annual reports from Companies House...")
-            pdf_paths = self._download_reports()
+            report_paths = self._download_reports()
         else:
-            logger.info("\n[1/5] Skipping download (using existing PDFs)...")
-            pdf_paths = self._find_existing_pdfs()
+            logger.info("\n[1/5] Skipping download (using existing reports)...")
+            report_paths = self._find_existing_reports()
 
         # Step 2: Extract text and chunk
         logger.info("\n[2/5] Extracting text and chunking documents...")
         all_candidates = []
-        for company in tqdm(self.companies, desc="Processing PDFs"):
-            candidates = self._process_company(company, pdf_paths)
+        for company in tqdm(self.companies, desc="Processing reports"):
+            candidates = self._process_company(company, report_paths)
             if candidates:
                 all_candidates.extend(candidates)
 
@@ -129,66 +130,107 @@ class Pipeline:
         """Download annual reports for all companies.
 
         Returns:
-            Dict mapping company_number to PDF path
+            Dict mapping company_number to result dict with 'path' and 'format' keys
         """
-        pdf_paths = fetch_reports_batch(
+        report_results = fetch_reports_batch(
             companies=self.companies,
             year=self.year,
-            output_dir=self.output_dir / "pdfs"
+            output_dir=self.output_dir
         )
-        return pdf_paths
+        return report_results
 
-    def _find_existing_pdfs(self) -> dict:
-        """Find existing PDFs in output directory.
+    def _find_existing_reports(self) -> dict:
+        """Find existing reports (iXBRL or PDF) in output directory.
 
         Returns:
-            Dict mapping company_number to PDF path
+            Dict mapping company_number to result dict with 'path' and 'format' keys
         """
-        pdf_dir = self.output_dir / "pdfs"
-        pdf_paths = {}
+        ixbrl_dir = self.output_dir / "reports" / "ixbrl"
+        pdf_dir = self.output_dir / "reports" / "pdfs"
+        # Also check legacy pdfs directory
+        legacy_pdf_dir = self.output_dir / "pdfs"
+        
+        report_paths = {}
 
         for company in self.companies:
             company_number = company['company_number']
-            # Look for PDFs matching company number
-            matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
-
-            if matching_pdfs:
-                pdf_paths[company_number] = matching_pdfs[0]
-            else:
+            found = False
+            
+            # Prefer iXBRL if available
+            if ixbrl_dir.exists():
+                matching_ixbrl = list(ixbrl_dir.glob(f"{company_number}_*.xhtml"))
+                if matching_ixbrl:
+                    report_paths[company_number] = {
+                        "path": matching_ixbrl[0],
+                        "format": "ixbrl"
+                    }
+                    found = True
+            
+            # Fall back to PDF
+            if not found:
+                matching_pdfs = []
+                if pdf_dir.exists():
+                    matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+                if not matching_pdfs and legacy_pdf_dir.exists():
+                    matching_pdfs = list(legacy_pdf_dir.glob(f"{company_number}_*.pdf"))
+                
+                if matching_pdfs:
+                    report_paths[company_number] = {
+                        "path": matching_pdfs[0],
+                        "format": "pdf"
+                    }
+                    found = True
+            
+            if not found:
                 logger.warning(
-                    f"No PDF found for {company['company_name']} "
+                    f"No report found for {company['company_name']} "
                     f"({company_number})"
                 )
-                pdf_paths[company_number] = None
+                report_paths[company_number] = None
 
-        return pdf_paths
+        return report_paths
 
     def _process_company(
         self,
         company: dict,
-        pdf_paths: dict
+        report_paths: dict
     ) -> Optional[List]:
         """Process a single company's report.
 
         Args:
             company: Company dict
-            pdf_paths: Dict mapping company_number to PDF path
+            report_paths: Dict mapping company_number to result dict with 'path' and 'format'
 
         Returns:
             List of CandidateSpan objects, or None if failed
         """
         company_number = company['company_number']
-        pdf_path = pdf_paths.get(company_number)
+        report_info = report_paths.get(company_number)
 
-        if not pdf_path or not Path(pdf_path).exists():
+        if not report_info or not report_info.get('path'):
             logger.warning(
-                f"No PDF available for {company['company_name']}"
+                f"No report available for {company['company_name']}"
+            )
+            return None
+
+        report_path = Path(report_info['path'])
+        report_format = report_info.get('format', 'pdf')
+
+        if not report_path.exists():
+            logger.warning(
+                f"Report file does not exist: {report_path} "
+                f"for {company['company_name']}"
             )
             return None
 
         try:
-            # Extract text
-            extracted = extract_text_from_pdf(Path(pdf_path))
+            # Extract text based on format
+            if report_format == 'ixbrl':
+                logger.info(f"Extracting from iXBRL/XHTML: {company['company_name']}")
+                extracted = extract_text_from_ixbrl(report_path)
+            else:
+                logger.info(f"Extracting from PDF: {company['company_name']}")
+                extracted = extract_text_from_pdf(report_path)
 
             # Chunk
             candidates = chunk_report(
@@ -196,12 +238,11 @@ class Pipeline:
                 firm_id=company['ticker'],
                 firm_name=company['company_name'],
                 sector=company['sector'],
-                report_year=self.year or 2024,
-                chunk_by="paragraph"
+                report_year=self.year or 2024
             )
 
             logger.info(
-                f"Processed {company['company_name']}: "
+                f"Processed {company['company_name']} ({report_format}): "
                 f"{len(candidates)} candidates"
             )
 
@@ -209,7 +250,8 @@ class Pipeline:
 
         except Exception as e:
             logger.error(
-                f"Error processing {company['company_name']}: {e}"
+                f"Error processing {company['company_name']}: {e}",
+                exc_info=True
             )
             return None
 

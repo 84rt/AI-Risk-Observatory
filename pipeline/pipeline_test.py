@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Step-by-step pipeline testing with heavy logging for the golden dataset."""
+"""################################################################################
+Step-by-step pipeline testing with heavy logging for the golden dataset.
+################################################################################"""
 
 import logging
 import sys
@@ -15,6 +17,7 @@ from src.companies_house import CompaniesHouseClient
 from src.config import get_settings
 from src.database import Database
 from src.pdf_extractor import PDFExtractor
+from src.ixbrl_extractor import iXBRLExtractor
 from src.chunker import TextChunker
 from src.llm_classifier import LLMClassifier
 from src.aggregator import aggregate_firm
@@ -148,17 +151,17 @@ def test_step_1_filing_history():
 
 
 def test_step_2_download_documents(year: Optional[int] = None):
-    """Test Step 2: Download documents (PDFs for now, iXBRL later)."""
+    """Test Step 2: Download documents (iXBRL preferred, PDF fallback)."""
     logger.info("\n" + "=" * 80)
     logger.info("STEP 2: DOWNLOADING DOCUMENTS")
     logger.info("=" * 80)
     
     client = CompaniesHouseClient()
     settings = get_settings()
-    output_dir = settings.output_dir / "pdfs"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = settings.output_dir / "reports"
     
     results = {}
+    format_counts = {"ixbrl": 0, "pdf": 0}
     
     for company in tqdm(GOLDEN_DATASET, desc="Downloading documents"):
         company_number = company["number"]
@@ -169,20 +172,27 @@ def test_step_2_download_documents(year: Optional[int] = None):
         logger.info(f"{'='*60}")
         
         try:
-            pdf_path = client.fetch_annual_report(
+            result = client.fetch_annual_report(
                 company_number=company_number,
                 company_name=company_name,
                 year=year,
                 output_dir=output_dir
             )
             
-            if pdf_path and Path(pdf_path).exists():
-                file_size = Path(pdf_path).stat().st_size / (1024 * 1024)  # MB
-                logger.info(f"✅ Downloaded: {pdf_path}")
+            if result and result.get("path") and Path(result["path"]).exists():
+                file_path = Path(result["path"])
+                file_format = result.get("format", "unknown")
+                file_size = file_path.stat().st_size / (1024 * 1024)  # MB
+                
+                logger.info(f"✅ Downloaded ({file_format.upper()}): {file_path}")
                 logger.info(f"   Size: {file_size:.2f} MB")
+                
+                format_counts[file_format] = format_counts.get(file_format, 0) + 1
+                
                 results[company_number] = {
                     "status": "success",
-                    "path": str(pdf_path),
+                    "path": str(file_path),
+                    "format": file_format,
                     "size_mb": file_size
                 }
             else:
@@ -205,6 +215,8 @@ def test_step_2_download_documents(year: Optional[int] = None):
     logger.info("=" * 80)
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     logger.info(f"✅ Successfully downloaded: {success_count}/{len(GOLDEN_DATASET)}")
+    logger.info(f"   📄 iXBRL/XHTML: {format_counts.get('ixbrl', 0)}")
+    logger.info(f"   📄 PDF (fallback): {format_counts.get('pdf', 0)}")
     logger.info(f"⚠️  No documents: {sum(1 for r in results.values() if r.get('status') == 'no_document')}")
     logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
     
@@ -212,40 +224,71 @@ def test_step_2_download_documents(year: Optional[int] = None):
 
 
 def test_step_3_extract_text():
-    """Test Step 3: Extract text from PDFs."""
+    """Test Step 3: Extract text from reports (iXBRL/XHTML or PDF)."""
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 3: EXTRACTING TEXT FROM PDFS")
+    logger.info("STEP 3: EXTRACTING TEXT FROM REPORTS")
     logger.info("=" * 80)
     
     settings = get_settings()
-    pdf_dir = settings.output_dir / "pdfs"
-    extractor = PDFExtractor()
+    reports_dir = settings.output_dir / "reports"
+    ixbrl_dir = reports_dir / "ixbrl"
+    pdf_dir = reports_dir / "pdfs"
+    # Also check legacy pdfs directory
+    legacy_pdf_dir = settings.output_dir / "pdfs"
+    
+    pdf_extractor = PDFExtractor()
+    ixbrl_extractor = iXBRLExtractor()
     
     results = {}
+    format_counts = {"ixbrl": 0, "pdf": 0}
     
     for company in tqdm(GOLDEN_DATASET, desc="Extracting text"):
         company_number = company["number"]
         company_name = company["name"]
         
-        # Find PDF
-        matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+        # Find report (prefer iXBRL)
+        report_path = None
+        report_format = None
         
-        if not matching_pdfs:
-            logger.warning(f"⚠️  No PDF found for {company_name}")
-            results[company_number] = {"status": "no_pdf"}
+        if ixbrl_dir.exists():
+            matching_ixbrl = list(ixbrl_dir.glob(f"{company_number}_*.xhtml"))
+            if matching_ixbrl:
+                report_path = matching_ixbrl[0]
+                report_format = "ixbrl"
+        
+        if not report_path:
+            matching_pdfs = []
+            if pdf_dir.exists():
+                matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+            if not matching_pdfs and legacy_pdf_dir.exists():
+                matching_pdfs = list(legacy_pdf_dir.glob(f"{company_number}_*.pdf"))
+            
+            if matching_pdfs:
+                report_path = matching_pdfs[0]
+                report_format = "pdf"
+        
+        if not report_path:
+            logger.warning(f"⚠️  No report found for {company_name}")
+            results[company_number] = {"status": "no_report"}
             continue
         
-        pdf_path = matching_pdfs[0]
         logger.info(f"\n{'='*60}")
         logger.info(f"Extracting: {company_name}")
-        logger.info(f"PDF: {pdf_path.name}")
+        logger.info(f"Format: {report_format.upper()}")
+        logger.info(f"File: {report_path.name}")
         logger.info(f"{'='*60}")
         
         try:
-            extracted = extractor.extract_report(pdf_path)
+            if report_format == "ixbrl":
+                extracted = ixbrl_extractor.extract_report(report_path)
+                format_counts["ixbrl"] += 1
+            else:
+                extracted = pdf_extractor.extract_report(report_path)
+                format_counts["pdf"] += 1
             
             logger.info(f"✅ Extracted text:")
-            logger.info(f"   Pages: {extracted.metadata.get('num_pages')}")
+            if report_format == "pdf":
+                logger.info(f"   Pages: {extracted.metadata.get('num_pages', 'N/A')}")
             logger.info(f"   Spans: {extracted.metadata.get('num_spans')}")
             logger.info(f"   Text length: {len(extracted.full_text):,} characters")
             
@@ -257,6 +300,7 @@ def test_step_3_extract_text():
             
             results[company_number] = {
                 "status": "success",
+                "format": report_format,
                 "pages": extracted.metadata.get('num_pages'),
                 "spans": extracted.metadata.get('num_spans'),
                 "text_length": len(extracted.full_text),
@@ -276,7 +320,9 @@ def test_step_3_extract_text():
     logger.info("=" * 80)
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     logger.info(f"✅ Successfully extracted: {success_count}/{len(GOLDEN_DATASET)}")
-    logger.info(f"⚠️  No PDFs: {sum(1 for r in results.values() if r.get('status') == 'no_pdf')}")
+    logger.info(f"   📄 iXBRL/XHTML: {format_counts.get('ixbrl', 0)}")
+    logger.info(f"   📄 PDF: {format_counts.get('pdf', 0)}")
+    logger.info(f"⚠️  No reports: {sum(1 for r in results.values() if r.get('status') == 'no_report')}")
     logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
     
     return results
@@ -289,9 +335,14 @@ def test_step_4_chunking():
     logger.info("=" * 80)
     
     settings = get_settings()
-    pdf_dir = settings.output_dir / "pdfs"
-    extractor = PDFExtractor()
-    chunker = TextChunker()
+    reports_dir = settings.output_dir / "reports"
+    ixbrl_dir = reports_dir / "ixbrl"
+    pdf_dir = reports_dir / "pdfs"
+    legacy_pdf_dir = settings.output_dir / "pdfs"
+    
+    pdf_extractor = PDFExtractor()
+    ixbrl_extractor = iXBRLExtractor()
+    chunker = TextChunker(chunk_by="paragraph")
     
     results = {}
     total_candidates = 0
@@ -300,22 +351,42 @@ def test_step_4_chunking():
         company_number = company["number"]
         company_name = company["name"]
         
-        # Find PDF
-        matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+        # Find report (prefer iXBRL)
+        report_path = None
+        report_format = None
         
-        if not matching_pdfs:
-            logger.warning(f"⚠️  No PDF found for {company_name}")
-            results[company_number] = {"status": "no_pdf"}
+        if ixbrl_dir.exists():
+            matching_ixbrl = list(ixbrl_dir.glob(f"{company_number}_*.xhtml"))
+            if matching_ixbrl:
+                report_path = matching_ixbrl[0]
+                report_format = "ixbrl"
+        
+        if not report_path:
+            matching_pdfs = []
+            if pdf_dir.exists():
+                matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+            if not matching_pdfs and legacy_pdf_dir.exists():
+                matching_pdfs = list(legacy_pdf_dir.glob(f"{company_number}_*.pdf"))
+            
+            if matching_pdfs:
+                report_path = matching_pdfs[0]
+                report_format = "pdf"
+        
+        if not report_path:
+            logger.warning(f"⚠️  No report found for {company_name}")
+            results[company_number] = {"status": "no_report"}
             continue
         
-        pdf_path = matching_pdfs[0]
         logger.info(f"\n{'='*60}")
-        logger.info(f"Chunking: {company_name}")
+        logger.info(f"Chunking: {company_name} ({report_format.upper()})")
         logger.info(f"{'='*60}")
         
         try:
             # Extract
-            extracted = extractor.extract_report(pdf_path)
+            if report_format == "ixbrl":
+                extracted = ixbrl_extractor.extract_report(report_path)
+            else:
+                extracted = pdf_extractor.extract_report(report_path)
             
             # Chunk
             candidates = chunker.chunk_report(
@@ -323,8 +394,7 @@ def test_step_4_chunking():
                 firm_id=company["ticker"],
                 firm_name=company_name,
                 sector=company["sector"],
-                report_year=2024,  # Default year
-                chunk_by="paragraph"
+                report_year=2024  # Default year
             )
             
             logger.info(f"✅ Generated {len(candidates)} candidate spans")
@@ -334,13 +404,14 @@ def test_step_4_chunking():
                 sample = candidates[0]
                 logger.info(f"   Sample span:")
                 logger.info(f"      Text length: {len(sample.text)} chars")
-                logger.info(f"      Page: {sample.page_number}")
+                logger.info(f"      Page: {sample.page_number or 'N/A'}")
                 logger.info(f"      Section: {sample.section or 'N/A'}")
                 logger.info(f"      Preview: {sample.text[:100]}...")
             
             total_candidates += len(candidates)
             results[company_number] = {
                 "status": "success",
+                "format": report_format,
                 "candidates": len(candidates)
             }
             
@@ -358,7 +429,7 @@ def test_step_4_chunking():
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     logger.info(f"✅ Successfully chunked: {success_count}/{len(GOLDEN_DATASET)}")
     logger.info(f"📊 Total candidate spans generated: {total_candidates:,}")
-    logger.info(f"⚠️  No PDFs: {sum(1 for r in results.values() if r.get('status') == 'no_pdf')}")
+    logger.info(f"⚠️  No reports: {sum(1 for r in results.values() if r.get('status') == 'no_report')}")
     logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
     
     return results

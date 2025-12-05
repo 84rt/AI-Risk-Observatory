@@ -87,6 +87,9 @@ class PDFExtractor:
         doc = fitz.open(pdf_path)
         spans = []
         full_text_parts = []
+        
+        # Get page count BEFORE processing (needed for metadata)
+        num_pages = len(doc)
 
         # Get average font size for heading detection
         avg_font_size = self._get_average_font_size(doc)
@@ -105,12 +108,12 @@ class PDFExtractor:
 
         metadata = {
             "filename": pdf_path.name,
-            "num_pages": len(doc),
+            "num_pages": num_pages,
             "num_spans": len(spans),
         }
 
         logger.info(
-            f"Extracted {len(spans)} spans from {len(doc)} pages"
+            f"Extracted {len(spans)} spans from {num_pages} pages"
         )
 
         return ExtractedReport(
