@@ -25,3 +25,40 @@ The AI Risk Observatory tracks how UK public companies are adopting, governing, 
 - `/data`: Mock data and schemas
 - `AIRO_DATA_PIPELINE_SPECIFICATION.md`: Data model specification
 
+# Pipeline Status
+
+✅ **v1 Pipeline Complete!** The data pipeline is now fully implemented and ready for testing.
+
+## Quick Start
+
+```bash
+cd pipeline
+./scripts/setup.sh                    # Install dependencies
+# Edit .env with your API keys
+# Edit data/companies_template.csv with 20 companies
+python run_pipeline.py                # Run the pipeline
+python scripts/query_db.py            # View results
+```
+
+See [`pipeline/README.md`](pipeline/README.md) for detailed documentation.
+
+## What's Included in v1
+
+- ✅ Companies House API integration for fetching annual reports
+- ✅ PDF text extraction with section detection (PyMuPDF)
+- ✅ Intelligent text chunking for LLM processing
+- ✅ Two-stage LLM classification (Google Gemini 2.0 Flash):
+  - Stage 1: Relevance detection
+  - Stage 2: Risk taxonomy classification
+- ✅ SQLite database with full schema (mentions + firms tables)
+- ✅ Firm-level aggregation (specificity ratio, mitigation gap, etc.)
+- ✅ Comprehensive error handling and logging
+- ✅ CLI tools and utilities
+- 💰 **Cost-effective:** FREE tier covers most usage!
+
+## Next Steps
+
+1. **Test the pipeline:** Run on your 20 companies
+2. **Validate classifications:** Review sample mentions for accuracy
+3. **Connect to dashboard:** Export data for visualization
+4. **Iterate on v2:** Add automated ticker mapping, multi-year support 

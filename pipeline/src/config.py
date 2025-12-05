@@ -1,0 +1,65 @@
+"""Configuration management for AIRO pipeline."""
+
+import os
+from pathlib import Path
+from typing import Optional
+
+from dotenv import load_dotenv
+from pydantic import Field
+from pydantic_settings import BaseSettings
+
+# Load environment variables
+load_dotenv()
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    # API Keys
+    gemini_api_key: str = Field(..., alias="GEMINI_API_KEY")
+    companies_house_api_key: str = Field(..., alias="COMPANIES_HOUSE_API_KEY")
+
+    # Model Configuration
+    gemini_model: str = Field(
+        default="gemini-2.0-flash-exp",
+        alias="GEMINI_MODEL"
+    )
+
+    # Database
+    database_path: Path = Field(
+        default=Path("./data/airo.db"),
+        alias="DATABASE_PATH"
+    )
+
+    # Paths
+    pipeline_root: Path = Field(default=Path(__file__).parent.parent)
+    data_dir: Path = Field(default=Path(__file__).parent.parent / "data")
+    output_dir: Path = Field(default=Path(__file__).parent.parent / "output")
+    logs_dir: Path = Field(default=Path(__file__).parent.parent / "logs")
+
+    # Companies House API
+    companies_house_base_url: str = "https://api.company-information.service.gov.uk"
+
+    # Logging
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    # LLM Parameters
+    max_tokens: int = 4096
+    temperature: float = 0.0  # Deterministic for classification
+
+    # Processing Parameters
+    max_retries: int = 3
+    retry_delay: int = 2  # seconds
+
+    class Config:
+        env_file = [".env.local", ".env"]  # Check .env.local first, then .env
+        case_sensitive = False
+
+
+# Global settings instance
+settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get the global settings instance."""
+    return settings

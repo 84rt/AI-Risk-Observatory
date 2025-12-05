@@ -1,5 +1,5 @@
 // Mock Data Generator for AIRO Dashboard
-// Simulating ~1000 firms over 5 years (2020-2024)
+// Simulating ~1000 firms over 5 years (2021-2025)
 
 export type RiskCategory = 
   | 'operational_reliability'
@@ -29,6 +29,9 @@ export type MockFirmYear = {
   
   // Quality
   specificity_level: 'boilerplate' | 'contextual' | 'concrete';
+
+  // Confidence Score (0, 1, 2)
+  confidence_score: 0 | 1 | 2;
 }
 
 const SECTORS = ['Financials', 'Technology', 'Healthcare', 'Industrials', 'Energy', 'Consumer Discretionary'];
@@ -96,9 +99,9 @@ function generateMockData(): MockFirmYear[] {
 
   // 3. Generate Data
   allFirms.forEach(firm => {
-    for (let year = 2020; year <= 2024; year++) {
+    for (let year = 2021; year <= 2025; year++) {
       // TREND: AI mentions increase over time
-      const baseProb = (year - 2019) * 0.15; // 2020=15%, 2024=75%
+      const baseProb = (year - 2020) * 0.15; // 2021=15%, 2025=75%
       
       const isAiMentioned = Math.random() < baseProb;
       const isFrontier = isAiMentioned && (year >= 2023 ? Math.random() < 0.6 : Math.random() < 0.1);
@@ -162,6 +165,18 @@ function generateMockData(): MockFirmYear[] {
         }
       }
 
+      // Confidence Score (0, 1, 2)
+      let confidence_score: 0 | 1 | 2 = 0;
+      if (isAiMentioned) {
+          if (maturity === 'advanced' || specificity === 'concrete') {
+              confidence_score = 2;
+          } else if (maturity === 'intermediate' || specificity === 'contextual') {
+              confidence_score = 1;
+          } else {
+              confidence_score = 0;
+          }
+      }
+
       data.push({
         firm_id: firm.name.replace(/\s/g, ''),
         firm_name: firm.name,
@@ -173,7 +188,8 @@ function generateMockData(): MockFirmYear[] {
         risk_mentions_count: riskCount,
         governance_maturity: maturity,
         mitigation_gap_score: gapScore,
-        specificity_level: specificity
+        specificity_level: specificity,
+        confidence_score
       });
     }
   });

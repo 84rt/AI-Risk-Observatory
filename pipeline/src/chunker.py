@@ -1,0 +1,262 @@
+"""Text chunking module to generate candidate spans for LLM processing."""
+
+import logging
+import re
+from dataclasses import dataclass
+from typing import List, Optional
+
+import nltk
+
+# Download required NLTK data (run once)
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', quiet=True)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CandidateSpan:
+    """A candidate text span for LLM analysis."""
+
+    span_id: str
+    firm_id: str
+    firm_name: str
+    sector: str
+    report_year: int
+    report_section: Optional[str]
+    text: str
+    page_number: Optional[int]
+    context_before: str = ""  # Previous sentence for context
+    context_after: str = ""   # Next sentence for context
+
+
+class TextChunker:
+    """Chunk extracted report text into candidate spans."""
+
+    def __init__(
+        self,
+        min_chunk_length: int = 50,
+        max_chunk_length: int = 1000,
+        chunk_by: str = "paragraph"
+    ):
+        """Initialize the chunker.
+
+        Args:
+            min_chunk_length: Minimum chunk length in characters
+            max_chunk_length: Maximum chunk length in characters
+            chunk_by: Chunking strategy: "sentence" or "paragraph"
+        """
+        self.min_chunk_length = min_chunk_length
+        self.max_chunk_length = max_chunk_length
+        self.chunk_by = chunk_by
+
+    def chunk_report(
+        self,
+        extracted_report,
+        firm_id: str,
+        firm_name: str,
+        sector: str,
+        report_year: int
+    ) -> List[CandidateSpan]:
+        """Chunk a report into candidate spans.
+
+        Args:
+            extracted_report: ExtractedReport object from pdf_extractor
+            firm_id: Company identifier (ISIN or ticker)
+            firm_name: Company name
+            sector: Sector classification
+            report_year: Report year
+
+        Returns:
+            List of CandidateSpan objects
+        """
+        logger.info(f"Chunking report for {firm_name} ({report_year})")
+
+        candidates = []
+        span_counter = 0
+
+        # Process each section
+        for section_name, section_spans in extracted_report.sections.items():
+            # Filter out headings and combine into text
+            text_spans = [
+                s for s in section_spans
+                if not s.is_heading and len(s.text.strip()) > 0
+            ]
+
+            if not text_spans:
+                continue
+
+            # Combine into section text
+            section_text = " ".join(s.text for s in text_spans)
+
+            # Get page numbers (use most common page in section)
+            page_numbers = [s.page_number for s in text_spans]
+            most_common_page = max(set(page_numbers), key=page_numbers.count)
+
+            # Chunk the section
+            if self.chunk_by == "paragraph":
+                chunks = self._chunk_by_paragraph(section_text)
+            else:
+                chunks = self._chunk_by_sentence(section_text)
+
+            # Create candidate spans
+            for chunk in chunks:
+                if len(chunk) < self.min_chunk_length:
+                    continue
+
+                span_counter += 1
+                span_id = f"{firm_id}-{report_year}-{span_counter:04d}"
+
+                candidates.append(CandidateSpan(
+                    span_id=span_id,
+                    firm_id=firm_id,
+                    firm_name=firm_name,
+                    sector=sector,
+                    report_year=report_year,
+                    report_section=section_name,
+                    text=chunk,
+                    page_number=most_common_page
+                ))
+
+        logger.info(
+            f"Generated {len(candidates)} candidate spans "
+            f"from {len(extracted_report.sections)} sections"
+        )
+
+        return candidates
+
+    def _chunk_by_paragraph(self, text: str) -> List[str]:
+        """Chunk text by paragraphs.
+
+        Args:
+            text: Input text
+
+        Returns:
+            List of paragraph chunks
+        """
+        # Split by double newlines or multiple spaces
+        paragraphs = re.split(r'\n\s*\n|\s{3,}', text)
+
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+
+            para_length = len(para)
+
+            # If adding this paragraph exceeds max length, save current chunk
+            if current_length + para_length > self.max_chunk_length and current_chunk:
+                chunks.append(" ".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+
+            # If single paragraph is too long, split by sentences
+            if para_length > self.max_chunk_length:
+                sentences = self._split_sentences(para)
+                for sent in sentences:
+                    if current_length + len(sent) > self.max_chunk_length and current_chunk:
+                        chunks.append(" ".join(current_chunk))
+                        current_chunk = []
+                        current_length = 0
+
+                    current_chunk.append(sent)
+                    current_length += len(sent) + 1
+            else:
+                current_chunk.append(para)
+                current_length += para_length + 1
+
+        # Add remaining chunk
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
+
+    def _chunk_by_sentence(self, text: str) -> List[str]:
+        """Chunk text by sentences.
+
+        Args:
+            text: Input text
+
+        Returns:
+            List of sentence chunks
+        """
+        sentences = self._split_sentences(text)
+
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for sent in sentences:
+            sent_length = len(sent)
+
+            if current_length + sent_length > self.max_chunk_length and current_chunk:
+                chunks.append(" ".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+
+            current_chunk.append(sent)
+            current_length += sent_length + 1
+
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
+
+    @staticmethod
+    def _split_sentences(text: str) -> List[str]:
+        """Split text into sentences using NLTK.
+
+        Args:
+            text: Input text
+
+        Returns:
+            List of sentences
+        """
+        # Use NLTK's sentence tokenizer
+        sentences = nltk.sent_tokenize(text)
+
+        # Clean up sentences
+        cleaned = []
+        for sent in sentences:
+            sent = sent.strip()
+            if sent:
+                cleaned.append(sent)
+
+        return cleaned
+
+
+def chunk_report(
+    extracted_report,
+    firm_id: str,
+    firm_name: str,
+    sector: str,
+    report_year: int,
+    chunk_by: str = "paragraph"
+) -> List[CandidateSpan]:
+    """Convenience function to chunk a report.
+
+    Args:
+        extracted_report: ExtractedReport from pdf_extractor
+        firm_id: Company identifier
+        firm_name: Company name
+        sector: Sector classification
+        report_year: Report year
+        chunk_by: Chunking strategy ("paragraph" or "sentence")
+
+    Returns:
+        List of CandidateSpan objects
+    """
+    chunker = TextChunker(chunk_by=chunk_by)
+    return chunker.chunk_report(
+        extracted_report=extracted_report,
+        firm_id=firm_id,
+        firm_name=firm_name,
+        sector=sector,
+        report_year=report_year
+    )
