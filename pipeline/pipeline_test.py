@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """################################################################################
 Step-by-step pipeline testing with heavy logging for the golden dataset.
+
+Uses filings.xbrl.org API (with LEI codes) as primary source for iXBRL reports,
+falls back to Companies House PDF if not available.
 ################################################################################"""
 
 import logging
 import sys
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -14,6 +18,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.companies_house import CompaniesHouseClient
+from src.xbrl_filings_client import XBRLFilingsClient
 from src.config import get_settings
 from src.database import Database
 from src.pdf_extractor import PDFExtractor
@@ -33,29 +38,40 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# GOLDEN DATASET: Top 20 UK Public Companies
-GOLDEN_DATASET = [
-    {"rank": 1, "name": "AstraZeneca plc", "number": "02723534", "sector": "Pharmaceuticals", "ticker": "AZN"},
-    {"rank": 2, "name": "Shell plc", "number": "04366849", "sector": "Oil & Gas", "ticker": "SHEL"},
-    {"rank": 3, "name": "HSBC Holdings plc", "number": "00617987", "sector": "Banking", "ticker": "HSBA"},
-    {"rank": 4, "name": "Unilever PLC", "number": "00041424", "sector": "Consumer Goods", "ticker": "ULVR"},
-    {"rank": 5, "name": "BP p.l.c.", "number": "00102498", "sector": "Oil & Gas", "ticker": "BP"},
-    {"rank": 6, "name": "GSK plc", "number": "03888792", "sector": "Pharmaceuticals", "ticker": "GSK"},
-    {"rank": 7, "name": "RELX PLC", "number": "00077536", "sector": "Professional Services", "ticker": "REL"},
-    {"rank": 8, "name": "Diageo plc", "number": "00023307", "sector": "Beverages", "ticker": "DGE"},
-    {"rank": 9, "name": "Rio Tinto plc", "number": "00719885", "sector": "Mining", "ticker": "RIO"},
-    {"rank": 10, "name": "British American Tobacco p.l.c.", "number": "03407696", "sector": "Tobacco", "ticker": "BATS"},
-    {"rank": 11, "name": "London Stock Exchange Group plc", "number": "05369106", "sector": "Financial Services", "ticker": "LSEG"},
-    {"rank": 12, "name": "National Grid plc", "number": "04031152", "sector": "Utilities", "ticker": "NG"},
-    {"rank": 13, "name": "Compass Group PLC", "number": "04083914", "sector": "Food Services", "ticker": "CPG"},
-    {"rank": 14, "name": "Barclays PLC", "number": "00048839", "sector": "Banking", "ticker": "BARC"},
-    {"rank": 15, "name": "Lloyds Banking Group plc", "number": "SC095000", "sector": "Banking", "ticker": "LLOY"},
-    {"rank": 16, "name": "BAE Systems plc", "number": "01470151", "sector": "Aerospace & Defence", "ticker": "BA"},
-    {"rank": 17, "name": "Reckitt Benckiser Group plc", "number": "06270876", "sector": "Consumer Goods", "ticker": "RKT"},
-    {"rank": 18, "name": "Rolls-Royce Holdings plc", "number": "07524813", "sector": "Aerospace & Defence", "ticker": "RR"},
-    {"rank": 19, "name": "Anglo American plc", "number": "03564138", "sector": "Mining", "ticker": "AAL"},
-    {"rank": 20, "name": "Tesco PLC", "number": "00445790", "sector": "Retail", "ticker": "TSCO"},
-]
+# Load GOLDEN DATASET with LEI codes from companies_with_lei.json
+def load_golden_dataset():
+    """Load golden dataset with LEI codes."""
+    lei_file = Path("data/companies_with_lei.json")
+    if lei_file.exists():
+        with open(lei_file, 'r') as f:
+            return json.load(f)
+    else:
+        # Fallback to basic dataset without LEI
+        logger.warning("LEI file not found. Run lookup_lei_codes.py first for best results.")
+        return [
+            {"rank": 1, "name": "AstraZeneca plc", "number": "02723534", "sector": "Pharmaceuticals", "ticker": "AZN"},
+            {"rank": 2, "name": "Shell plc", "number": "04366849", "sector": "Oil & Gas", "ticker": "SHEL"},
+            {"rank": 3, "name": "HSBC Holdings plc", "number": "00617987", "sector": "Banking", "ticker": "HSBA"},
+            {"rank": 4, "name": "Unilever PLC", "number": "00041424", "sector": "Consumer Goods", "ticker": "ULVR"},
+            {"rank": 5, "name": "BP p.l.c.", "number": "00102498", "sector": "Oil & Gas", "ticker": "BP"},
+            {"rank": 6, "name": "GSK plc", "number": "03888792", "sector": "Pharmaceuticals", "ticker": "GSK"},
+            {"rank": 7, "name": "RELX PLC", "number": "00077536", "sector": "Professional Services", "ticker": "REL"},
+            {"rank": 8, "name": "Diageo plc", "number": "00023307", "sector": "Beverages", "ticker": "DGE"},
+            {"rank": 9, "name": "Rio Tinto plc", "number": "00719885", "sector": "Mining", "ticker": "RIO"},
+            {"rank": 10, "name": "British American Tobacco p.l.c.", "number": "03407696", "sector": "Tobacco", "ticker": "BATS"},
+            {"rank": 11, "name": "London Stock Exchange Group plc", "number": "05369106", "sector": "Financial Services", "ticker": "LSEG"},
+            {"rank": 12, "name": "National Grid plc", "number": "04031152", "sector": "Utilities", "ticker": "NG"},
+            {"rank": 13, "name": "Compass Group PLC", "number": "04083914", "sector": "Food Services", "ticker": "CPG"},
+            {"rank": 14, "name": "Barclays PLC", "number": "00048839", "sector": "Banking", "ticker": "BARC"},
+            {"rank": 15, "name": "Lloyds Banking Group plc", "number": "SC095000", "sector": "Banking", "ticker": "LLOY"},
+            {"rank": 16, "name": "BAE Systems plc", "number": "01470151", "sector": "Aerospace & Defence", "ticker": "BA"},
+            {"rank": 17, "name": "Reckitt Benckiser Group plc", "number": "06270876", "sector": "Consumer Goods", "ticker": "RKT"},
+            {"rank": 18, "name": "Rolls-Royce Holdings plc", "number": "07524813", "sector": "Aerospace & Defence", "ticker": "RR"},
+            {"rank": 19, "name": "Anglo American plc", "number": "03564138", "sector": "Mining", "ticker": "AAL"},
+            {"rank": 20, "name": "Tesco PLC", "number": "00445790", "sector": "Retail", "ticker": "TSCO"},
+        ]
+
+GOLDEN_DATASET = load_golden_dataset()
 
 
 def test_step_1_filing_history():
@@ -151,75 +167,115 @@ def test_step_1_filing_history():
 
 
 def test_step_2_download_documents(year: Optional[int] = None):
-    """Test Step 2: Download documents (iXBRL preferred, PDF fallback)."""
+    """Test Step 2: Download documents using XBRL API (primary) or Companies House (fallback)."""
     logger.info("\n" + "=" * 80)
     logger.info("STEP 2: DOWNLOADING DOCUMENTS")
+    logger.info("Strategy: Try filings.xbrl.org (iXBRL) first, fallback to Companies House (PDF)")
     logger.info("=" * 80)
-    
-    client = CompaniesHouseClient()
+
+    xbrl_client = XBRLFilingsClient()
+    ch_client = CompaniesHouseClient()
     settings = get_settings()
     output_dir = settings.output_dir / "reports"
-    
+
     results = {}
     format_counts = {"ixbrl": 0, "pdf": 0}
-    
+    source_counts = {"xbrl_api": 0, "companies_house": 0}
+
     for company in tqdm(GOLDEN_DATASET, desc="Downloading documents"):
         company_number = company["number"]
         company_name = company["name"]
-        
+        lei = company.get("lei")
+
         logger.info(f"\n{'='*60}")
         logger.info(f"Downloading: {company_name} ({company_number})")
+        if lei:
+            logger.info(f"   LEI: {lei}")
         logger.info(f"{'='*60}")
-        
-        try:
-            result = client.fetch_annual_report(
-                company_number=company_number,
-                company_name=company_name,
-                year=year,
-                output_dir=output_dir
-            )
-            
-            if result and result.get("path") and Path(result["path"]).exists():
-                file_path = Path(result["path"])
-                file_format = result.get("format", "unknown")
-                file_size = file_path.stat().st_size / (1024 * 1024)  # MB
-                
-                logger.info(f"✅ Downloaded ({file_format.upper()}): {file_path}")
-                logger.info(f"   Size: {file_size:.2f} MB")
-                
-                format_counts[file_format] = format_counts.get(file_format, 0) + 1
-                
-                results[company_number] = {
-                    "status": "success",
-                    "path": str(file_path),
-                    "format": file_format,
-                    "size_mb": file_size
-                }
+
+        result = None
+
+        # Try XBRL API first if we have LEI
+        if lei:
+            logger.info(f"🔍 Attempting download from filings.xbrl.org...")
+            try:
+                result = xbrl_client.fetch_annual_report(
+                    lei=lei,
+                    entity_name=company_name,
+                    output_dir=output_dir / "ixbrl",
+                    year=year
+                )
+
+                if result:
+                    logger.info(f"✅ Downloaded from filings.xbrl.org (iXBRL)")
+                    source_counts["xbrl_api"] += 1
+            except Exception as e:
+                logger.warning(f"⚠️  filings.xbrl.org failed: {e}")
+                result = None
+
+        # Fallback to Companies House if XBRL failed or no LEI
+        if not result:
+            if not lei:
+                logger.info(f"⚠️  No LEI available, using Companies House...")
             else:
-                logger.warning(f"⚠️  No document downloaded for {company_name}")
-                results[company_number] = {
-                    "status": "no_document",
-                    "path": None
-                }
-                
-        except Exception as e:
-            logger.error(f"❌ Error downloading {company_name}: {e}", exc_info=True)
+                logger.info(f"📄 Falling back to Companies House...")
+
+            try:
+                result = ch_client.fetch_annual_report(
+                    company_number=company_number,
+                    company_name=company_name,
+                    year=year,
+                    output_dir=output_dir
+                )
+
+                if result:
+                    logger.info(f"✅ Downloaded from Companies House")
+                    source_counts["companies_house"] += 1
+            except Exception as e:
+                logger.error(f"❌ Companies House also failed: {e}")
+                result = None
+
+        # Process result
+        if result and result.get("path") and Path(result["path"]).exists():
+            file_path = Path(result["path"])
+            file_format = result.get("format", "unknown")
+            file_size = file_path.stat().st_size / (1024 * 1024)  # MB
+
+            logger.info(f"   Path: {file_path}")
+            logger.info(f"   Size: {file_size:.2f} MB")
+            logger.info(f"   Format: {file_format.upper()}")
+
+            format_counts[file_format] = format_counts.get(file_format, 0) + 1
+
             results[company_number] = {
-                "status": "error",
-                "error": str(e)
+                "status": "success",
+                "path": str(file_path),
+                "format": file_format,
+                "size_mb": file_size,
+                "lei": lei
             }
-    
+        else:
+            logger.warning(f"⚠️  No document downloaded for {company_name}")
+            results[company_number] = {
+                "status": "no_document",
+                "path": None,
+                "lei": lei
+            }
+
     # Summary
     logger.info("\n" + "=" * 80)
     logger.info("STEP 2 SUMMARY")
     logger.info("=" * 80)
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     logger.info(f"✅ Successfully downloaded: {success_count}/{len(GOLDEN_DATASET)}")
+    logger.info(f"\nBy format:")
     logger.info(f"   📄 iXBRL/XHTML: {format_counts.get('ixbrl', 0)}")
-    logger.info(f"   📄 PDF (fallback): {format_counts.get('pdf', 0)}")
-    logger.info(f"⚠️  No documents: {sum(1 for r in results.values() if r.get('status') == 'no_document')}")
-    logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
-    
+    logger.info(f"   📄 PDF: {format_counts.get('pdf', 0)}")
+    logger.info(f"\nBy source:")
+    logger.info(f"   🌐 filings.xbrl.org: {source_counts.get('xbrl_api', 0)}")
+    logger.info(f"   🏛️  Companies House: {source_counts.get('companies_house', 0)}")
+    logger.info(f"\n⚠️  No documents: {sum(1 for r in results.values() if r.get('status') == 'no_document')}")
+
     return results
 
 
@@ -442,19 +498,30 @@ def main():
     logger.info("=" * 80)
     logger.info(f"Testing with {len(GOLDEN_DATASET)} companies")
     logger.info("")
-    
+    logger.info("📊 Data Sources:")
+    logger.info("   1. filings.xbrl.org - iXBRL/XHTML reports (primary)")
+    logger.info("   2. Companies House API - PDF reports (fallback)")
+    logger.info("")
+
     # Ensure logs directory exists
     Path("logs").mkdir(exist_ok=True)
-    
+
+    # Check if we have LEI codes
+    lei_count = sum(1 for c in GOLDEN_DATASET if c.get("lei"))
+    logger.info(f"✅ Loaded {lei_count}/{len(GOLDEN_DATASET)} companies with LEI codes")
+    if lei_count < len(GOLDEN_DATASET):
+        logger.warning(f"⚠️  {len(GOLDEN_DATASET) - lei_count} companies missing LEI - run lookup_lei_codes.py")
+    logger.info("")
+
     # Step 1: Fetch filing history
     step1_results = test_step_1_filing_history()
-    
+
     # Step 2: Download documents
     step2_results = test_step_2_download_documents(year=2024)
-    
-    # Step 3: Extract text (only for successfully downloaded PDFs)
+
+    # Step 3: Extract text
     step3_results = test_step_3_extract_text()
-    
+
     # Step 4: Chunk text
     step4_results = test_step_4_chunking()
     

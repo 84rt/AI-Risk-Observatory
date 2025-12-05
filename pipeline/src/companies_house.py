@@ -290,10 +290,15 @@ class CompaniesHouseClient:
             raise ValueError(f"No content link found in metadata: {metadata}")
 
         # Build content URL
+        # The content_link from metadata already includes /content at the end
         if content_link.startswith('http'):
-            content_url = f"{content_link}/content"
+            content_url = content_link
         else:
-            content_url = f"{self.base_url}{content_link}/content"
+            # If relative path, add base URL (shouldn't happen, but handle it)
+            if content_link.endswith('/content'):
+                content_url = f"{self.base_url}{content_link}"
+            else:
+                content_url = f"{self.base_url}{content_link}/content"
 
         logger.info(f"Requesting {target_format} from {content_url}")
 

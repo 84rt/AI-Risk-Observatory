@@ -62,3 +62,24 @@ See [`pipeline/README.md`](pipeline/README.md) for detailed documentation.
 2. **Validate classifications:** Review sample mentions for accuracy
 3. **Connect to dashboard:** Export data for visualization
 4. **Iterate on v2:** Add automated ticker mapping, multi-year support 
+
+
+
+## Note on data sources:
+ 1. Companies House vs HMRC are different:
+
+    - HMRC (tax authority): Has required iXBRL since 2011 - ALL companies must file tax returns in iXBRL to HMRC
+
+    - Companies House: Currently does NOT require iXBRL - PDFs are still accepted
+
+  2. Large companies (FTSE 100) often file PDFs to Companies House because:
+
+    - They're not currently required to use iXBRL for Companies House
+
+    - Their full annual reports are complex, multi-hundred-page documents
+
+    - They use PDF filing for Companies House while filing iXBRL separately to HMRC
+
+  3. Starting April 1, 2027: Companies House will mandate iXBRL for ALL companies
+
+Trying to use the 

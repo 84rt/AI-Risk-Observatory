@@ -5,12 +5,26 @@ The AIRO (AI Risk Observatory) pipeline processes UK company annual reports to i
 ## Overview
 
 The pipeline:
-1. **Downloads** annual reports from Companies House API
-2. **Extracts** text with section detection (using PyMuPDF)
+1. **Downloads** annual reports in iXBRL/XHTML format from filings.xbrl.org API (for FTSE 350 companies from 2021+) or PDF from Companies House API
+2. **Extracts** text with section detection (using PyMuPDF for PDFs or HTML parsing for iXBRL)
 3. **Chunks** text into candidate spans
 4. **Classifies** spans using Google Gemini (relevance detection + risk taxonomy classification)
 5. **Stores** results in SQLite database
 6. **Aggregates** mention-level data to firm-year metrics
+
+## Recent Updates (December 2025)
+
+### ✅ filings.xbrl.org Integration
+We've integrated the **filings.xbrl.org** API as the primary data source for FTSE 350 companies:
+
+- **2,437 UK company filings** available in native iXBRL/XHTML format
+- **No authentication required** - free public API
+- **Coverage**: FTSE 350 companies filing in ESEF format (2021 onwards)
+- **Direct XHTML access** - much cleaner data extraction than PDF parsing
+
+This solves the issue where Companies House only provides PDFs for most large companies. For companies not in filings.xbrl.org, the pipeline falls back to Companies House PDF downloads.
+
+**Key benefit**: iXBRL/XHTML format provides structured, machine-readable financial reports with better text extraction quality compared to PDFs.
 
 ## Setup
 

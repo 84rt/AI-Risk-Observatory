@@ -1,0 +1,182 @@
+[
+  {
+    "rank": 1,
+    "name": "AstraZeneca plc",
+    "number": "02723534",
+    "ticker": "AZN",
+    "lei": "PY6ZZQWO2IZFZC3IOL08",
+    "lei_legal_name": "ASTRAZENECA PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 2,
+    "name": "Shell plc",
+    "number": "04366849",
+    "ticker": "SHEL",
+    "lei": "21380068P1DRHMJ8KU70",
+    "lei_legal_name": "SHELL PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 3,
+    "name": "HSBC Holdings plc",
+    "number": "00617987",
+    "ticker": "HSBA",
+    "lei": "MLU0ZO3ML4LN2LL2TL39",
+    "lei_legal_name": "HSBC HOLDINGS PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 4,
+    "name": "Unilever PLC",
+    "number": "00041424",
+    "ticker": "ULVR",
+    "lei": "549300MKFYEKVRWML317",
+    "lei_legal_name": "UNILEVER PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 5,
+    "name": "BP p.l.c.",
+    "number": "00102498",
+    "ticker": "BP",
+    "lei": "213800LH1BZH3DI6G760",
+    "lei_legal_name": "BP P.L.C.",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 6,
+    "name": "GSK plc",
+    "number": "03888792",
+    "ticker": "GSK",
+    "lei": "5493000HZTVUYLO1D793",
+    "lei_legal_name": "GSK PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 7,
+    "name": "RELX PLC",
+    "number": "00077536",
+    "ticker": "REL",
+    "lei": "549300WSX3VBUFFJOO66",
+    "lei_legal_name": "RELX PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 8,
+    "name": "Diageo plc",
+    "number": "00023307",
+    "ticker": "DGE",
+    "lei": "213800ZVIELEA55JMJ32",
+    "lei_legal_name": "DIAGEO PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 9,
+    "name": "Rio Tinto plc",
+    "number": "00719885",
+    "ticker": "RIO",
+    "lei": "213800YOEO5OQ72G2R82",
+    "lei_legal_name": "RIO TINTO PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 10,
+    "name": "British American Tobacco p.l.c.",
+    "number": "03407696",
+    "ticker": "BATS",
+    "lei": "213800FKA5MF17RJKT63",
+    "lei_legal_name": "BRITISH AMERICAN TOBACCO P.L.C.",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 11,
+    "name": "London Stock Exchange Group plc",
+    "number": "05369106",
+    "ticker": "LSEG",
+    "lei": "213800QAUUUP6I445N30",
+    "lei_legal_name": "LONDON STOCK EXCHANGE GROUP PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 12,
+    "name": "National Grid plc",
+    "number": "04031152",
+    "ticker": "NG",
+    "lei": "8R95QZMKZLJX5Q2XR704",
+    "lei_legal_name": "NATIONAL GRID PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 13,
+    "name": "Compass Group PLC",
+    "number": "04083914",
+    "ticker": "CPG",
+    "lei": "2138008M6MH9OZ6U2T68",
+    "lei_legal_name": "COMPASS GROUP PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 14,
+    "name": "Barclays PLC",
+    "number": "00048839",
+    "ticker": "BARC",
+    "lei": "213800LBQA1Y9L22JB70",
+    "lei_legal_name": "BARCLAYS PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 15,
+    "name": "Lloyds Banking Group plc",
+    "number": "SC095000",
+    "ticker": "LLOY",
+    "lei": "549300PPXHEU2JF0AM85",
+    "lei_legal_name": "LLOYDS BANKING GROUP PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 16,
+    "name": "BAE Systems plc",
+    "number": "01470151",
+    "ticker": "BA",
+    "lei": "8SVCSVKSGDWMW2QHOH83",
+    "lei_legal_name": "BAE SYSTEMS PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 17,
+    "name": "Reckitt Benckiser Group plc",
+    "number": "06270876",
+    "ticker": "RKT",
+    "lei": "5493003JFSMOJG48V108",
+    "lei_legal_name": "RECKITT BENCKISER GROUP PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 18,
+    "name": "Rolls-Royce Holdings plc",
+    "number": "07524813",
+    "ticker": "RR",
+    "lei": "213800EC7997ZBLZJH69",
+    "lei_legal_name": "ROLLS-ROYCE HOLDINGS PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 19,
+    "name": "Anglo American plc",
+    "number": "03564138",
+    "ticker": "AAL",
+    "lei": "549300S9XF92D1X8ME43",
+    "lei_legal_name": "ANGLO AMERICAN PLC",
+    "source": "GLEIF"
+  },
+  {
+    "rank": 20,
+    "name": "Tesco PLC",
+    "number": "00445790",
+    "ticker": "TSCO",
+    "lei": "2138002P5RNKC5W2JZ46",
+    "lei_legal_name": "TESCO PLC",
+    "source": "GLEIF"
+  }
+]

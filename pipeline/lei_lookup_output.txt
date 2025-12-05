@@ -1,0 +1,94 @@
+====================================================================================================
+Looking up LEI codes for Golden Dataset Companies
+====================================================================================================
+
+Using GLEIF API (Global Legal Entity Identifier Foundation)
+
+ 1. AstraZeneca plc                               (AZN)
+    ✅ Found via GLEIF: PY6ZZQWO2IZFZC3IOL08
+       Legal Name: ASTRAZENECA PLC
+
+ 2. Shell plc                                     (SHEL)
+    ✅ Found via GLEIF: 21380068P1DRHMJ8KU70
+       Legal Name: SHELL PLC
+
+ 3. HSBC Holdings plc                             (HSBA)
+    ✅ Found via GLEIF: MLU0ZO3ML4LN2LL2TL39
+       Legal Name: HSBC HOLDINGS PLC
+
+ 4. Unilever PLC                                  (ULVR)
+    ✅ Found via GLEIF: 549300MKFYEKVRWML317
+       Legal Name: UNILEVER PLC
+
+ 5. BP p.l.c.                                     (BP)
+    ✅ Found via GLEIF: 213800LH1BZH3DI6G760
+       Legal Name: BP P.L.C.
+
+ 6. GSK plc                                       (GSK)
+    ✅ Found via GLEIF: 5493000HZTVUYLO1D793
+       Legal Name: GSK PLC
+
+ 7. RELX PLC                                      (REL)
+    ✅ Found via GLEIF: 549300WSX3VBUFFJOO66
+       Legal Name: RELX PLC
+
+ 8. Diageo plc                                    (DGE)
+    ✅ Found via GLEIF: 213800ZVIELEA55JMJ32
+       Legal Name: DIAGEO PLC
+
+ 9. Rio Tinto plc                                 (RIO)
+    ✅ Found via GLEIF: 213800YOEO5OQ72G2R82
+       Legal Name: RIO TINTO PLC
+
+10. British American Tobacco p.l.c.               (BATS)
+    ✅ Found via GLEIF: 213800FKA5MF17RJKT63
+       Legal Name: BRITISH AMERICAN TOBACCO P.L.C.
+
+11. London Stock Exchange Group plc               (LSEG)
+    ✅ Found via GLEIF: 213800QAUUUP6I445N30
+       Legal Name: LONDON STOCK EXCHANGE GROUP PLC
+
+12. National Grid plc                             (NG)
+    ✅ Found via GLEIF: 8R95QZMKZLJX5Q2XR704
+       Legal Name: NATIONAL GRID PLC
+
+13. Compass Group PLC                             (CPG)
+    ✅ Found via GLEIF: 2138008M6MH9OZ6U2T68
+       Legal Name: COMPASS GROUP PLC
+
+14. Barclays PLC                                  (BARC)
+    ✅ Found via GLEIF: 213800LBQA1Y9L22JB70
+       Legal Name: BARCLAYS PLC
+
+15. Lloyds Banking Group plc                      (LLOY)
+    ✅ Found via GLEIF: 549300PPXHEU2JF0AM85
+       Legal Name: LLOYDS BANKING GROUP PLC
+
+16. BAE Systems plc                               (BA)
+    ✅ Found via GLEIF: 8SVCSVKSGDWMW2QHOH83
+       Legal Name: BAE SYSTEMS PLC
+
+17. Reckitt Benckiser Group plc                   (RKT)
+    ✅ Found via GLEIF: 5493003JFSMOJG48V108
+       Legal Name: RECKITT BENCKISER GROUP PLC
+
+18. Rolls-Royce Holdings plc                      (RR)
+    ✅ Found via GLEIF: 213800EC7997ZBLZJH69
+       Legal Name: ROLLS-ROYCE HOLDINGS PLC
+
+19. Anglo American plc                            (AAL)
+    ✅ Found via GLEIF: 549300S9XF92D1X8ME43
+       Legal Name: ANGLO AMERICAN PLC
+
+20. Tesco PLC                                     (TSCO)
+    ✅ Found via GLEIF: 2138002P5RNKC5W2JZ46
+       Legal Name: TESCO PLC
+
+====================================================================================================
+SUMMARY
+====================================================================================================
+
+Found LEI codes for 20/20 companies
+
+✅ Results saved to: data/companies_with_lei.json
+✅ CSV saved to: data/companies_with_lei.csv
