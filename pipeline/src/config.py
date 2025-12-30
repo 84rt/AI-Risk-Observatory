@@ -8,8 +8,11 @@ from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from base repo directory
+# Look in parent directory first (base repo folder)
+base_repo_dir = Path(__file__).parent.parent.parent
+load_dotenv(dotenv_path=base_repo_dir / ".env.local", override=True)
+load_dotenv(dotenv_path=base_repo_dir / ".env", override=False)
 
 
 class Settings(BaseSettings):
@@ -21,7 +24,7 @@ class Settings(BaseSettings):
 
     # Model Configuration
     gemini_model: str = Field(
-        default="gemini-2.0-flash-exp",
+        default="gemini-2.0-flash",  # 2K RPM vs 10 RPM for -exp
         alias="GEMINI_MODEL"
     )
 

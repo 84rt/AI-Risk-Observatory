@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import (
     Boolean, Column, Date, Float, ForeignKeyConstraint, Integer, String, Text,
@@ -19,6 +19,86 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 Base = declarative_base()
+
+
+class RiskClassification(Base):
+    """Table for AI risk type classifications at the report level.
+
+    This is the primary table for storing classification results.
+    Each row represents one company's annual report for a specific year.
+    """
+
+    __tablename__ = "risk_classifications"
+
+    # Primary key: composite of firm_id and report_year
+    firm_id = Column(String, nullable=False, primary_key=True)
+    report_year = Column(Integer, nullable=False, primary_key=True)
+
+    # Company metadata
+    firm_name = Column(String, nullable=False)
+    company_number = Column(String, nullable=False)
+    sector = Column(String, default="Unknown")
+
+    # Classification results
+    ai_mentioned = Column(Boolean, default=False)
+
+    # Risk types as JSON array: ["cybersecurity", "regulatory_compliance", ...]
+    risk_types = Column(Text, default="[]")
+
+    # Evidence as JSON: {"cybersecurity": ["quote1", "quote2"], ...}
+    evidence = Column(Text, default="{}")
+
+    # Key snippets as JSON: {"cybersecurity": "key quote", ...}
+    key_snippets = Column(Text, default="{}")
+
+    # Confidence scores as JSON: {"cybersecurity": 0.9, ...}
+    confidence_scores = Column(Text, default="{}")
+
+    # LLM reasoning
+    reasoning = Column(Text)
+
+    # Metadata
+    model_version = Column(String)
+    classification_date = Column(Date)
+    source_file = Column(String)  # Path to source markdown/report
+
+    def __repr__(self):
+        return f"<RiskClassification {self.firm_name} ({self.firm_id}) - {self.report_year}>"
+
+    def get_risk_types(self) -> List[str]:
+        """Get risk types as a Python list."""
+        return json.loads(self.risk_types) if self.risk_types else []
+
+    def get_evidence(self) -> dict:
+        """Get evidence as a Python dict."""
+        return json.loads(self.evidence) if self.evidence else {}
+
+    def get_key_snippets(self) -> dict:
+        """Get key snippets as a Python dict."""
+        return json.loads(self.key_snippets) if self.key_snippets else {}
+
+    def get_confidence_scores(self) -> dict:
+        """Get confidence scores as a Python dict."""
+        return json.loads(self.confidence_scores) if self.confidence_scores else {}
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "firm_id": self.firm_id,
+            "firm_name": self.firm_name,
+            "company_number": self.company_number,
+            "sector": self.sector,
+            "report_year": self.report_year,
+            "ai_mentioned": self.ai_mentioned,
+            "risk_types": self.get_risk_types(),
+            "evidence": self.get_evidence(),
+            "key_snippets": self.get_key_snippets(),
+            "confidence_scores": self.get_confidence_scores(),
+            "reasoning": self.reasoning,
+            "model_version": self.model_version,
+            "classification_date": str(self.classification_date) if self.classification_date else None,
+            "source_file": self.source_file
+        }
 
 
 class Mention(Base):
@@ -272,6 +352,216 @@ class Database:
                 Firm.report_year == report_year
             ).first() is not None
             return exists
+        finally:
+            session.close()
+
+    # ========================================================================
+    # Risk Classification Methods (Report-Level)
+    # ========================================================================
+
+    def save_risk_classification(
+        self,
+        firm_id: str,
+        firm_name: str,
+        company_number: str,
+        report_year: int,
+        classification_data: dict,
+        model_version: str,
+        sector: str = "Unknown",
+        source_file: Optional[str] = None
+    ) -> RiskClassification:
+        """Save a risk classification to the database.
+
+        Args:
+            firm_id: Firm identifier (ticker)
+            firm_name: Company name
+            company_number: Companies House number
+            report_year: Report year
+            classification_data: Dict with risk_types, evidence, etc.
+            model_version: LLM model used
+            sector: Company sector
+            source_file: Path to source file
+
+        Returns:
+            Saved RiskClassification object
+        """
+        session = self.get_session()
+
+        try:
+            # Check if exists and delete if so (upsert behavior)
+            existing = session.query(RiskClassification).filter(
+                RiskClassification.firm_id == firm_id,
+                RiskClassification.report_year == report_year
+            ).first()
+
+            if existing:
+                session.delete(existing)
+                session.flush()
+
+            # Create new record
+            record = RiskClassification(
+                firm_id=firm_id,
+                report_year=report_year,
+                firm_name=firm_name,
+                company_number=company_number,
+                sector=sector,
+                ai_mentioned=classification_data.get("ai_mentioned", False),
+                risk_types=json.dumps(classification_data.get("risk_types", [])),
+                evidence=json.dumps(classification_data.get("evidence", {})),
+                key_snippets=json.dumps(classification_data.get("key_snippets", {})),
+                confidence_scores=json.dumps(classification_data.get("confidence_scores", {})),
+                reasoning=classification_data.get("reasoning", ""),
+                model_version=model_version,
+                classification_date=datetime.now().date(),
+                source_file=source_file
+            )
+
+            session.add(record)
+            session.commit()
+
+            logger.info(f"Saved risk classification: {firm_name} ({report_year})")
+            return record
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving risk classification: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_risk_classification(
+        self,
+        firm_id: str,
+        report_year: int
+    ) -> Optional[RiskClassification]:
+        """Get a risk classification for a firm-year.
+
+        Args:
+            firm_id: Firm identifier
+            report_year: Report year
+
+        Returns:
+            RiskClassification object or None
+        """
+        session = self.get_session()
+        try:
+            return session.query(RiskClassification).filter(
+                RiskClassification.firm_id == firm_id,
+                RiskClassification.report_year == report_year
+            ).first()
+        finally:
+            session.close()
+
+    def get_all_risk_classifications(
+        self,
+        year: Optional[int] = None,
+        firm_id: Optional[str] = None
+    ) -> List[RiskClassification]:
+        """Get all risk classifications, optionally filtered.
+
+        Args:
+            year: Filter by report year
+            firm_id: Filter by firm
+
+        Returns:
+            List of RiskClassification objects
+        """
+        session = self.get_session()
+        try:
+            query = session.query(RiskClassification)
+
+            if year:
+                query = query.filter(RiskClassification.report_year == year)
+            if firm_id:
+                query = query.filter(RiskClassification.firm_id == firm_id)
+
+            return query.order_by(
+                RiskClassification.firm_id,
+                RiskClassification.report_year
+            ).all()
+        finally:
+            session.close()
+
+    def risk_classification_exists(self, firm_id: str, report_year: int) -> bool:
+        """Check if a risk classification exists.
+
+        Args:
+            firm_id: Firm identifier
+            report_year: Report year
+
+        Returns:
+            True if exists
+        """
+        session = self.get_session()
+        try:
+            exists = session.query(RiskClassification).filter(
+                RiskClassification.firm_id == firm_id,
+                RiskClassification.report_year == report_year
+            ).first() is not None
+            return exists
+        finally:
+            session.close()
+
+    def export_risk_classifications_to_json(
+        self,
+        output_path: Path,
+        year: Optional[int] = None
+    ) -> int:
+        """Export risk classifications to JSON file.
+
+        Args:
+            output_path: Path to output JSON file
+            year: Optional year filter
+
+        Returns:
+            Number of records exported
+        """
+        classifications = self.get_all_risk_classifications(year=year)
+
+        data = [c.to_dict() for c in classifications]
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+        logger.info(f"Exported {len(data)} risk classifications to {output_path}")
+        return len(data)
+
+    def get_risk_summary_stats(self) -> dict:
+        """Get summary statistics for risk classifications.
+
+        Returns:
+            Dict with summary statistics
+        """
+        session = self.get_session()
+        try:
+            all_records = session.query(RiskClassification).all()
+
+            if not all_records:
+                return {"total_records": 0}
+
+            # Count by year
+            years = {}
+            for r in all_records:
+                years[r.report_year] = years.get(r.report_year, 0) + 1
+
+            # Count AI mentions
+            ai_mentioned_count = sum(1 for r in all_records if r.ai_mentioned)
+
+            # Count risk types
+            risk_type_counts = {}
+            for r in all_records:
+                for rt in r.get_risk_types():
+                    risk_type_counts[rt] = risk_type_counts.get(rt, 0) + 1
+
+            return {
+                "total_records": len(all_records),
+                "by_year": years,
+                "ai_mentioned_count": ai_mentioned_count,
+                "ai_mentioned_pct": ai_mentioned_count / len(all_records) * 100,
+                "risk_type_counts": risk_type_counts,
+                "unique_firms": len(set(r.firm_id for r in all_records))
+            }
         finally:
             session.close()
 

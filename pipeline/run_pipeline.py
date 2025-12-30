@@ -61,6 +61,12 @@ def main():
         help="Logging level (default: INFO)"
     )
 
+    parser.add_argument(
+        "--clean-text",
+        action="store_true",
+        help="Enable Gemini text cleaning (EXPERIMENTAL: currently disabled due to summarization issues)"
+    )
+
     args = parser.parse_args()
 
     # Setup logging
@@ -96,10 +102,18 @@ def main():
     # Run pipeline
     try:
         logger.info("Starting AIRO pipeline...")
+        clean_text = args.clean_text
+        if clean_text:
+            logger.info("Text cleaning with Gemini 2.0 Flash: ENABLED (EXPERIMENTAL)")
+            logger.warning("Note: Gemini cleaning currently disabled due to summarization issues")
+        else:
+            logger.info("Text cleaning with Gemini 2.0 Flash: DISABLED (using regex-based cleanup)")
+
         run_pipeline(
             companies_csv=args.companies,
             year=args.year,
-            skip_download=args.skip_download
+            skip_download=args.skip_download,
+            clean_text=clean_text
         )
         logger.info("Pipeline completed successfully!")
 

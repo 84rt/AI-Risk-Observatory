@@ -6,11 +6,12 @@ The AIRO (AI Risk Observatory) pipeline processes UK company annual reports to i
 
 The pipeline:
 1. **Downloads** annual reports in iXBRL/XHTML format from filings.xbrl.org API (for FTSE 350 companies from 2021+) or PDF from Companies House API
-2. **Extracts** text with section detection (using PyMuPDF for PDFs or HTML parsing for iXBRL)
-3. **Chunks** text into candidate spans
-4. **Classifies** spans using Google Gemini (relevance detection + risk taxonomy classification)
-5. **Stores** results in SQLite database
-6. **Aggregates** mention-level data to firm-year metrics
+2. **Extracts** text with section detection and automatic spacing cleanup (HTML parsing for iXBRL or PyMuPDF for PDFs)
+3. **Preprocesses** text using two strategies: `risk_only` (risk sections) or `keyword` (AI/ML keyword filtering)
+4. **Chunks** preprocessed markdown into candidate spans
+5. **Classifies** spans using Google Gemini (relevance detection + risk taxonomy classification)
+6. **Stores** results in SQLite database
+7. **Aggregates** mention-level data to firm-year metrics
 
 ## Recent Updates (December 2025)
 
@@ -106,11 +107,16 @@ python run_pipeline.py --companies my_companies.csv
 
 The pipeline produces:
 
-1. **Downloaded PDFs:** `output/pdfs/`
-2. **SQLite Database:** `data/airo.db`
+1. **Downloaded Reports:**
+   - iXBRL: `output/reports/ixbrl/`
+   - PDFs: `output/reports/pdfs/` (fallback)
+2. **Preprocessed Markdown:** `output/preprocessed/{strategy}/`
+   - `risk_only/`: Risk section extracts (~11% retention)
+   - `keyword/`: AI/ML keyword filtered (~12% retention)
+3. **SQLite Database:** `data/airo.db`
    - `mentions` table: AI-relevant text spans with classifications
    - `firms` table: Aggregated firm-year metrics
-3. **Logs:** `logs/pipeline.log`
+4. **Logs:** `logs/pipeline.log`
 
 ## Database Schema
 
@@ -196,24 +202,32 @@ session.close()
 ```
 pipeline/
 ├── src/
-│   ├── config.py           # Configuration management
-│   ├── companies_house.py  # Companies House API client
-│   ├── pdf_extractor.py    # PDF text extraction
-│   ├── chunker.py          # Text chunking
-│   ├── llm_classifier.py   # Claude-based classification
-│   ├── database.py         # Database models and operations
-│   ├── aggregator.py       # Firm-level aggregation
-│   └── pipeline.py         # Main orchestrator
+│   ├── config.py              # Configuration management
+│   ├── xbrl_filings_client.py # filings.xbrl.org API client
+│   ├── companies_house.py     # Companies House API client
+│   ├── ixbrl_extractor.py     # iXBRL/XHTML text extraction (with auto spacing cleanup)
+│   ├── pdf_extractor.py       # PDF text extraction (fallback)
+│   ├── preprocessor.py        # Text filtering (risk_only/keyword strategies)
+│   ├── chunker.py             # Text chunking
+│   ├── llm_classifier.py      # Gemini-based classification
+│   ├── database.py            # Database models and operations
+│   ├── aggregator.py          # Firm-level aggregation
+│   └── pipeline.py            # Main orchestrator
 ├── data/
-│   ├── companies_template.csv  # Input: company list
-│   └── airo.db                 # Output: SQLite database
+│   ├── companies_template.csv # Input: company list
+│   └── airo.db                # Output: SQLite database
 ├── output/
-│   └── pdfs/               # Downloaded annual reports
+│   ├── reports/
+│   │   ├── ixbrl/             # Downloaded iXBRL reports
+│   │   └── pdfs/              # Downloaded PDF reports (fallback)
+│   └── preprocessed/
+│       ├── risk_only/         # Risk section markdown files
+│       └── keyword/           # Keyword-filtered markdown files
 ├── logs/
-│   └── pipeline.log        # Execution logs
-├── run_pipeline.py         # CLI entry point
-├── requirements.txt        # Python dependencies
-└── README.md              # This file
+│   └── pipeline.log           # Execution logs
+├── run_pipeline.py            # CLI entry point
+├── requirements.txt           # Python dependencies
+└── README.md                  # This file
 ```
 
 ## Cost Estimation

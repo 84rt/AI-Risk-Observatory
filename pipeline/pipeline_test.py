@@ -23,6 +23,7 @@ from src.config import get_settings
 from src.database import Database
 from src.pdf_extractor import PDFExtractor
 from src.ixbrl_extractor import iXBRLExtractor
+from src.preprocessor import Preprocessor, PreprocessingStrategy
 from src.chunker import TextChunker
 from src.llm_classifier import LLMClassifier
 from src.aggregator import aggregate_firm
@@ -384,10 +385,149 @@ def test_step_3_extract_text():
     return results
 
 
-def test_step_4_chunking():
-    """Test Step 4: Chunk extracted text."""
+def test_step_4_preprocessing(strategy: PreprocessingStrategy = PreprocessingStrategy.KEYWORD):
+    """Test Step 4: Preprocess and filter extracted text."""
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 4: CHUNKING TEXT")
+    logger.info("STEP 4: PREPROCESSING & FILTERING")
+    logger.info(f"Strategy: {strategy.value}")
+    logger.info("=" * 80)
+
+    settings = get_settings()
+    reports_dir = settings.output_dir / "reports"
+    ixbrl_dir = reports_dir / "ixbrl"
+    pdf_dir = reports_dir / "pdfs"
+    legacy_pdf_dir = settings.output_dir / "pdfs"
+    output_dir = settings.output_dir / "preprocessed" / strategy.value
+
+    pdf_extractor = PDFExtractor()
+    ixbrl_extractor = iXBRLExtractor()
+    preprocessor = Preprocessor(strategy=strategy, include_context=True)
+
+    results = {}
+    total_original_spans = 0
+    total_filtered_spans = 0
+
+    for company in tqdm(GOLDEN_DATASET, desc="Preprocessing reports"):
+        company_number = company["number"]
+        company_name = company["name"]
+
+        # Find report (prefer iXBRL)
+        report_path = None
+        report_format = None
+
+        if ixbrl_dir.exists():
+            matching_ixbrl = list(ixbrl_dir.glob(f"{company_number}_*.xhtml"))
+            if matching_ixbrl:
+                report_path = matching_ixbrl[0]
+                report_format = "ixbrl"
+
+        if not report_path:
+            matching_pdfs = []
+            if pdf_dir.exists():
+                matching_pdfs = list(pdf_dir.glob(f"{company_number}_*.pdf"))
+            if not matching_pdfs and legacy_pdf_dir.exists():
+                matching_pdfs = list(legacy_pdf_dir.glob(f"{company_number}_*.pdf"))
+
+            if matching_pdfs:
+                report_path = matching_pdfs[0]
+                report_format = "pdf"
+
+        if not report_path:
+            logger.warning(f"⚠️  No report found for {company_name}")
+            results[company_number] = {"status": "no_report"}
+            continue
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Preprocessing: {company_name} ({report_format.upper()})")
+        logger.info(f"{'='*60}")
+
+        try:
+            # Extract
+            if report_format == "ixbrl":
+                extracted = ixbrl_extractor.extract_report(report_path)
+            else:
+                extracted = pdf_extractor.extract_report(report_path)
+
+            # Preprocess
+            preprocessed = preprocessor.process(extracted, company_name)
+
+            # Save to markdown
+            output_path = output_dir / f"{company_number}_{company['ticker']}.md"
+            preprocessor.save_to_file(preprocessed, output_path)
+
+            total_original_spans += preprocessed.metadata["original_spans"]
+            total_filtered_spans += preprocessed.metadata["filtered_spans"]
+
+            logger.info(f"✅ Preprocessed:")
+            logger.info(f"   Original spans: {preprocessed.metadata['original_spans']:,}")
+            logger.info(f"   Filtered spans: {preprocessed.metadata['filtered_spans']:,}")
+            logger.info(f"   Retention: {preprocessed.stats.get('retention_pct', 0):.1f}%")
+            logger.info(f"   Markdown length: {len(preprocessed.markdown_content):,} chars")
+            logger.info(f"   Saved to: {output_path}")
+
+            results[company_number] = {
+                "status": "success",
+                "format": report_format,
+                "original_spans": preprocessed.metadata["original_spans"],
+                "filtered_spans": preprocessed.metadata["filtered_spans"],
+                "retention_pct": preprocessed.stats.get("retention_pct", 0),
+                "markdown_length": len(preprocessed.markdown_content),
+                "output_path": str(output_path),
+                "stats": preprocessed.stats
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Error preprocessing {company_name}: {e}", exc_info=True)
+            results[company_number] = {
+                "status": "error",
+                "error": str(e)
+            }
+
+    # Summary
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 4 SUMMARY")
+    logger.info("=" * 80)
+    success_count = sum(1 for r in results.values() if r.get("status") == "success")
+    logger.info(f"✅ Successfully preprocessed: {success_count}/{len(GOLDEN_DATASET)}")
+    logger.info(f"\n📊 Filtering statistics:")
+    logger.info(f"   Total original spans: {total_original_spans:,}")
+    logger.info(f"   Total filtered spans: {total_filtered_spans:,}")
+    if total_original_spans > 0:
+        overall_retention = (total_filtered_spans / total_original_spans) * 100
+        logger.info(f"   Overall retention: {overall_retention:.1f}%")
+
+    # Strategy-specific stats
+    if strategy == PreprocessingStrategy.RISK_ONLY:
+        total_sections = sum(
+            len(r["stats"].get("sections_included", []))
+            for r in results.values()
+            if r.get("status") == "success"
+        )
+        logger.info(f"   Total risk sections found: {total_sections}")
+    elif strategy == PreprocessingStrategy.KEYWORD:
+        total_ai = sum(
+            r["stats"].get("ai_keyword_matches", 0)
+            for r in results.values()
+            if r.get("status") == "success"
+        )
+        total_risk = sum(
+            r["stats"].get("risk_keyword_matches", 0)
+            for r in results.values()
+            if r.get("status") == "success"
+        )
+        logger.info(f"   Total AI/ML keyword matches: {total_ai:,}")
+        logger.info(f"   Total risk keyword matches: {total_risk:,}")
+
+    logger.info(f"\n⚠️  No reports: {sum(1 for r in results.values() if r.get('status') == 'no_report')}")
+    logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
+
+    return results
+
+
+def test_step_5_chunking():
+    """Test Step 5: Chunk extracted text."""
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 5: CHUNKING TEXT")
     logger.info("=" * 80)
     
     settings = get_settings()
@@ -480,18 +620,18 @@ def test_step_4_chunking():
     
     # Summary
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 4 SUMMARY")
+    logger.info("STEP 5 SUMMARY")
     logger.info("=" * 80)
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     logger.info(f"✅ Successfully chunked: {success_count}/{len(GOLDEN_DATASET)}")
     logger.info(f"📊 Total candidate spans generated: {total_candidates:,}")
     logger.info(f"⚠️  No reports: {sum(1 for r in results.values() if r.get('status') == 'no_report')}")
     logger.info(f"❌ Errors: {sum(1 for r in results.values() if r.get('status') == 'error')}")
-    
+
     return results
 
 
-def main():
+def main(preprocessing_strategy: PreprocessingStrategy = PreprocessingStrategy.KEYWORD):
     """Run step-by-step pipeline tests."""
     logger.info("=" * 80)
     logger.info("AIRO PIPELINE TEST - GOLDEN DATASET (Top 20 UK Companies)")
@@ -501,6 +641,9 @@ def main():
     logger.info("📊 Data Sources:")
     logger.info("   1. filings.xbrl.org - iXBRL/XHTML reports (primary)")
     logger.info("   2. Companies House API - PDF reports (fallback)")
+    logger.info("")
+    logger.info("🔬 Preprocessing Strategy:")
+    logger.info(f"   {preprocessing_strategy.value}")
     logger.info("")
 
     # Ensure logs directory exists
@@ -522,9 +665,12 @@ def main():
     # Step 3: Extract text
     step3_results = test_step_3_extract_text()
 
-    # Step 4: Chunk text
-    step4_results = test_step_4_chunking()
-    
+    # Step 4: Preprocess and filter
+    step4_results = test_step_4_preprocessing(strategy=preprocessing_strategy)
+
+    # Step 5: Chunk text
+    step5_results = test_step_5_chunking()
+
     # Final summary
     logger.info("\n" + "=" * 80)
     logger.info("FINAL SUMMARY")
@@ -532,8 +678,10 @@ def main():
     logger.info(f"Step 1 (Filing History): {sum(1 for r in step1_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
     logger.info(f"Step 2 (Download): {sum(1 for r in step2_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
     logger.info(f"Step 3 (Extract): {sum(1 for r in step3_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
-    logger.info(f"Step 4 (Chunk): {sum(1 for r in step4_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
+    logger.info(f"Step 4 (Preprocess): {sum(1 for r in step4_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
+    logger.info(f"Step 5 (Chunk): {sum(1 for r in step5_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
     logger.info("\n✅ Test complete! Check logs/pipeline_test.log for detailed logs.")
+    logger.info(f"📁 Preprocessed markdown files: output/preprocessed/{preprocessing_strategy.value}/")
 
 
 if __name__ == "__main__":

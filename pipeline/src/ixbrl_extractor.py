@@ -151,21 +151,52 @@ class iXBRLParser(HTMLParser):
 
     def _add_span(self, text: str, is_heading: bool):
         """Add a text span."""
-        # Detect section from heading
+        # Clean up excessive whitespace (iXBRL often has spaces between characters)
+        # This fixes issues like "risk s" -> "risks"
+        cleaned_text = self._clean_text(text)
+
+        # Detect section from heading (or from any span that matches)
         section = None
-        if is_heading:
-            for pattern in self.section_patterns:
-                if pattern.search(text.lower()):
-                    match = pattern.search(text.lower())
-                    if match:
-                        section = match.group(0).replace(" ", "_")
-                        break
+        for pattern in self.section_patterns:
+            if pattern.search(cleaned_text.lower()):
+                match = pattern.search(cleaned_text.lower())
+                if match:
+                    section = match.group(0).replace(" ", "_")
+                    # Mark as heading if it matches a section pattern
+                    if not is_heading and len(cleaned_text) < 100:
+                        is_heading = True
+                    break
 
         self.spans.append(TextSpan(
-            text=unescape(text),
+            text=unescape(cleaned_text),
             section=section,
             is_heading=is_heading
         ))
+
+    def _clean_text(self, text: str) -> str:
+        """Clean up text spacing issues common in iXBRL.
+
+        iXBRL files often have spaces between characters or within words.
+        This method normalizes the spacing while preserving intentional word breaks.
+        """
+        import re
+
+        # First, normalize all whitespace to single spaces
+        text = ' '.join(text.split())
+
+        # Common spacing issue in iXBRL: characters/syllables are split
+        # "risk s" -> "risks"
+        # "principal risk s" -> "principal risks"
+
+        # Be conservative: only fix obvious single-character fragments
+        # Pattern 1: Single letter suffix at end: "risk s" -> "risks"
+        text = re.sub(r'([a-z]{3,})\s+([a-z])(?=\s|[,.;:\)]|$)', r'\1\2', text)
+
+        # Pattern 2: Single letter at start of word: "c ust" -> "cust"
+        # But only when followed by 3+ more letters to avoid false positives
+        text = re.sub(r'(?<=\s)([a-z])\s+([a-z]{3,})', r'\1\2', text)
+
+        return text
 
     def get_spans(self) -> List[TextSpan]:
         """Get all extracted spans."""

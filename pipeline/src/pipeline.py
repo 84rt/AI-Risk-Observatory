@@ -27,7 +27,8 @@ class Pipeline:
         self,
         companies_csv: Path,
         year: Optional[int] = None,
-        output_dir: Optional[Path] = None
+        output_dir: Optional[Path] = None,
+        clean_text: bool = False
     ):
         """Initialize the pipeline.
 
@@ -35,10 +36,12 @@ class Pipeline:
             companies_csv: Path to CSV with company data
             year: Optional specific year to fetch. If not provided, gets latest.
             output_dir: Output directory for PDFs
+            clean_text: Enable Gemini text cleaning (default: False, currently disabled due to summarization issues)
         """
         self.companies_csv = companies_csv
         self.year = year
         self.output_dir = output_dir or settings.output_dir
+        self.clean_text = clean_text
         self.db = Database()
 
         # Load companies
@@ -259,7 +262,8 @@ class Pipeline:
 def run_pipeline(
     companies_csv: Path,
     year: Optional[int] = None,
-    skip_download: bool = False
+    skip_download: bool = False,
+    clean_text: bool = False
 ):
     """Convenience function to run the pipeline.
 
@@ -267,9 +271,11 @@ def run_pipeline(
         companies_csv: Path to companies CSV file
         year: Optional specific year to process
         skip_download: Skip download step if PDFs already exist
+        clean_text: Enable Gemini text cleaning (default: False, currently disabled)
     """
     pipeline = Pipeline(
         companies_csv=companies_csv,
-        year=year
+        year=year,
+        clean_text=clean_text
     )
     pipeline.run(skip_download=skip_download)

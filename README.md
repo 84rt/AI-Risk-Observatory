@@ -42,7 +42,7 @@ python scripts/query_db.py            # View results
 
 See [`pipeline/README.md`](pipeline/README.md) for detailed documentation.
 
-## What's Included in v1
+## What's Included in v1 ([dataflow_explained](pipeline/DATAFLOW_EXPLAINED.md) is the best up-to-date epxlentation of the dataflow)
 
 - ✅ Companies House API integration for fetching annual reports
 - ✅ PDF text extraction with section detection (PyMuPDF)
