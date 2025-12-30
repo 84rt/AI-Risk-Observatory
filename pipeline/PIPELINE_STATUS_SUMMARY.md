@@ -172,8 +172,8 @@ The preprocessing pipeline (Steps 4 & 5) is **complete and production-ready**:
 
 ### Required API Keys
 ```bash
-GEMINI_API_KEY=AIzaSyBMEW8xTkIbKdS1VBPeERO_9jG-wZ8fSw8
-COMPANIES_HOUSE_API_KEY=8d836073-92e9-4612-ac2e-c0e252bbbd73
+GEMINI_API_KEY=your_gemini_api_key_here
+COMPANIES_HOUSE_API_KEY=your_companies_house_api_key_here
 ```
 
 ### Gemini Tier Information

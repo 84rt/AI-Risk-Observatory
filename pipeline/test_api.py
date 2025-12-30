@@ -13,8 +13,8 @@ print("Testing Configuration...")
 print("=" * 60)
 settings = get_settings()
 print(f"✅ Gemini Model: {settings.gemini_model}")
-print(f"✅ Gemini Key: {settings.gemini_api_key[:20]}...")
-print(f"✅ CH Key: {settings.companies_house_api_key[:20]}...")
+print(f"✅ Gemini Key: {'*' * 8}...{settings.gemini_api_key[-4:]}")
+print(f"✅ CH Key: {'*' * 8}...{settings.companies_house_api_key[-4:]}")
 
 # Test Companies House API
 print("\n" + "=" * 60)

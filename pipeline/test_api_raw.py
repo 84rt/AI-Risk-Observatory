@@ -14,7 +14,7 @@ api_key = settings.companies_house_api_key
 print("=" * 60)
 print("Testing Companies House API (Raw HTTP)")
 print("=" * 60)
-print(f"API Key: {api_key[:20]}...")
+print(f"API Key: {'*' * 8}...{api_key[-4:]}")
 print()
 
 # Basic Auth with API key as username, empty password
