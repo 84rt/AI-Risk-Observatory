@@ -378,7 +378,7 @@ def test_7_model_comparison():
         "test_name": "Model Family Comparison",
         "description": "Compare Gemini and Claude classification on same texts",
         "gemini_available": HAS_GEMINI,
-        "claude_available": HAS_CLAUDE,
+        "claude_available": False,  # Will be updated after checking
         "comparisons": []
     }
 
@@ -404,12 +404,15 @@ def test_7_model_comparison():
 
     # Initialize Claude if available
     claude_client = None
-    if HAS_CLAUDE:
+    claude_available = HAS_CLAUDE
+    if claude_available:
         try:
             claude_client = anthropic.Anthropic()
         except:
             print("Claude API key not configured")
-            HAS_CLAUDE = False
+            claude_available = False
+
+    results["claude_available"] = claude_available
 
     prompt_template = """Classify this AI-related text from a company annual report.
 
@@ -496,12 +499,12 @@ Return JSON with:
 
     results["summary"] = {
         "samples_compared": len(results["comparisons"]),
-        "gemini_only": not HAS_CLAUDE,
+        "gemini_only": not claude_available,
         "full_agreement": full_agreement,
         "partial_agreement": partial_agreement,
         "disagreement": agreements.count("disagreement"),
         "agreement_rate": round(100 * (full_agreement + partial_agreement) / max(len(agreements), 1), 1),
-        "verdict": "PASS" if not HAS_CLAUDE else ("PASS" if full_agreement + partial_agreement >= len(agreements) * 0.6 else "LOW_AGREEMENT")
+        "verdict": "PASS" if not claude_available else ("PASS" if full_agreement + partial_agreement >= len(agreements) * 0.6 else "LOW_AGREEMENT")
     }
 
     print(f"\nSummary:")

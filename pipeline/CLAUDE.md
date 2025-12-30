@@ -6,6 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AIRO (AI Risk Observatory) is a data pipeline that processes UK company annual reports (FTSE 350) to identify and classify AI-related risk disclosures. The pipeline downloads reports in iXBRL/XHTML or PDF format, extracts text, preprocesses and filters relevant sections, chunks the text, classifies mentions using Google Gemini LLM, and stores structured results in a SQLite database.
 
+## CRITICAL: API Key Security
+
+**NEVER include actual API keys in any file that can be committed to git.** This includes:
+- Documentation files (*.md)
+- Code comments
+- Example configurations
+- Test files
+- Any file NOT listed in .gitignore
+
+**API keys must ONLY be stored in:**
+- `.env.local` (gitignored)
+- `.env` (gitignored)
+
+**When documenting API configuration, always use placeholders:**
+```
+GEMINI_API_KEY=your_gemini_api_key_here
+COMPANIES_HOUSE_API_KEY=your_companies_house_api_key_here
+```
+
+**Why this matters:** API keys committed to git (even if later removed) remain in git history and can be detected by automated scanners, causing the keys to be permanently revoked.
+
 ## Common Commands
 
 ### Setup and Environment

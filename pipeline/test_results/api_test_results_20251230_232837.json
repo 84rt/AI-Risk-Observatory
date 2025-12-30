@@ -1,0 +1,348 @@
+{
+  "timestamp": "20251230_232837",
+  "test_suite": "AISI API-Based Tests",
+  "tests": {
+    "test_1": {
+      "test_name": "Adoption Type Classifier",
+      "description": "Classify AI mentions as non-LLM, LLM, or Agentic",
+      "samples_tested": 20,
+      "classifications": [
+        {
+          "company": "BATS",
+          "text_preview": "collect primary data through drones, audio sensors and artificial intelligence....",
+          "adoption_type": "non_llm",
+          "confidence": 0.9,
+          "reason": "The mention of AI alongside drones and audio sensors suggests a focus on data collection and analysis, which falls under traditional AI/ML applications rather than LLMs or agentic AI."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "Inappropriate use of technology systems, including the use of AI-...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The mention of 'AI-' without further specification suggests a general reference to AI technology systems, likely encompassing traditional AI applications rather than specifically LLMs or agentic AI."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "security, responsible use of AI, and evolving regulation...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The mention of 'responsible use of AI' and 'evolving regulation' suggests a general discussion of AI, likely referring to broader AI applications beyond just LLMs. Security is also a general concern for all AI types."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "transformation, cyber security resilience, responsible use of AI,...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The mention of 'responsible use of AI' suggests a general awareness and application of AI, but doesn't specifically point to LLMs or agentic AI. It's more likely referring to broader AI implementations."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "reporting, cyber security resilience, AI governance, sanctions and...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "AI governance is mentioned in the context of cybersecurity and sanctions, suggesting a broader application of AI beyond just language models."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "investments including a U.S.-based adaptogens and nootropics beverage company, Hop Wtr Inc., and a G...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The text mentions 'AI-powered sustainable' which suggests a general application of AI for optimization or analysis, rather than a specific LLM application."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "\u2013 Failure to successfully design, implement and sustain an integrated framework and operating model ...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The mention of 'Artificial Intelligence' without specific reference to language models or autonomous agents suggests a general or traditional AI implementation."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "The external threat levels continue to rise with attackers becoming increasingly sophisticated, equi...",
+          "adoption_type": "non_llm",
+          "confidence": 0.9,
+          "reason": "The text mentions AI-powered tools used by attackers, which suggests general AI/ML capabilities rather than specific language models or autonomous agents."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "AI in our products and/or supply chain will have an impact on the cyber security threat landscape an...",
+          "adoption_type": "non_llm",
+          "confidence": 0.9,
+          "reason": "The mention of AI impacting cybersecurity and supply chain suggests traditional AI/ML applications for threat detection and supply chain optimization, rather than LLMs or agentic AI."
+        },
+        {
+          "company": "BATS",
+          "text_preview": "Inability to effectively establish and maintain a cohesive and functional AI framework and operating...",
+          "adoption_type": "non_llm",
+          "confidence": 0.7,
+          "reason": "The mention of an 'AI framework and operating model' suggests a broader, more traditional AI implementation rather than specifically LLMs or agentic AI. It implies a structured approach to AI across the group, which aligns more with general AI/ML practices."
+        }
+      ],
+      "distribution": {
+        "non_llm": 10,
+        "llm": 0,
+        "agentic": 0
+      },
+      "summary": {
+        "total_classified": 10,
+        "distribution": {
+          "non_llm": 10
+        },
+        "non_llm_pct": 100.0,
+        "llm_pct": 0.0,
+        "agentic_pct": 0.0,
+        "can_distinguish": true,
+        "verdict": "PASS"
+      }
+    },
+    "test_2": {
+      "test_name": "Substantiveness Detector",
+      "description": "Classify AI mentions as Boilerplate vs Substantive",
+      "samples_tested": 15,
+      "classifications": [
+        {
+          "company": "London Stock Exchange Group plc",
+          "risk_type": "reputational_ethical",
+          "text_preview": "Sustainability risk encompasses a wide variety of risks, from the risk of incorr...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.9,
+          "indicators": [
+            "generic language applicable to any company",
+            "vague references"
+          ]
+        },
+        {
+          "company": "Rolls-Royce Holdings plc",
+          "risk_type": "workforce_impacts",
+          "text_preview": "competitive technology, leveraging substantial engineering and scientific challe...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "generic language applicable to any company",
+            "vague references"
+          ]
+        },
+        {
+          "company": "BP p.l.c.",
+          "risk_type": "cybersecurity",
+          "text_preview": "We seek to manage this risk through a range of Cyber Security Framework 2.0, cyb...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "generic language applicable to any company",
+            "vague references"
+          ]
+        },
+        {
+          "company": "Rio Tinto plc",
+          "risk_type": "cybersecurity",
+          "text_preview": "Although the extent and frequency of cyber security threats remain...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.9,
+          "indicators": [
+            "generic language applicable to any company"
+          ]
+        },
+        {
+          "company": "RELX PLC",
+          "risk_type": "operational_technical",
+          "text_preview": "Linking algorithms that generate high precision and recall...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "Generic language applicable to any company",
+            "Vague references"
+          ]
+        },
+        {
+          "company": "HSBC Holdings plc",
+          "risk_type": "operational_technical",
+          "text_preview": "Along with opportunities, new technology, including generative AI, can introduce...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "Generic language applicable to any company",
+            "Vague references"
+          ]
+        },
+        {
+          "company": "BAE Systems plc",
+          "risk_type": "cybersecurity",
+          "text_preview": "This ag ain us es a\ue5efLL M train ed on near ly a de ca de of our expe rt analy sis...",
+          "substantiveness": "substantive",
+          "confidence": 0.7,
+          "indicators": [
+            "Names specific AI systems/tools"
+          ]
+        },
+        {
+          "company": "Compass Group PLC",
+          "risk_type": "cybersecurity",
+          "text_preview": "The Committee was also briefed on Compass\u2019 view of developing AI technologies an...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "generic language applicable to any company",
+            "vague references"
+          ]
+        },
+        {
+          "company": "Rolls-Royce Holdings plc",
+          "risk_type": "cybersecurity",
+          "text_preview": "Infor mation & d ata (including cyber)...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "Generic language applicable to any company",
+            "Vague references"
+          ]
+        },
+        {
+          "company": "Diageo plc",
+          "risk_type": "cybersecurity",
+          "text_preview": "Strengthening our third-party cyber risk management programme to raise the minim...",
+          "substantiveness": "boilerplate",
+          "confidence": 0.8,
+          "indicators": [
+            "generic language applicable to any company",
+            "no specific systems, metrics, or actions named"
+          ]
+        }
+      ],
+      "distribution": {
+        "boilerplate": 9,
+        "substantive": 1
+      },
+      "summary": {
+        "total_classified": 10,
+        "distribution": {
+          "boilerplate": 9,
+          "substantive": 1
+        },
+        "boilerplate_pct": 90.0,
+        "substantive_pct": 10.0,
+        "can_distinguish": true,
+        "substantive_ratio": 10.0,
+        "verdict": "PASS"
+      }
+    },
+    "test_5": {
+      "test_name": "Time Travel Test",
+      "description": "Test availability and processing of pre-2016 reports",
+      "findings": {
+        "available_years": [
+          2020,
+          2021,
+          2022,
+          2023,
+          2024
+        ],
+        "earliest_year": 2020,
+        "latest_year": 2024,
+        "has_pre_2020": false,
+        "pdf_reports_available": 19
+      },
+      "summary": {
+        "years_available": [
+          2020,
+          2021,
+          2022,
+          2023,
+          2024
+        ],
+        "year_span": 4,
+        "earliest_data": 2020,
+        "can_test_pre_chatgpt": true,
+        "pdf_support_needed": true,
+        "verdict": "PASS"
+      }
+    },
+    "test_7": {
+      "test_name": "Model Family Comparison",
+      "description": "Compare Gemini and Claude classification on same texts",
+      "gemini_available": true,
+      "claude_available": false,
+      "comparisons": [
+        {
+          "sample": 1,
+          "company": "RR_2023",
+          "text_preview": "ce r t ai nimp ai rm e nt cha rg es an dexc ep t io na lite ms . A fu ll de f in...",
+          "gemini": {
+            "is_risk": false,
+            "risk_type": "other",
+            "confidence": 0.1
+          },
+          "claude": {
+            "skipped": "Claude not available"
+          },
+          "agreement": "disagreement"
+        },
+        {
+          "sample": 2,
+          "company": "RR_2023",
+          "text_preview": "in du s t r ia l g ro u ps b e y on d au to m o ti v e, allw i t h a f o cu s on...",
+          "gemini": {
+            "is_risk": false,
+            "risk_type": "other",
+            "confidence": 0.2
+          },
+          "claude": {
+            "skipped": "Claude not available"
+          },
+          "agreement": "disagreement"
+        },
+        {
+          "sample": 3,
+          "company": "RR_2023",
+          "text_preview": "ser vice , in 2 02 3 over half of ne w ai rcraft del ivered werep owe red by...",
+          "gemini": {
+            "is_risk": false,
+            "risk_type": "other",
+            "confidence": 0.2
+          },
+          "claude": {
+            "skipped": "Claude not available"
+          },
+          "agreement": "disagreement"
+        },
+        {
+          "sample": 4,
+          "company": "RR_2023",
+          "text_preview": "gen erat ion G lob al Co mbat Ai r Pro gra mme (GC AP) con tinu ed it s...",
+          "gemini": {
+            "is_risk": false,
+            "risk_type": "other",
+            "confidence": 0.7
+          },
+          "claude": {
+            "skipped": "Claude not available"
+          },
+          "agreement": "disagreement"
+        },
+        {
+          "sample": 5,
+          "company": "RR_2023",
+          "text_preview": "the ai r , at sea , ando n land , canb eused sust aina bly th rough...",
+          "gemini": {
+            "is_risk": false,
+            "risk_type": "other",
+            "confidence": 0.6
+          },
+          "claude": {
+            "skipped": "Claude not available"
+          },
+          "agreement": "disagreement"
+        }
+      ],
+      "summary": {
+        "samples_compared": 5,
+        "gemini_only": true,
+        "full_agreement": 0,
+        "partial_agreement": 0,
+        "disagreement": 5,
+        "agreement_rate": 0.0,
+        "verdict": "PASS"
+      }
+    }
+  }
+}
