@@ -1,0 +1,3 @@
+# .cursorrules (additive snippet)
+- For work inside `pipeline/`, read and follow `pipeline/CLAUDE.md`.
+- Never commit real API keys; use placeholders. Keys belong only in `.env.local` / `.env` (gitignored).
