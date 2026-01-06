@@ -12,11 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..config import get_settings
+
 # Base paths
-PIPELINE_ROOT = Path(__file__).parent.parent.parent
-OUTPUT_DIR = PIPELINE_ROOT / "output"
-ANNOTATION_EXPORT_DIR = OUTPUT_DIR / "annotation_export"
-CLASSIFICATION_RESULTS_DIR = OUTPUT_DIR / "classification_results"
+settings = get_settings()
+ANNOTATION_EXPORT_DIR = settings.annotations_dir / "annotation_export"
+CLASSIFICATION_RESULTS_DIR = settings.results_dir / "classification_results"
 
 # Ensure directories exist
 ANNOTATION_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -397,13 +398,13 @@ def export_run_metadata(
         run_id: Run ID
         config: Run configuration
         results_summary: Summary statistics
-        output_dir: Output directory (defaults to data/classification_runs/)
+    output_dir: Output directory (defaults to data/results/classification_runs/)
 
     Returns:
         Path to the metadata file
     """
     if output_dir is None:
-        output_dir = PIPELINE_ROOT / "data" / "classification_runs"
+        output_dir = settings.results_dir / "classification_runs"
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -104,7 +104,7 @@ The pipeline operates in 5 main stages:
 - Primary source: `filings.xbrl.org` API for iXBRL/XHTML files (2,437 UK company filings available)
 - Fallback: Companies House API for PDF documents
 - Implementation: `src/xbrl_filings_client.py` and `src/companies_house.py`
-- Output: `output/reports/ixbrl/*.xhtml` or `output/reports/pdfs/*.pdf`
+- Output: `data/raw/ixbrl/*.xhtml` or `data/raw/pdfs/*.pdf`
 
 **Stage 2: Text Extraction**
 - iXBRL/XHTML: `src/ixbrl_extractor.py` - HTML parser with automatic spacing cleanup
@@ -117,7 +117,7 @@ The pipeline operates in 5 main stages:
 - Two strategies available:
   - `risk_only`: Extract only risk-related sections (~11% retention, works better with PDFs)
   - `keyword`: AI/ML and risk keyword filtering (~12% retention, **recommended for iXBRL**)
-- Output: Markdown files in `output/preprocessed/{strategy}/`
+- Output: Markdown files in `data/processed/preprocessed/{strategy}/`
 - Note: Gemini text cleaning is currently disabled - regex cleanup in extraction is sufficient
 
 **Stage 4: Chunking**
@@ -187,16 +187,12 @@ pipeline/
 │   ├── llm_classifier.py         # Gemini classification
 │   ├── database.py               # SQLAlchemy models
 │   └── aggregator.py             # Firm-level aggregation
-├── data/
-│   ├── companies_template.csv    # Input: company list
-│   └── airo.db                   # Output: SQLite database
-├── output/
-│   ├── reports/
-│   │   ├── ixbrl/                # Downloaded iXBRL files
-│   │   └── pdfs/                 # Downloaded PDF files
-│   └── preprocessed/
-│       ├── risk_only/            # Risk section extracts
-│       └── keyword/              # Keyword-filtered extracts
+├── ../data/
+│   ├── raw/                      # Downloaded iXBRL and PDFs
+│   ├── processed/preprocessed/   # Markdown extracts
+│   ├── results/                  # Classification outputs and samples
+│   ├── annotations/              # Exports for review
+│   └── db/airo.db                # SQLite database
 ├── logs/
 │   └── pipeline.log              # Execution logs
 ├── run_pipeline.py               # CLI entry point

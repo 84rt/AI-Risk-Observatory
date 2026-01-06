@@ -361,7 +361,7 @@ class CompaniesHouseClient:
             Dict with keys: 'path' (Path), 'format' ('ixbrl' or 'pdf'), or None if not found
         """
         if output_dir is None:
-            output_dir = settings.output_dir / "reports"
+            output_dir = settings.raw_dir
 
         # Get the filing
         filing = self.get_latest_annual_accounts(company_number, year)

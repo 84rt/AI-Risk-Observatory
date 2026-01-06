@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import requests
 
+from .config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -185,7 +187,7 @@ class XBRLFilingsClient:
             Dict with 'path' and 'format' keys, or None if not found
         """
         if output_dir is None:
-            output_dir = Path("output/reports/ixbrl")
+            output_dir = settings.raw_dir / "ixbrl"
 
         # Get filings
         filings = self.get_entity_filings(lei, limit=20)

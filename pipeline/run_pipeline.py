@@ -12,6 +12,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.pipeline import run_pipeline
 from src.config import get_settings
 
+settings = get_settings()
+DEFAULT_COMPANIES = settings.data_dir / "reference" / "companies_template.csv"
+LOG_DIR = settings.logs_dir / "pipeline"
+
 
 def setup_logging(level: str = "INFO"):
     """Set up logging configuration.
@@ -19,12 +23,13 @@ def setup_logging(level: str = "INFO"):
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR)
     """
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler('logs/pipeline.log')
+            logging.FileHandler(LOG_DIR / "pipeline.log")
         ]
     )
 
@@ -38,8 +43,8 @@ def main():
     parser.add_argument(
         "--companies",
         type=Path,
-        default=Path("data/companies_template.csv"),
-        help="Path to companies CSV file (default: data/companies_template.csv)"
+        default=DEFAULT_COMPANIES,
+        help=f"Path to companies CSV file (default: {DEFAULT_COMPANIES})"
     )
 
     parser.add_argument(
@@ -70,7 +75,6 @@ def main():
     args = parser.parse_args()
 
     # Setup logging
-    Path("logs").mkdir(exist_ok=True)
     setup_logging(args.log_level)
 
     logger = logging.getLogger(__name__)
@@ -80,12 +84,9 @@ def main():
         logger.error(f"Companies file not found: {args.companies}")
         logger.error(
             "Please create the file or use the template at "
-            "data/companies_template.csv"
+            f"{DEFAULT_COMPANIES}"
         )
         sys.exit(1)
-
-    # Load settings
-    settings = get_settings()
 
     # Check API keys
     try:

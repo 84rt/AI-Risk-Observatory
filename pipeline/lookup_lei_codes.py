@@ -6,6 +6,8 @@ import json
 import time
 from typing import Optional
 
+from src.config import get_settings
+
 # Golden dataset companies
 GOLDEN_DATASET = [
     {"rank": 1, "name": "AstraZeneca plc", "number": "02723534", "ticker": "AZN"},
@@ -191,15 +193,19 @@ def lookup_all_lei_codes():
     found_count = sum(1 for r in results if r["lei"])
     print(f"\nFound LEI codes for {found_count}/{len(GOLDEN_DATASET)} companies")
 
+    settings = get_settings()
+    reference_dir = settings.data_dir / "reference"
+    reference_dir.mkdir(parents=True, exist_ok=True)
+
     # Save results
-    output_file = "data/companies_with_lei.json"
+    output_file = reference_dir / "companies_with_lei.json"
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n✅ Results saved to: {output_file}")
 
     # Generate CSV
-    csv_file = "data/companies_with_lei.csv"
+    csv_file = reference_dir / "companies_with_lei.csv"
     with open(csv_file, "w") as f:
         f.write("rank,ticker,company_name,company_number,lei,lei_legal_name,sector\n")
         for r in results:

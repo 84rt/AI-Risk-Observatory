@@ -7,6 +7,7 @@ from pathlib import Path
 # Add pipeline directory to path so we can import src as a package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.config import settings
 from src.database import Database, Mention, Firm
 
 
@@ -77,7 +78,7 @@ def export_to_csv():
     try:
         mentions = session.query(Mention).all()
 
-        output_file = Path("output/mentions_export.csv")
+        output_file = settings.results_dir / "mentions_export.csv"
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_file, 'w', newline='') as f:

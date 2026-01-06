@@ -32,17 +32,23 @@ class Settings(BaseSettings):
     # OpenRouter Configuration
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
+    # Paths
+    pipeline_root: Path = Field(default=base_repo_dir / "pipeline")
+    data_dir: Path = Field(default=base_repo_dir / "data")
+    raw_dir: Path = Field(default=base_repo_dir / "data" / "raw")
+    processed_dir: Path = Field(default=base_repo_dir / "data" / "processed")
+    results_dir: Path = Field(default=base_repo_dir / "data" / "results")
+    annotations_dir: Path = Field(default=base_repo_dir / "data" / "annotations")
+    logs_dir: Path = Field(default=base_repo_dir / "data" / "logs")
+
     # Database
     database_path: Path = Field(
-        default=Path("./data/airo.db"),
+        default=base_repo_dir / "data" / "db" / "airo.db",
         alias="DATABASE_PATH"
     )
 
-    # Paths
-    pipeline_root: Path = Field(default=Path(__file__).parent.parent)
-    data_dir: Path = Field(default=Path(__file__).parent.parent / "data")
-    output_dir: Path = Field(default=Path(__file__).parent.parent / "output")
-    logs_dir: Path = Field(default=Path(__file__).parent.parent / "logs")
+    # Backwards compatibility: place to store generated artifacts
+    output_dir: Path = Field(default=base_repo_dir / "data" / "results")
 
     # Companies House API
     companies_house_base_url: str = "https://api.company-information.service.gov.uk"

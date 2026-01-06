@@ -1,85 +1,56 @@
-# AI Risk Observatory (AIRO)
+## 1. Project Overview
+AI Risk Observatory surfaces AI risk signals in UK annual reports to support policy and oversight. It targets UK AI safety and policy teams, producing two outputs: a traceable dataset and a dashboard that summarizes risk posture.
 
-The AI Risk Observatory tracks how UK public companies are adopting, governing, and disclosing risks related to Artificial Intelligence.
+## 2. High-Level Architecture
+- Data pipeline: ingest, clean, classify filings.
+- Data storage: append-only, versioned `/data` tree.
+- Visualization dashboard: Next.js app for exploration.
 
-**Components:**
-- **Data Pipeline:** Ingests annual reports, extracts AI-relevant text, and uses LLMs to tag and classify mentions using a risk taxonomy.
-- **Dashboard:** Next.js web application to visualize risk disclosure trends by sector, risk category, time, and governance maturity.
-
-**Goals:**
-- Identify emerging AI threats and disclosure patterns.
-- Monitor gaps between AI adoption and governance.
-- Enable regulators and stakeholders to focus on high-risk sectors.
-
-**Key Questions:**
-- How reliably can LLMs identify/classify AI risk disclosures in financial filings?
-- What are the trends in AI risk severity, nature, and mitigation across sectors?
-
-**Architecture:**
-- **Pipeline:** Processes annual reports, extracts content, applies a multi-stage LLM filter for relevance and classification, outputs structured data to SQL (SQLite/PostgreSQL).
-- **Dashboard:** Built with Next.js and Recharts/Tremor, offers visualizations (e.g., risk composition, governance maturity, sector trends).
-
-**Repo Structure:**
-- `/airo-dashboard`: Next.js frontend
-- `/pipeline`: (Planned) Python ETL/classification scripts
-- `/data`: Mock data and schemas
-- `AIRO_DATA_PIPELINE_SPECIFICATION.md`: Data model specification
-
-# Pipeline Status
-
-✅ **v1 Pipeline Complete!** The data pipeline is now fully implemented and ready for testing.
-
-## Quick Start
-
-```bash
-cd pipeline
-./scripts/setup.sh                    # Install dependencies
-# Edit .env with your API keys
-# Edit data/companies_template.csv with 20 companies
-python run_pipeline.py                # Run the pipeline
-python scripts/query_db.py            # View results
+Diagram:
+```
+Data Sources -> Pipeline -> /data (raw/processed/results) -> Dashboard
 ```
 
-See [`pipeline/README.md`](pipeline/README.md) for detailed documentation.
+## 3. Repository Structure
+- `/dashboard` — Next.js app for risk visualization.
+- `/pipeline` — end-to-end data processing and classification.
+- `/data` — central store for raw, processed, results, logs.
+- `/context` — scope, specs, taxonomy, LLM guidance.
 
-## What's Included in v1 ([dataflow_explained](pipeline/DATAFLOW_EXPLAINED.md) is the best up-to-date epxlentation of the dataflow)
+Pipeline and dashboard live together so the dashboard can track model changes quickly. Data is colocated and versioned to preserve lineage, enable iteration, and support audits.
 
-- ✅ Companies House API integration for fetching annual reports
-- ✅ PDF text extraction with section detection (PyMuPDF)
-- ✅ Intelligent text chunking for LLM processing
-- ✅ Two-stage LLM classification (Google Gemini 2.0 Flash):
-  - Stage 1: Relevance detection
-  - Stage 2: Risk taxonomy classification
-- ✅ SQLite database with full schema (mentions + firms tables)
-- ✅ Firm-level aggregation (specificity ratio, mitigation gap, etc.)
-- ✅ Comprehensive error handling and logging
-- ✅ CLI tools and utilities
-- 💰 **Cost-effective:** FREE tier covers most usage!
+## 4. Data & Storage Model
+`/data` holds raw inputs (iXBRL, PDFs), processed text, annotations (human + model), logs, and outputs. Everything is append-only and versioned; records remain traceable from raw source to final result.
 
-## Next Steps
+## 5. Pipeline Stages
+Execution order:
+1) Ingestion — download filings (inputs: company list; outputs: iXBRL/PDF in `/data/raw`).
+2) Preprocessing — OCR/clean/normalize (inputs: raw; outputs: markdown in `/data/processed`).
+3) Classification — LLM tagging and taxonomy mapping (inputs: processed; outputs: DB + JSON in `/data/results`).
+4) Post-processing — aggregation, metrics, QA (inputs: classifications; outputs: firm-level rollups).
+5) Export to dashboard — curated extracts for visualization (inputs: results; outputs: dashboard-ready views).
 
-1. **Test the pipeline:** Run on your 20 companies
-2. **Validate classifications:** Review sample mentions for accuracy
-3. **Connect to dashboard:** Export data for visualization
-4. **Iterate on v2:** Add automated ticker mapping, multi-year support 
+## 6. Classification Blueprint
+Core dimensions: AI harms, AI adaptation, AI risk disclosures. Additional layers: severity and mitigation (“cowboy risk”), vendor extraction, workforce impact. Taxonomy lives in `/context`.
 
+## 7. Evaluation & Quality Control
+- Human-annotated golden set; accuracy target ~90%.
+- Anti-error: multi-run consistency checks, multi-model agreement, confidence thresholds.
+- Human review triggers on low-confidence or disagreement cases.
 
+## 8. Versioning & Iteration Model
+Classifiers are versioned independently. Each run logs classifier version, model used, and timestamp. Data is never deleted—new versions are added to allow comparison, rollback, and audits.
 
-## Note on data sources:
- 1. Companies House vs HMRC are different:
+## 9. Logs & Auditability
+Run-level logs plus per-record model I/O, confidence, and reasoning are stored for transparency, debugging, and policy trust.
 
-    - HMRC (tax authority): Has required iXBRL since 2011 - ALL companies must file tax returns in iXBRL to HMRC
+## 10. Adding New Data or Years
+Add new filings, years, or classifiers; rerun ingestion → preprocessing → classification → exports. Prior runs stay preserved for comparison.
 
-    - Companies House: Currently does NOT require iXBRL - PDFs are still accepted
+## 11. Running the Project
+- Pipeline: `cd pipeline && python run_pipeline.py --companies ../data/reference/companies_template.csv`
+- Dashboard: `cd dashboard && npm install && npm run dev`
+See `/pipeline/QUICKSTART.md` for details.
 
-  2. Large companies (FTSE 100) often file PDFs to Companies House because:
-
-    - They're not currently required to use iXBRL for Companies House
-
-    - Their full annual reports are complex, multi-hundred-page documents
-
-    - They use PDF filing for Companies House while filing iXBRL separately to HMRC
-
-  3. Starting April 1, 2027: Companies House will mandate iXBRL for ALL companies
-
-Trying to use the 
+## 12. Further Documentation
+See `/context` for taxonomy, specs, experimental notes, and design decisions.

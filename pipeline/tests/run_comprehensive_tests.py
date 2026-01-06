@@ -37,13 +37,13 @@ from src.classifiers import (
 from src.database import Database, get_database
 from src.utils.logging_config import setup_logging, log_run_summary
 from src.utils.data_export import DataExporter, export_run_metadata
+from src.config import get_settings
 
 # Paths
-PIPELINE_ROOT = Path(__file__).parent.parent
-DATA_DIR = PIPELINE_ROOT / "data"
-OUTPUT_DIR = PIPELINE_ROOT / "output"
-PREPROCESSED_DIR = OUTPUT_DIR / "preprocessed" / "keyword"
-COMPANIES_CSV = DATA_DIR / "companies_with_lei.csv"
+settings = get_settings()
+DATA_DIR = settings.data_dir
+PREPROCESSED_DIR = settings.processed_dir / "preprocessed" / "keyword"
+COMPANIES_CSV = settings.data_dir / "reference" / "companies_with_lei.csv"
 
 # Available classifiers
 AVAILABLE_CLASSIFIERS = {

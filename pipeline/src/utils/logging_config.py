@@ -16,9 +16,11 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
+from ..config import get_settings
+
 # Base paths
-PIPELINE_ROOT = Path(__file__).parent.parent.parent
-LOGS_DIR = PIPELINE_ROOT / "logs"
+settings = get_settings()
+LOGS_DIR = settings.logs_dir / "pipeline"
 CLASSIFIER_LOGS_DIR = LOGS_DIR / "classifier_runs"
 MODEL_COMPARISON_LOGS_DIR = LOGS_DIR / "model_comparison"
 

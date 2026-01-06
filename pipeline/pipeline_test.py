@@ -28,13 +28,17 @@ from src.chunker import TextChunker
 from src.llm_classifier import LLMClassifier
 from src.aggregator import aggregate_firm
 
+settings = get_settings()
+LOG_DIR = settings.logs_dir / "pipeline"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 # Configure detailed logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('logs/pipeline_test.log')
+        logging.FileHandler(LOG_DIR / "pipeline_test.log")
     ]
 )
 logger = logging.getLogger(__name__)
@@ -42,7 +46,7 @@ logger = logging.getLogger(__name__)
 # Load GOLDEN DATASET with LEI codes from companies_with_lei.json
 def load_golden_dataset():
     """Load golden dataset with LEI codes."""
-    lei_file = Path("data/companies_with_lei.json")
+    lei_file = settings.data_dir / "reference" / "companies_with_lei.json"
     if lei_file.exists():
         with open(lei_file, 'r') as f:
             return json.load(f)
@@ -680,8 +684,8 @@ def main(preprocessing_strategy: PreprocessingStrategy = PreprocessingStrategy.K
     logger.info(f"Step 3 (Extract): {sum(1 for r in step3_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
     logger.info(f"Step 4 (Preprocess): {sum(1 for r in step4_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
     logger.info(f"Step 5 (Chunk): {sum(1 for r in step5_results.values() if r.get('status') == 'success')}/{len(GOLDEN_DATASET)}")
-    logger.info("\n✅ Test complete! Check logs/pipeline_test.log for detailed logs.")
-    logger.info(f"📁 Preprocessed markdown files: output/preprocessed/{preprocessing_strategy.value}/")
+    logger.info("\n✅ Test complete! Check data/logs/pipeline/pipeline_test.log for detailed logs.")
+    logger.info(f"📁 Preprocessed markdown files: data/processed/preprocessed/{preprocessing_strategy.value}/")
 
 
 if __name__ == "__main__":

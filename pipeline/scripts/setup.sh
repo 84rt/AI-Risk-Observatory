@@ -3,6 +3,11 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PIPELINE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$PIPELINE_DIR/.." && pwd)"
+DATA_ROOT="$REPO_ROOT/data"
+
 echo "=========================================="
 echo "AIRO Pipeline Setup"
 echo "=========================================="
@@ -34,7 +39,22 @@ python3 -c "import nltk; nltk.download('punkt', quiet=True)"
 echo "✓ NLTK data downloaded"
 
 # Create directories
-mkdir -p data output/pdfs logs
+mkdir -p \
+  "$DATA_ROOT/raw/pdfs" \
+  "$DATA_ROOT/raw/ixbrl" \
+  "$DATA_ROOT/processed/preprocessed" \
+  "$DATA_ROOT/processed/truncated" \
+  "$DATA_ROOT/annotations" \
+  "$DATA_ROOT/results/classification_runs" \
+  "$DATA_ROOT/results/classification_results" \
+  "$DATA_ROOT/results/risk_classifications" \
+  "$DATA_ROOT/results/samples" \
+  "$DATA_ROOT/results/test_pipeline_single" \
+  "$DATA_ROOT/results/test_xbrl" \
+  "$DATA_ROOT/results/diagnostic" \
+  "$DATA_ROOT/logs/pipeline" \
+  "$DATA_ROOT/db" \
+  "$DATA_ROOT/reference"
 
 # Check for .env file
 if [ ! -f .env ] && [ ! -f .env.local ]; then
@@ -58,8 +78,8 @@ echo "   source venv/bin/activate"
 echo ""
 echo "2. Edit .env and add your API keys"
 echo ""
-echo "3. Edit data/companies_template.csv with your companies"
+echo "3. Edit $DATA_ROOT/reference/companies_template.csv with your companies"
 echo ""
 echo "4. Run the pipeline:"
-echo "   python run_pipeline.py --companies data/companies_template.csv"
+echo "   python run_pipeline.py --companies \"$DATA_ROOT/reference/companies_template.csv\""
 echo ""

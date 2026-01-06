@@ -40,7 +40,7 @@ class Pipeline:
         """
         self.companies_csv = companies_csv
         self.year = year
-        self.output_dir = output_dir or settings.output_dir
+        self.output_dir = output_dir or settings.raw_dir
         self.clean_text = clean_text
         self.db = Database()
 
@@ -148,10 +148,11 @@ class Pipeline:
         Returns:
             Dict mapping company_number to result dict with 'path' and 'format' keys
         """
-        ixbrl_dir = self.output_dir / "reports" / "ixbrl"
-        pdf_dir = self.output_dir / "reports" / "pdfs"
-        # Also check legacy pdfs directory
-        legacy_pdf_dir = self.output_dir / "pdfs"
+        ixbrl_dir = self.output_dir / "ixbrl"
+        pdf_dir = self.output_dir / "pdfs"
+        # Legacy structure support
+        legacy_ixbrl_dir = self.output_dir / "reports" / "ixbrl"
+        legacy_pdf_dir = self.output_dir / "reports" / "pdfs"
         
         report_paths = {}
 
@@ -160,8 +161,11 @@ class Pipeline:
             found = False
             
             # Prefer iXBRL if available
+            matching_ixbrl = []
             if ixbrl_dir.exists():
                 matching_ixbrl = list(ixbrl_dir.glob(f"{company_number}_*.xhtml"))
+            if not matching_ixbrl and legacy_ixbrl_dir.exists():
+                matching_ixbrl = list(legacy_ixbrl_dir.glob(f"{company_number}_*.xhtml"))
                 if matching_ixbrl:
                     report_paths[company_number] = {
                         "path": matching_ixbrl[0],

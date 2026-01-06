@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from src.config import settings
 from src.companies_house import CompaniesHouseClient
 from src.pdf_extractor import extract_text_from_pdf
 from src.chunker import chunk_report
@@ -48,7 +49,8 @@ def test_company(
     logger.info("Step 1: Downloading report...")
     client = CompaniesHouseClient()
 
-    output_dir = Path("output/test_pdfs")
+    output_dir = settings.results_dir / "test_pdfs"
+    output_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = client.fetch_annual_report(
         company_number=company_number,
         company_name=company_name,
