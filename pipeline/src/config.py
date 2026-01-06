@@ -21,12 +21,16 @@ class Settings(BaseSettings):
     # API Keys
     gemini_api_key: str = Field(..., alias="GEMINI_API_KEY")
     companies_house_api_key: str = Field(..., alias="COMPANIES_HOUSE_API_KEY")
+    openrouter_api_key: Optional[str] = Field(default=None, alias="OPENROUTER_API_KEY")
 
     # Model Configuration
     gemini_model: str = Field(
         default="gemini-2.0-flash",  # 2K RPM vs 10 RPM for -exp
         alias="GEMINI_MODEL"
     )
+    
+    # OpenRouter Configuration
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # Database
     database_path: Path = Field(

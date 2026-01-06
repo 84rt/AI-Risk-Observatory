@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import List, Optional
 
 from sqlalchemy import (
-    Boolean, Column, Date, Float, ForeignKeyConstraint, Integer, String, Text,
-    create_engine
+    Boolean, Column, Date, DateTime, Float, ForeignKey, ForeignKeyConstraint,
+    Integer, String, Text, create_engine
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 
 from .config import get_settings
 
@@ -187,6 +187,177 @@ class Firm(Base):
 
     def __repr__(self):
         return f"<Firm {self.firm_name} ({self.firm_id}) - {self.report_year}>"
+
+
+# ============================================================================
+# NEW TABLES FOR CLASSIFIER TEST SUITE
+# ============================================================================
+
+
+class ClassificationRun(Base):
+    """Table for tracking classifier test runs.
+
+    Each row represents one execution of the test suite.
+    """
+
+    __tablename__ = "classification_runs"
+
+    run_id = Column(String, primary_key=True)
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime)
+    config_json = Column(Text)  # Full config snapshot as JSON
+    model_version = Column(String)
+    status = Column(String, default="running")  # running, completed, failed
+    total_classifications = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    error_count = Column(Integer, default=0)
+    avg_confidence = Column(Float)
+    low_confidence_count = Column(Integer, default=0)
+    duration_seconds = Column(Float)
+
+    # Relationships
+    results = relationship("ClassificationResult", back_populates="run")
+
+    def __repr__(self):
+        return f"<ClassificationRun {self.run_id} - {self.status}>"
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "run_id": self.run_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "config_json": self.config_json,
+            "model_version": self.model_version,
+            "status": self.status,
+            "total_classifications": self.total_classifications,
+            "success_count": self.success_count,
+            "error_count": self.error_count,
+            "avg_confidence": self.avg_confidence,
+            "low_confidence_count": self.low_confidence_count,
+            "duration_seconds": self.duration_seconds,
+        }
+
+
+class ClassificationResult(Base):
+    """Table for storing individual classification results.
+
+    Each row represents one classification (one company/year/classifier combo).
+    """
+
+    __tablename__ = "classification_results"
+
+    result_id = Column(String, primary_key=True)
+    run_id = Column(String, ForeignKey("classification_runs.run_id"))
+    firm_id = Column(String, nullable=False)
+    firm_name = Column(String, nullable=False)
+    report_year = Column(Integer, nullable=False)
+    classifier_type = Column(String, nullable=False)  # harms, adoption, substantiveness, risk, vendor
+
+    # Classification output
+    classification_json = Column(Text)  # Full JSON of classification
+    primary_label = Column(String)  # Main classification label
+    confidence_score = Column(Float)
+
+    # Traceability
+    source_file = Column(String)  # Path to preprocessed file
+    prompt_hash = Column(String)  # Hash of prompt for reproducibility
+    response_raw = Column(Text)  # Raw LLM response (for debugging)
+    reasoning = Column(Text)
+
+    # Timing
+    api_latency_ms = Column(Integer)
+    tokens_used = Column(Integer)
+    classified_at = Column(DateTime)
+
+    # Status
+    success = Column(Boolean, default=True)
+    error_message = Column(Text)
+
+    # Relationships
+    run = relationship("ClassificationRun", back_populates="results")
+    snippets = relationship("EvidenceSnippet", back_populates="result")
+
+    def __repr__(self):
+        return f"<ClassificationResult {self.firm_name} {self.report_year} - {self.classifier_type}>"
+
+    def get_classification(self) -> dict:
+        """Get classification as Python dict."""
+        return json.loads(self.classification_json) if self.classification_json else {}
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "result_id": self.result_id,
+            "run_id": self.run_id,
+            "firm_id": self.firm_id,
+            "firm_name": self.firm_name,
+            "report_year": self.report_year,
+            "classifier_type": self.classifier_type,
+            "classification": self.get_classification(),
+            "primary_label": self.primary_label,
+            "confidence_score": self.confidence_score,
+            "source_file": self.source_file,
+            "reasoning": self.reasoning,
+            "api_latency_ms": self.api_latency_ms,
+            "tokens_used": self.tokens_used,
+            "classified_at": self.classified_at.isoformat() if self.classified_at else None,
+            "success": self.success,
+            "error_message": self.error_message,
+        }
+
+
+class EvidenceSnippet(Base):
+    """Table for storing evidence snippets linked to classifications.
+
+    Each row represents one piece of evidence (quote) supporting a classification.
+    """
+
+    __tablename__ = "evidence_snippets"
+
+    snippet_id = Column(String, primary_key=True)
+    result_id = Column(String, ForeignKey("classification_results.result_id"))
+
+    # The actual evidence
+    text_excerpt = Column(Text, nullable=False)
+    excerpt_hash = Column(String)  # For deduplication
+
+    # Location in source
+    source_file = Column(String)
+    section_name = Column(String)  # e.g., "Principal Risks", "Strategic Report"
+    approximate_location = Column(String)  # Page or section reference
+
+    # Classification context
+    category = Column(String)  # For categorized evidence (e.g., risk type)
+
+    # For human review
+    needs_review = Column(Boolean, default=False)
+    review_priority = Column(Integer, default=3)  # 1=high, 2=medium, 3=low
+    reviewer_decision = Column(String)  # validated, rejected, unclear
+    reviewer_notes = Column(Text)
+    reviewed_at = Column(DateTime)
+    reviewed_by = Column(String)
+
+    # Relationship
+    result = relationship("ClassificationResult", back_populates="snippets")
+
+    def __repr__(self):
+        return f"<EvidenceSnippet {self.snippet_id}>"
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "snippet_id": self.snippet_id,
+            "result_id": self.result_id,
+            "text_excerpt": self.text_excerpt,
+            "source_file": self.source_file,
+            "section_name": self.section_name,
+            "category": self.category,
+            "needs_review": self.needs_review,
+            "review_priority": self.review_priority,
+            "reviewer_decision": self.reviewer_decision,
+            "reviewer_notes": self.reviewer_notes,
+        }
 
 
 class Database:
@@ -562,6 +733,418 @@ class Database:
                 "risk_type_counts": risk_type_counts,
                 "unique_firms": len(set(r.firm_id for r in all_records))
             }
+        finally:
+            session.close()
+
+
+    # ========================================================================
+    # Classification Run Methods
+    # ========================================================================
+
+    def create_run(
+        self,
+        run_id: str,
+        config: dict,
+        model_version: str
+    ) -> ClassificationRun:
+        """Create a new classification run record.
+
+        Args:
+            run_id: Unique run identifier
+            config: Run configuration dict
+            model_version: Model version being used
+
+        Returns:
+            ClassificationRun object
+        """
+        session = self.get_session()
+        try:
+            run = ClassificationRun(
+                run_id=run_id,
+                started_at=datetime.now(),
+                config_json=json.dumps(config),
+                model_version=model_version,
+                status="running",
+            )
+            session.add(run)
+            session.commit()
+            logger.info(f"Created classification run: {run_id}")
+            return run
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error creating run: {e}")
+            raise
+        finally:
+            session.close()
+
+    def complete_run(
+        self,
+        run_id: str,
+        total_classifications: int,
+        success_count: int,
+        error_count: int,
+        avg_confidence: float,
+        low_confidence_count: int,
+        duration_seconds: float,
+        status: str = "completed"
+    ) -> None:
+        """Mark a run as completed with summary stats.
+
+        Args:
+            run_id: Run identifier
+            total_classifications: Total number of classifications
+            success_count: Number of successful classifications
+            error_count: Number of failed classifications
+            avg_confidence: Average confidence score
+            low_confidence_count: Number of low-confidence results
+            duration_seconds: Total duration
+            status: Final status (completed/failed)
+        """
+        session = self.get_session()
+        try:
+            run = session.query(ClassificationRun).filter(
+                ClassificationRun.run_id == run_id
+            ).first()
+
+            if run:
+                run.completed_at = datetime.now()
+                run.status = status
+                run.total_classifications = total_classifications
+                run.success_count = success_count
+                run.error_count = error_count
+                run.avg_confidence = avg_confidence
+                run.low_confidence_count = low_confidence_count
+                run.duration_seconds = duration_seconds
+                session.commit()
+                logger.info(f"Completed run {run_id}: {success_count}/{total_classifications} successful")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error completing run: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_run(self, run_id: str) -> Optional[ClassificationRun]:
+        """Get a classification run by ID.
+
+        Args:
+            run_id: Run identifier
+
+        Returns:
+            ClassificationRun object or None
+        """
+        session = self.get_session()
+        try:
+            return session.query(ClassificationRun).filter(
+                ClassificationRun.run_id == run_id
+            ).first()
+        finally:
+            session.close()
+
+    def get_all_runs(self, limit: int = 50) -> List[ClassificationRun]:
+        """Get recent classification runs.
+
+        Args:
+            limit: Maximum number to return
+
+        Returns:
+            List of ClassificationRun objects
+        """
+        session = self.get_session()
+        try:
+            return session.query(ClassificationRun).order_by(
+                ClassificationRun.started_at.desc()
+            ).limit(limit).all()
+        finally:
+            session.close()
+
+    # ========================================================================
+    # Classification Result Methods
+    # ========================================================================
+
+    def save_classification_result(
+        self,
+        result_data: dict
+    ) -> ClassificationResult:
+        """Save a classification result.
+
+        Args:
+            result_data: Dict with result fields (from ClassificationResult.to_dict())
+
+        Returns:
+            Saved ClassificationResult object
+        """
+        session = self.get_session()
+        try:
+            result = ClassificationResult(
+                result_id=result_data["result_id"],
+                run_id=result_data["run_id"],
+                firm_id=result_data["firm_id"],
+                firm_name=result_data["firm_name"],
+                report_year=result_data["report_year"],
+                classifier_type=result_data["classifier_type"],
+                classification_json=json.dumps(result_data.get("classification", {})),
+                primary_label=result_data.get("primary_label"),
+                confidence_score=result_data.get("confidence_score"),
+                source_file=result_data.get("source_file"),
+                prompt_hash=result_data.get("prompt_hash"),
+                response_raw=result_data.get("response_raw"),
+                reasoning=result_data.get("reasoning"),
+                api_latency_ms=result_data.get("api_latency_ms"),
+                tokens_used=result_data.get("tokens_used"),
+                classified_at=datetime.now(),
+                success=result_data.get("success", True),
+                error_message=result_data.get("error_message"),
+            )
+            session.add(result)
+            session.commit()
+            return result
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving classification result: {e}")
+            raise
+        finally:
+            session.close()
+
+    def save_classification_results_batch(
+        self,
+        results: List[dict]
+    ) -> int:
+        """Save a batch of classification results.
+
+        Args:
+            results: List of result dicts
+
+        Returns:
+            Number of results saved
+        """
+        session = self.get_session()
+        count = 0
+        try:
+            for result_data in results:
+                result = ClassificationResult(
+                    result_id=result_data["result_id"],
+                    run_id=result_data["run_id"],
+                    firm_id=result_data["firm_id"],
+                    firm_name=result_data["firm_name"],
+                    report_year=result_data["report_year"],
+                    classifier_type=result_data["classifier_type"],
+                    classification_json=json.dumps(result_data.get("classification", {})),
+                    primary_label=result_data.get("primary_label"),
+                    confidence_score=result_data.get("confidence_score"),
+                    source_file=result_data.get("source_file"),
+                    prompt_hash=result_data.get("prompt_hash"),
+                    response_raw=result_data.get("response_raw"),
+                    reasoning=result_data.get("reasoning"),
+                    api_latency_ms=result_data.get("api_latency_ms"),
+                    tokens_used=result_data.get("tokens_used"),
+                    classified_at=datetime.now(),
+                    success=result_data.get("success", True),
+                    error_message=result_data.get("error_message"),
+                )
+                session.add(result)
+                count += 1
+
+            session.commit()
+            logger.info(f"Saved {count} classification results")
+            return count
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving results batch: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_results_for_run(
+        self,
+        run_id: str,
+        classifier_type: Optional[str] = None
+    ) -> List[ClassificationResult]:
+        """Get all results for a run.
+
+        Args:
+            run_id: Run identifier
+            classifier_type: Optional filter by classifier
+
+        Returns:
+            List of ClassificationResult objects
+        """
+        session = self.get_session()
+        try:
+            query = session.query(ClassificationResult).filter(
+                ClassificationResult.run_id == run_id
+            )
+            if classifier_type:
+                query = query.filter(ClassificationResult.classifier_type == classifier_type)
+            return query.all()
+        finally:
+            session.close()
+
+    # ========================================================================
+    # Evidence Snippet Methods
+    # ========================================================================
+
+    def save_evidence_snippet(
+        self,
+        snippet_data: dict
+    ) -> EvidenceSnippet:
+        """Save an evidence snippet.
+
+        Args:
+            snippet_data: Dict with snippet fields
+
+        Returns:
+            Saved EvidenceSnippet object
+        """
+        session = self.get_session()
+        try:
+            # Generate hash for deduplication
+            import hashlib
+            excerpt_hash = hashlib.sha256(
+                snippet_data.get("text_excerpt", "").encode()
+            ).hexdigest()[:16]
+
+            snippet = EvidenceSnippet(
+                snippet_id=snippet_data["snippet_id"],
+                result_id=snippet_data["result_id"],
+                text_excerpt=snippet_data["text_excerpt"],
+                excerpt_hash=excerpt_hash,
+                source_file=snippet_data.get("source_file"),
+                section_name=snippet_data.get("section_name"),
+                approximate_location=snippet_data.get("approximate_location"),
+                category=snippet_data.get("category"),
+                needs_review=snippet_data.get("needs_review", False),
+                review_priority=snippet_data.get("review_priority", 3),
+            )
+            session.add(snippet)
+            session.commit()
+            return snippet
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving evidence snippet: {e}")
+            raise
+        finally:
+            session.close()
+
+    def save_evidence_snippets_batch(
+        self,
+        snippets: List[dict]
+    ) -> int:
+        """Save a batch of evidence snippets.
+
+        Args:
+            snippets: List of snippet dicts
+
+        Returns:
+            Number of snippets saved
+        """
+        import hashlib
+
+        session = self.get_session()
+        count = 0
+        try:
+            for snippet_data in snippets:
+                excerpt_hash = hashlib.sha256(
+                    snippet_data.get("text_excerpt", "").encode()
+                ).hexdigest()[:16]
+
+                snippet = EvidenceSnippet(
+                    snippet_id=snippet_data["snippet_id"],
+                    result_id=snippet_data["result_id"],
+                    text_excerpt=snippet_data["text_excerpt"],
+                    excerpt_hash=excerpt_hash,
+                    source_file=snippet_data.get("source_file"),
+                    section_name=snippet_data.get("section_name"),
+                    approximate_location=snippet_data.get("approximate_location"),
+                    category=snippet_data.get("category"),
+                    needs_review=snippet_data.get("needs_review", False),
+                    review_priority=snippet_data.get("review_priority", 3),
+                )
+                session.add(snippet)
+                count += 1
+
+            session.commit()
+            logger.info(f"Saved {count} evidence snippets")
+            return count
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving snippets batch: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_snippets_for_review(
+        self,
+        run_id: Optional[str] = None,
+        priority: Optional[int] = None,
+        reviewed: Optional[bool] = None
+    ) -> List[EvidenceSnippet]:
+        """Get evidence snippets for review.
+
+        Args:
+            run_id: Optional filter by run
+            priority: Optional filter by review priority (1, 2, or 3)
+            reviewed: Optional filter by review status
+
+        Returns:
+            List of EvidenceSnippet objects
+        """
+        session = self.get_session()
+        try:
+            query = session.query(EvidenceSnippet)
+
+            if run_id:
+                query = query.join(ClassificationResult).filter(
+                    ClassificationResult.run_id == run_id
+                )
+
+            if priority:
+                query = query.filter(EvidenceSnippet.review_priority == priority)
+
+            if reviewed is not None:
+                if reviewed:
+                    query = query.filter(EvidenceSnippet.reviewer_decision.isnot(None))
+                else:
+                    query = query.filter(EvidenceSnippet.reviewer_decision.is_(None))
+
+            return query.order_by(
+                EvidenceSnippet.review_priority,
+                EvidenceSnippet.snippet_id
+            ).all()
+        finally:
+            session.close()
+
+    def update_snippet_review(
+        self,
+        snippet_id: str,
+        decision: str,
+        notes: Optional[str] = None,
+        reviewer: Optional[str] = None
+    ) -> None:
+        """Update the review status of a snippet.
+
+        Args:
+            snippet_id: Snippet identifier
+            decision: Review decision (validated, rejected, unclear)
+            notes: Optional reviewer notes
+            reviewer: Optional reviewer name
+        """
+        session = self.get_session()
+        try:
+            snippet = session.query(EvidenceSnippet).filter(
+                EvidenceSnippet.snippet_id == snippet_id
+            ).first()
+
+            if snippet:
+                snippet.reviewer_decision = decision
+                snippet.reviewer_notes = notes
+                snippet.reviewed_by = reviewer
+                snippet.reviewed_at = datetime.now()
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error updating snippet review: {e}")
+            raise
         finally:
             session.close()
 

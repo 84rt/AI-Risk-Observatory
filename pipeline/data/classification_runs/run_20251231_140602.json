@@ -1,0 +1,24 @@
+{
+  "run_id": "run_20251231_140602",
+  "started_at": "2025-12-31T14:06:02.057116Z",
+  "completed_at": "2025-12-31T14:07:07.364667Z",
+  "config": {
+    "run_id": "run_20251231_140602",
+    "started_at": "2025-12-31T14:06:02.057116Z",
+    "years": [
+      2024
+    ],
+    "classifiers": [
+      "harms"
+    ],
+    "model": "gemini-2.0-flash",
+    "rate_limit_delay": 1.5,
+    "companies": 20
+  },
+  "results_summary": {
+    "total_classifications": 20,
+    "success_rate": 1.0,
+    "avg_confidence": 0.8574999999999999,
+    "low_confidence_count": 0
+  }
+}

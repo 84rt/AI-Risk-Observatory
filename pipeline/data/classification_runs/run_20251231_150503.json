@@ -1,0 +1,25 @@
+{
+  "run_id": "run_20251231_150503",
+  "started_at": "2025-12-31T15:05:03.491886Z",
+  "completed_at": "2025-12-31T15:07:33.572297Z",
+  "config": {
+    "run_id": "run_20251231_150503",
+    "started_at": "2025-12-31T15:05:03.491886Z",
+    "years": [
+      2024
+    ],
+    "classifiers": [
+      "vendor",
+      "risk"
+    ],
+    "model": "gemini-2.0-flash",
+    "rate_limit_delay": 1.0,
+    "companies": 20
+  },
+  "results_summary": {
+    "total_classifications": 40,
+    "success_rate": 1.0,
+    "avg_confidence": 0.7969166666666667,
+    "low_confidence_count": 7
+  }
+}
