@@ -46,6 +46,7 @@ Run-level logs plus per-record model I/O, confidence, and reasoning are stored f
 
 ## 10. Adding New Data or Years
 Add new filings, years, or classifiers; rerun ingestion → preprocessing → classification → exports. Prior runs stay preserved for comparison.
+- Manual fallback: filings.xbrl.org is a reliable source to download individual iXBRL filings by LEI/company when automated downloads fail.
 
 ## 11. Running the Project
 - Pipeline: `cd pipeline && python run_pipeline.py --companies ../data/reference/companies_template.csv`
