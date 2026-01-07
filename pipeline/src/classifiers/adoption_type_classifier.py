@@ -158,8 +158,3 @@ Return ONLY valid JSON, no additional text.
             reasoning = f"{reasoning} Vendors mentioned: {', '.join(vendors)}"
 
         return primary_label, confidence, evidence, reasoning
-
-
-
-
-
