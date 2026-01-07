@@ -74,4 +74,3 @@
   - Classify disclosures as substantive vs boilerplate
 - Other classifiers (vendor concentration, severity/likelihood, internal vs customer-facing, depth/criticality):
   - Proposed to defer until after the core set is stable
-
