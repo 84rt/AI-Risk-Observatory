@@ -64,3 +64,7 @@ pipeline/
 - Source plan: `context/golden_set_implementation_plan.md`
 - Prefer small, testable steps; document notable changes.
 - If you add new dimensions or outputs, update models, prompts, and aggregation together.
+- Phase 1 helpers:
+  - `scripts/golden_set_phase1.py` (ingest + preprocess + verify into `data/raw` and `data/processed/{run_id}`)
+  - `notebooks/golden_set_annotation.ipynb` (human labels → `data/annotations/human/annotations.parquet|jsonl`)
+  - `scripts/load_golden_to_db.py` (load annotations into SQLite `mentions`/`risk_classifications`)
