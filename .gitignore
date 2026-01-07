@@ -10,6 +10,17 @@
 !.yarn/releases
 !.yarn/versions
 
+# data
+data/db/
+data/raw/
+data/processed/
+data/runs/
+data/annotations/
+*.parquet
+*.jsonl
+*.pdf
+*.xhtml
+
 # testing
 /coverage
 
