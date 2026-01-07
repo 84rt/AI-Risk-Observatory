@@ -11,6 +11,7 @@
 !.yarn/versions
 
 # data
+data/
 data/db/
 data/raw/
 data/processed/
