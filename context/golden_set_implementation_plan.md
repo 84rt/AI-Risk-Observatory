@@ -1,76 +1,107 @@
-# Golden Set Implementation Plan (Minimal)
+# Golden Set Implementation Plan (AISI-Updated)
 
-## Phase 1: Scope & Ground Truth
-~~1. Get the initial sample (one for each CNI sector (list in appendix), two recent years only).~~
-~~2. Preprocess filings to clean, human-readable text.~~
-~~3. Manually annotate all samples to create the golden set.~~
-	~~1. create tools to make this easier for human annotator~~
-	2. save the golden set data as classified by the human (in the mata data the same way we save classifier version)
-## Phase 2: Core Classifiers
-6. Implement base classifiers:
-   - AI harms
-   - AI adoption
-   - AI risk disclosure
-7. Benchmark against the golden set.
-8. Run reliability checks:
-   - 3 model families
-   - 10-run consistency
-   - low-confidence (<80%) and disagreement analysis
-9. Iterate or halt based on predefined quality thresholds.
+## Goals
+- Build a minimal, reliable pipeline for the initial sample.
+- Prioritize preprocessing quality and AI-mention chunking.
+- Ensure outputs are saved consistently in the `/data` structure.
+- Design the database schema to support later classification work.
 
-## Phase 3: Expansion
-10. Extend classifiers:
-    - vendor extraction (adoption)
-    - substantiveness / boilerplate scoring (risk)
-11. Re-benchmark expanded dimensions.
-12. Add second-order analyses:
-    - cowboy risk (severity × mitigation)
-    - workforce impact test
+## Starting Sample (Updated)
+We have a new starting set of companies (about 13). We may add a helper to pull filings by identifier (LEI / Companies House), but manual ingestion is acceptable for the initial sample.
 
-## Phase 4: Scaling
-13. Expand temporal scope (>5 years).
-	1. Add PDF ingestion pipeline with explicit quality checks.
-	2. Run comprehensive test on the error rate of PDF processing 
+If manual:
+1. Download iXBRL filings for each company and year.
+2. Place raw files in `/data/raw/` using a consistent naming scheme.
+3. Create a small metadata file (company, year, identifier, source).
 
-### Appendix: list of companies to process
+### New Company List
+| ID | Company | Sector | Index | Type |
+| -- | ------- | ------ | ----- | ---- |
+| 1 | Croda International plc | Chemicals | FTSE 100 | Best proxy |
+| 2 | Rolls-Royce Holdings plc | Civil Nuclear/Space | FTSE 100 | Best proxy |
+| 3 | BT Group plc | Communications | FTSE 100 | Direct |
+| 4 | BAE Systems plc | Defence | FTSE 100 | Direct |
+| 5 | Serco Group plc | Government Services | FTSE 250 | Best proxy |
+| 6 | Shell plc | Energy (Extraction) | FTSE 100 | Direct |
+| 7 | Lloyds Banking Group plc | Finance (Banking) | FTSE 100 | Direct |
+| 8 | Tesco plc | Food (Retail) | FTSE 100 | Direct |
+| 9 | AstraZeneca plc | Health (Pharma) | FTSE 100 | Direct |
+| 10 | National Grid plc | Energy (Transmission) | FTSE 100 | Direct |
+| 11 | Severn Trent plc | Water | FTSE 100 | Direct |
+| 12 | Aviva plc | Insurance | FTSE 100 | Direct |
+| 13 | Schroders plc | Asset Management | FTSE 100 | Direct |
+| 14 | FirstGroup plc | Transport | FTSE 250 | Direct |
+| 15 | Clarkson plc | Shipping | FTSE 250 | Direct |
 
-|     | Company                         | CNI Sector         | Index    | Fit to sector |
-| --- | ------------------------------- | ------------------ | -------- | ------------- |
-| 1   | Johnson Matthey plc             | Chemicals          | FTSE 100 | Best proxy    |
-| 2   | Rolls-Royce Holdings plc        | Civil Nuclear      | FTSE 100 | Best proxy    |
-| 3   | BT Group plc                    | Communications     | FTSE 100 | Direct        |
-| 4   | BAE Systems plc                 | Defence            | FTSE 100 | Direct        |
-| 5   | Babcock International Group plc | Emergency Services | FTSE 250 | Best proxy    |
-| 6   | Shell plc                       | Energy             | FTSE 100 | Direct        |
-| 7   | HSBC Holdings plc               | Finance            | FTSE 100 | Direct        |
-| 8   | Tesco plc                       | Food               | FTSE 100 | Direct        |
-| 9   | Capita plc                      | Government         | FTSE 250 | Best proxy    |
-| 10  | AstraZeneca plc                 | Health             | FTSE 100 | Direct        |
-| 11  | Rolls-Royce Holdings plc        | Space              | FTSE 100 | Best proxy    |
-| 12  | National Grid plc               | Transport          | FTSE 100 | Direct        |
-| 13  | Severn Trent plc                | Water              | FTSE 100 | Direct        |
+## Data Layout
+- `/data/raw/` for original iXBRL files and download metadata.
+- `/data/processed/` for cleaned, readable markdown outputs.
+- `/data/processed/chunks/` for AI-mention chunks (initial processing output).
+- `/data/results/` reserved for classifier outputs later.
 
+## Phase 1: Preprocessing (Primary Focus)
+Goal: Convert raw iXBRL filings into readable markdown.
 
-***Important note: Rolls-Royce applies twice to both Civil Nuclear and Space sectors as best proxy, it appears in the database only once for annotation but it should be used for both sectors***
+### Requirements
+- Preserve headings and section boundaries as much as possible.
+- Normalize whitespace and remove boilerplate where it hurts readability.
+- Capture basic structure metadata (section titles, page numbers if available).
 
+### Outputs
+- One markdown file per report in `/data/processed/`.
+- A lightweight JSON sidecar with:
+  - source file path
+  - company identifier
+  - year
+  - extraction method/version
+  - section and page mapping (if available)
 
-### Apendix 2: the proposed taxonomy
-- Adoption (initial focus):
-  - Classify Type of AI: non-LLM, LLM, agentic AI
-  - Depth/Criticality are deferred
-- Risk (Appendix 2 default taxonomy):
-  - Operational & Technical Risk (model failures, bias, reliability)
-  - Cybersecurity Risk
-  - Workforce Impacts
-  - Regulatory & Compliance Risk
-  - Information Integrity (misinformation/deepfakes)
-  - Reputational & Ethical Risk
-  - Third-Party & Supply Chain Risk (vendor dependence)
-  - Environmental Impact
-  - National Security Risk
-- Harms:
-  - Look for harms mentions but expect rarity; keep simple
-- Substantiveness:
-  - Classify disclosures as substantive vs boilerplate
-- Other classifiers (vendor concentration, severity/likelihood, internal vs customer-facing, depth/criticality):
-  - Proposed to defer until after the core set is stable
+## Phase 2: Processing (Chunking AI Mentions)
+Goal: Convert full markdown into a set of AI-mention chunks with enough context for later classifiers.
+
+### Chunking Rules
+- Detect AI mentions (AI, artificial intelligence, ML, machine learning, LLM, large language model, etc.).
+- Create a chunk from:
+  - the paragraph containing the mention
+  - plus one paragraph before and after (configurable)
+- Save multiple mentions in the same sentence as a single chunk.
+- Store matched terms as a list (do not split into separate chunks yet).
+
+### Metadata to Save
+- Document identifier and file path
+- Section title and page number(s) if available
+- Chunk text
+- Matched terms (list)
+- Character offsets in the markdown (start/end)
+- Context window size (paragraphs before/after)
+
+### Output
+- One chunk record per AI-mention chunk in `/data/processed/chunks/`.
+- Each chunk is also stored in the database for later classification.
+
+## Phase 3: Classification (Deferred)
+Classification comes after we trust preprocessing and chunking. Later stages will:
+- Group AI types (non-LLM, LLM, agentic)
+- Apply risk taxonomy and substantiveness scoring
+- Add harms tagging if present
+
+## Database Schema Considerations
+We need a schema that cleanly separates:
+
+1. Documents (raw filings)
+   - company identifier, year, source
+   - raw file path, checksum, download metadata
+2. Processed Documents (markdown)
+   - processed file path, extraction version
+   - section/page map
+3. Chunks (AI-mention contexts)
+   - document_id (FK)
+   - section title, page range
+   - chunk text
+   - matched terms (array or JSON)
+   - offsets and context window metadata
+4. Future Classifications (later)
+   - chunk_id (FK)
+   - classifier type, version, outputs, confidence
+
+This structure keeps preprocessing outputs stable and allows later classifiers to evolve without re-ingesting raw data.
