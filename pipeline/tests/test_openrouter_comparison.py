@@ -197,8 +197,11 @@ Classify the types of AI adoption mentioned in this report.
 ## OUTPUT FORMAT
 Return a JSON object:
 {{
-    "adoption_types": ["non_llm", "llm", "agentic"],
-    "confidence": 0.0-1.0,
+    "adoption_confidences": {{
+        "non_llm": 0.0,
+        "llm": 0.0,
+        "agentic": 0.0
+    }},
     "evidence": {{"non_llm": ["quote..."], "llm": ["quote..."]}},
     "reasoning": "Brief explanation"
 }}
@@ -338,9 +341,20 @@ def compare_models(
                         primary_label = "true" if result.get("harms_mentioned") else "false"
                         confidence = result.get("confidence", 0.5)
                     elif clf_name == "adoption":
-                        types = result.get("adoption_types", [])
-                        primary_label = ",".join(sorted(types)) if types else "none"
-                        confidence = result.get("confidence", 0.5)
+                        confidences = result.get("adoption_confidences", {})
+                        if isinstance(confidences, dict):
+                            active = [
+                                key for key, score in confidences.items()
+                                if isinstance(score, (int, float)) and score > 0
+                            ]
+                            primary_label = ",".join(sorted(active)) if active else "none"
+                            confidence = max(
+                                [s for s in confidences.values() if isinstance(s, (int, float))],
+                                default=0.0,
+                            )
+                        else:
+                            primary_label = "none"
+                            confidence = 0.0
                     else:
                         primary_label = "unknown"
                         confidence = 0.5
@@ -458,7 +472,6 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
 
 
 

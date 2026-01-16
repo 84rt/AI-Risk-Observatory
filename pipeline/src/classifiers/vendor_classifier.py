@@ -6,6 +6,7 @@ Extracts AI vendor/provider mentions from company reports.
 from typing import Any, Dict, List, Tuple
 
 from .base_classifier import BaseClassifier
+from ..utils.prompt_loader import get_prompt_template
 
 
 class VendorClassifier(BaseClassifier):
@@ -24,8 +25,7 @@ class VendorClassifier(BaseClassifier):
     - Other vendors
 
     Output:
-    - vendors: List of vendors with product details
-    - confidence: 0.0-1.0
+    - vendor_confidences: Per-vendor confidence scores
     - evidence: Quotes for each vendor mention
     """
 
@@ -42,82 +42,13 @@ class VendorClassifier(BaseClassifier):
         if len(text) > max_chars:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
-        prompt = f"""You are an expert analyst extracting AI VENDOR and PRODUCT mentions from company annual reports.
-
-## CONTEXT
-Company: {firm_name}
-Sector: {sector}
-Report Year: {report_year}
-
-## TASK
-Identify all AI vendors, products, and platforms mentioned in this report.
-
-## VENDOR CATEGORIES
-
-### Major AI Providers
-- **OpenAI**: GPT, GPT-4, ChatGPT, DALL-E, Whisper
-- **Microsoft**: Azure OpenAI, Copilot, Azure Machine Learning, GitHub Copilot
-- **Google**: Gemini, Vertex AI, Google Cloud AI, TensorFlow, BERT
-- **Amazon**: AWS Bedrock, SageMaker, Amazon AI services
-- **Anthropic**: Claude
-- **Meta**: LLaMA, PyTorch (framework)
-- **IBM**: Watson
-- **Salesforce**: Einstein AI
-
-### Cloud AI Platforms
-- Microsoft Azure
-- Google Cloud Platform
-- Amazon Web Services
-- Oracle Cloud
-
-### Specialized AI Tools
-- DataRobot, H2O.ai, C3.ai
-- UiPath, Automation Anywhere (RPA)
-- Palantir
-
-### Internal/Custom
-- In-house AI systems
-- Proprietary models
-- Custom-built solutions
-
-## REPORT EXCERPT
-\"\"\"
-{text}
-\"\"\"
-
-## INSTRUCTIONS
-1. Read the report carefully for vendor/product mentions
-2. Note explicit mentions (e.g., "we use Azure OpenAI")
-3. Note implicit mentions (e.g., "our LLM partner" might indicate OpenAI)
-4. Capture evidence quotes for each vendor
-5. Note whether the company uses internal/custom solutions
-
-## OUTPUT FORMAT
-Return a JSON object:
-{{
-    "vendors_found": true/false,
-    "confidence": 0.0-1.0,
-    "vendors": [
-        {{
-            "vendor": "OpenAI",
-            "products": ["GPT-4", "ChatGPT"],
-            "usage_type": "direct" | "via_azure" | "mentioned_only",
-            "evidence": "Exact quote mentioning the vendor"
-        }}
-    ],
-    "internal_ai": {{
-        "mentioned": true/false,
-        "evidence": "Quote about internal AI development"
-    }},
-    "reasoning": "Summary of AI vendor landscape for this company"
-}}
-
-If NO vendors are explicitly mentioned, set vendors_found to false.
-Include ALL vendors mentioned, even if just referenced in passing.
-
-Return ONLY valid JSON, no additional text.
-"""
-        return prompt
+        template = get_prompt_template("vendor")
+        return template.format(
+            firm_name=firm_name,
+            sector=sector,
+            report_year=report_year,
+            text=text,
+        )
 
     def parse_result(
         self, response: Dict[str, Any], metadata: Dict[str, Any]
@@ -127,44 +58,39 @@ Return ONLY valid JSON, no additional text.
         Returns:
             Tuple of (primary_label, confidence, evidence_list, reasoning)
         """
-        vendors_found = response.get("vendors_found", False)
-        confidence = response.get("confidence", 0.5)
-        vendors = response.get("vendors", [])
-        internal_ai = response.get("internal_ai", {})
+        vendor_confidences = response.get("vendor_confidences", {})
+        other_vendor = response.get("other_vendor", "")
         reasoning = response.get("reasoning", "")
 
-        # Build primary label from vendor list
-        if vendors_found and vendors:
-            vendor_names = [v.get("vendor", "unknown") for v in vendors if isinstance(v, dict)]
-            primary_label = ",".join(sorted(set(vendor_names)))
-        elif internal_ai.get("mentioned"):
-            primary_label = "internal_only"
-        else:
-            primary_label = "none"
+        if not isinstance(vendor_confidences, dict):
+            vendor_confidences = {}
+
+        active_vendors = [
+            key for key, score in vendor_confidences.items()
+            if isinstance(score, (int, float)) and score > 0
+        ]
+        if other_vendor:
+            active_vendors.append(f"other:{other_vendor}")
+        primary_label = ",".join(sorted(active_vendors)) if active_vendors else "none"
+
+        confidence_scores = [
+            score for score in vendor_confidences.values()
+            if isinstance(score, (int, float))
+        ]
+        confidence = max(confidence_scores) if confidence_scores else 0.0
 
         # Extract evidence from vendors
         evidence = []
-        if isinstance(vendors, list):
-            for v in vendors:
-                if isinstance(v, dict):
-                    vendor_name = v.get("vendor", "Unknown")
-                    products = v.get("products", [])
-                    vendor_evidence = v.get("evidence", "")
-                    usage = v.get("usage_type", "")
-
-                    if products:
-                        products_str = ", ".join(products)
-                        evidence.append(f"[{vendor_name}: {products_str}] {vendor_evidence}")
-                    else:
-                        evidence.append(f"[{vendor_name}] {vendor_evidence}")
-
-        # Add internal AI evidence
-        if internal_ai.get("mentioned") and internal_ai.get("evidence"):
-            evidence.append(f"[Internal] {internal_ai['evidence']}")
+        evidence_dict = response.get("evidence", {})
+        if isinstance(evidence_dict, dict):
+            for vendor, quotes in evidence_dict.items():
+                if isinstance(quotes, list):
+                    for quote in quotes:
+                        evidence.append(f"[{vendor}] {quote}")
+                elif isinstance(quotes, str) and quotes:
+                    evidence.append(f"[{vendor}] {quotes}")
 
         return primary_label, confidence, evidence, reasoning
-
-
 
 
 

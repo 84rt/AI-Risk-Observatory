@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     max_tokens: int = 4096
     temperature: float = 0.0  # Deterministic for classification
 
+    # Mention Processing
+    downstream_confidence_threshold: float = Field(
+        default=0.0,
+        alias="DOWNSTREAM_CONFIDENCE_THRESHOLD",
+    )
+
     # Processing Parameters
     max_retries: int = 3
     retry_delay: int = 2  # seconds

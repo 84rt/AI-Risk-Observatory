@@ -18,6 +18,7 @@ VALID_CLASSIFIER_TYPES = {
     "substantiveness",
     "risk",
     "vendor",
+    "mention_type",
 }
 
 VALID_ADOPTION_TYPES = {"non_llm", "llm", "agentic"}
@@ -77,11 +78,17 @@ def validate_classification_response(
     elif classifier_type == "adoption":
         is_valid, msgs = _validate_adoption_response(response, strict)
         messages.extend(msgs)
+    elif classifier_type == "mention_type":
+        is_valid, msgs = _validate_mention_type_response(response, strict)
+        messages.extend(msgs)
     elif classifier_type == "substantiveness":
         is_valid, msgs = _validate_substantiveness_response(response, strict)
         messages.extend(msgs)
     elif classifier_type == "risk":
         is_valid, msgs = _validate_risk_response(response, strict)
+        messages.extend(msgs)
+    elif classifier_type == "vendor":
+        is_valid, msgs = _validate_vendor_response(response, strict)
         messages.extend(msgs)
     else:
         # Generic validation
@@ -129,30 +136,27 @@ def _validate_adoption_response(
     messages = []
 
     # Required fields
-    if "adoption_types" not in response:
-        msg = "Missing required field: adoption_types"
+    if "adoption_confidences" not in response:
+        msg = "Missing required field: adoption_confidences"
         if strict:
-            raise ValidationError(msg, "adoption_types")
+            raise ValidationError(msg, "adoption_confidences")
         messages.append(msg)
     else:
-        types = response["adoption_types"]
-        if not isinstance(types, list):
-            msg = f"adoption_types must be a list, got {type(types)}"
+        confidences = response["adoption_confidences"]
+        if not isinstance(confidences, dict):
+            msg = f"adoption_confidences must be a dict, got {type(confidences)}"
             if strict:
-                raise ValidationError(msg, "adoption_types")
+                raise ValidationError(msg, "adoption_confidences")
             messages.append(msg)
         else:
-            for t in types:
-                if t not in VALID_ADOPTION_TYPES:
-                    msg = f"Invalid adoption type: {t}. Valid: {VALID_ADOPTION_TYPES}"
+            for key, score in confidences.items():
+                if key not in VALID_ADOPTION_TYPES:
+                    msg = f"Invalid adoption type key: {key}. Valid: {VALID_ADOPTION_TYPES}"
                     if strict:
-                        raise ValidationError(msg, "adoption_types")
+                        raise ValidationError(msg, "adoption_confidences")
                     messages.append(msg)
-
-    # Validate confidence if present
-    if "confidence" in response:
-        conf_valid, conf_msgs = _validate_confidence(response["confidence"], strict)
-        messages.extend(conf_msgs)
+                conf_valid, conf_msgs = _validate_confidence(score, strict)
+                messages.extend(conf_msgs)
 
     return len(messages) == 0, messages
 
@@ -211,6 +215,93 @@ def _validate_risk_response(
                     if strict:
                         raise ValidationError(msg, "risk_types")
                     messages.append(msg)
+
+    if "confidence_scores" in response:
+        conf_scores = response["confidence_scores"]
+        if not isinstance(conf_scores, dict):
+            msg = f"confidence_scores must be a dict, got {type(conf_scores)}"
+            if strict:
+                raise ValidationError(msg, "confidence_scores")
+            messages.append(msg)
+        else:
+            for key, value in conf_scores.items():
+                if key not in VALID_RISK_CATEGORIES:
+                    msg = f"Invalid risk category in confidence_scores: {key}"
+                    if strict:
+                        raise ValidationError(msg, "confidence_scores")
+                    messages.append(msg)
+                conf_valid, conf_msgs = _validate_confidence(value, strict)
+                messages.extend(conf_msgs)
+
+    if "substantiveness_score" in response:
+        conf_valid, conf_msgs = _validate_confidence(
+            response["substantiveness_score"], strict
+        )
+        messages.extend(conf_msgs)
+
+    return len(messages) == 0, messages
+
+
+def _validate_vendor_response(
+    response: Dict[str, Any], strict: bool
+) -> Tuple[bool, List[str]]:
+    """Validate a vendor classifier response."""
+    messages = []
+
+    if "vendor_confidences" not in response:
+        msg = "Missing required field: vendor_confidences"
+        if strict:
+            raise ValidationError(msg, "vendor_confidences")
+        messages.append(msg)
+    else:
+        vendor_confidences = response["vendor_confidences"]
+        if not isinstance(vendor_confidences, dict):
+            msg = f"vendor_confidences must be a dict, got {type(vendor_confidences)}"
+            if strict:
+                raise ValidationError(msg, "vendor_confidences")
+            messages.append(msg)
+        else:
+            for _, score in vendor_confidences.items():
+                conf_valid, conf_msgs = _validate_confidence(score, strict)
+                messages.extend(conf_msgs)
+
+    return len(messages) == 0, messages
+
+
+def _validate_mention_type_response(
+    response: Dict[str, Any], strict: bool
+) -> Tuple[bool, List[str]]:
+    """Validate a mention type classifier response."""
+    messages = []
+
+    if "mention_types" not in response:
+        msg = "Missing required field: mention_types"
+        if strict:
+            raise ValidationError(msg, "mention_types")
+        messages.append(msg)
+    else:
+        if not isinstance(response["mention_types"], list):
+            msg = f"mention_types must be a list, got {type(response['mention_types'])}"
+            if strict:
+                raise ValidationError(msg, "mention_types")
+            messages.append(msg)
+
+    if "confidence_scores" not in response:
+        msg = "Missing required field: confidence_scores"
+        if strict:
+            raise ValidationError(msg, "confidence_scores")
+        messages.append(msg)
+    else:
+        confidences = response["confidence_scores"]
+        if not isinstance(confidences, dict):
+            msg = f"confidence_scores must be a dict, got {type(confidences)}"
+            if strict:
+                raise ValidationError(msg, "confidence_scores")
+            messages.append(msg)
+        else:
+            for _, score in confidences.items():
+                conf_valid, conf_msgs = _validate_confidence(score, strict)
+                messages.extend(conf_msgs)
 
     return len(messages) == 0, messages
 
@@ -384,9 +475,4 @@ def parse_json_response(response_text: str) -> Tuple[Optional[Dict], Optional[st
         return json.loads(json_text), None
     except json.JSONDecodeError as e:
         return None, f"JSON parse error: {e}"
-
-
-
-
-
 

@@ -1,6 +1,5 @@
 """Aggregate mention-level data to firm-year metrics."""
 
-import json
 import logging
 from collections import Counter
 from datetime import datetime
@@ -84,13 +83,18 @@ class FirmAggregator:
         total_ai_mentions = len(mentions)
 
         # Count risk mentions
-        risk_mention_types = {
-            "risk_statement", "incident_event", "regulatory_environment"
-        }
-        risk_mentions = [
-            m for m in mentions
-            if m.mention_type in risk_mention_types
-        ]
+        risk_mentions = []
+        for mention in mentions:
+            mention_types = []
+            if getattr(mention, "mention_types", None):
+                try:
+                    mention_types = json.loads(mention.mention_types)
+                except json.JSONDecodeError:
+                    mention_types = []
+            if not mention_types and mention.mention_type:
+                mention_types = [mention.mention_type]
+            if "risk" in mention_types:
+                risk_mentions.append(mention)
         ai_risk_mentioned = len(risk_mentions) > 0
         total_ai_risk_mentions = len(risk_mentions)
 
@@ -99,10 +103,18 @@ class FirmAggregator:
         frontier_ai_mentioned = len(frontier_mentions) > 0
 
         # Tier 1 distribution
-        tier_1_counts = Counter(
-            m.tier_1_category for m in mentions
-            if m.tier_1_category is not None
-        )
+        tier_1_counts = Counter()
+        for mention in mentions:
+            if getattr(mention, "risk_types", None):
+                try:
+                    risk_types = json.loads(mention.risk_types)
+                except json.JSONDecodeError:
+                    risk_types = []
+                for rt in risk_types:
+                    tier_1_counts[rt] += 1
+            elif mention.tier_1_category:
+                tier_1_counts[mention.tier_1_category] += 1
+
         dominant_tier_1 = tier_1_counts.most_common(1)[0][0] if tier_1_counts else None
         tier_1_distribution = json.dumps(dict(tier_1_counts))
 

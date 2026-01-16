@@ -21,6 +21,17 @@ settings = get_settings()
 Base = declarative_base()
 
 
+def _max_confidence(confidences: dict) -> float:
+    """Return the max confidence score in a dict."""
+    if not isinstance(confidences, dict):
+        return 0.0
+    values = [
+        score for score in confidences.values()
+        if isinstance(score, (int, float))
+    ]
+    return max(values) if values else 0.0
+
+
 class RiskClassification(Base):
     """Table for AI risk type classifications at the report level.
 
@@ -118,18 +129,46 @@ class Mention(Base):
     # Source Text & Traceability
     text_excerpt = Column(Text, nullable=False)
     page_number = Column(Integer)
+    keyword = Column(String)
+    keyword_text = Column(String)
+    match_start = Column(Integer)
+    match_end = Column(Integer)
 
     # Mention Type & AI Context
-    mention_type = Column(String, nullable=False)
-    ai_specificity = Column(String, nullable=False)
+    mention_type = Column(String)
+    ai_specificity = Column(String)
     frontier_tech_flag = Column(Boolean, default=False)
+    mention_types = Column(Text, default="[]")  # JSON list
+    mention_type_confidences = Column(Text, default="{}")  # JSON dict
+    mention_reasoning = Column(Text)
 
     # Risk Classification
     tier_1_category = Column(String)
     tier_2_driver = Column(String)
+    risk_types = Column(Text, default="[]")  # JSON list
+    risk_confidences = Column(Text, default="{}")  # JSON dict
+    risk_evidence = Column(Text, default="{}")  # JSON dict
+    risk_key_snippets = Column(Text, default="{}")  # JSON dict
+    risk_substantiveness = Column(Float)
+    risk_reasoning = Column(Text)
+
+    # Adoption Classification
+    adoption_confidences = Column(Text, default="{}")  # JSON dict
+    adoption_evidence = Column(Text, default="{}")  # JSON dict
+    adoption_reasoning = Column(Text)
+
+    # Vendor Classification
+    vendor_confidences = Column(Text, default="{}")  # JSON dict
+    vendor_other = Column(String)
+    vendor_evidence = Column(Text, default="{}")  # JSON dict
+    vendor_reasoning = Column(Text)
+
+    # Harm / General
+    harm_confidence = Column(Float)
+    general_ambiguous_confidence = Column(Float)
 
     # Severity & Substance
-    specificity_level = Column(String, nullable=False)
+    specificity_level = Column(String)
     materiality_signal = Column(String)
 
     # Governance & Mitigation
@@ -192,6 +231,30 @@ class Firm(Base):
 # ============================================================================
 # NEW TABLES FOR CLASSIFIER TEST SUITE
 # ============================================================================
+
+
+class DocumentMentionStats(Base):
+    """Table for per-document keyword mention statistics."""
+
+    __tablename__ = "document_mention_stats"
+
+    firm_id = Column(String, nullable=False, primary_key=True)
+    report_year = Column(Integer, nullable=False, primary_key=True)
+
+    firm_name = Column(String, nullable=False)
+    company_number = Column(String, nullable=False)
+    sector = Column(String, default="Unknown")
+
+    total_mentions = Column(Integer, default=0)
+    total_chunks = Column(Integer, default=0)
+    keyword_counts = Column(Text, default="{}")  # JSON dict
+    has_ai_mentions = Column(Boolean, default=False)
+
+    source_file = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f"<DocumentMentionStats {self.firm_name} ({self.firm_id}) - {self.report_year}>"
 
 
 class ClassificationRun(Base):
@@ -441,6 +504,66 @@ class Database:
         session.add(mention)
         return mention
 
+    def save_mention_record(
+        self,
+        session: Session,
+        candidate,
+        mention_type_result: dict,
+        model_version: str,
+        adoption_result: Optional[dict] = None,
+        risk_result: Optional[dict] = None,
+        vendor_result: Optional[dict] = None,
+    ) -> Mention:
+        """Save a mention record with multi-stage classification output."""
+        mention_types = mention_type_result.get("mention_types", [])
+        mention_confidences = mention_type_result.get("confidence_scores", {})
+        mention_reasoning = mention_type_result.get("reasoning", "")
+
+        adoption_result = adoption_result or {}
+        risk_result = risk_result or {}
+        vendor_result = vendor_result or {}
+
+        mention = Mention(
+            mention_id=candidate.span_id,
+            firm_id=candidate.firm_id,
+            firm_name=candidate.firm_name,
+            sector=candidate.sector,
+            report_year=candidate.report_year,
+            report_section=candidate.report_section,
+            text_excerpt=candidate.text,
+            page_number=candidate.page_number,
+            keyword=candidate.keyword,
+            keyword_text=candidate.keyword_text,
+            match_start=candidate.match_start,
+            match_end=candidate.match_end,
+            mention_types=json.dumps(mention_types),
+            mention_type_confidences=json.dumps(mention_confidences),
+            mention_reasoning=mention_reasoning,
+            risk_types=json.dumps(risk_result.get("risk_types", [])),
+            risk_confidences=json.dumps(risk_result.get("confidence_scores", {})),
+            risk_evidence=json.dumps(risk_result.get("evidence", {})),
+            risk_key_snippets=json.dumps(risk_result.get("key_snippets", {})),
+            risk_substantiveness=risk_result.get("substantiveness_score"),
+            risk_reasoning=risk_result.get("reasoning", ""),
+            adoption_confidences=json.dumps(adoption_result.get("adoption_confidences", {})),
+            adoption_evidence=json.dumps(adoption_result.get("evidence", {})),
+            adoption_reasoning=adoption_result.get("reasoning", ""),
+            vendor_confidences=json.dumps(vendor_result.get("vendor_confidences", {})),
+            vendor_other=vendor_result.get("other_vendor", ""),
+            vendor_evidence=json.dumps(vendor_result.get("evidence", {})),
+            vendor_reasoning=vendor_result.get("reasoning", ""),
+            harm_confidence=mention_confidences.get("harm"),
+            general_ambiguous_confidence=mention_confidences.get("general_ambiguous"),
+            confidence_score=_max_confidence(mention_confidences),
+            reasoning_summary=mention_reasoning,
+            model_version=model_version,
+            extraction_date=datetime.now().date(),
+            review_status="unreviewed",
+        )
+
+        session.add(mention)
+        return mention
+
     def save_mentions_batch(
         self,
         results: list,
@@ -481,6 +604,65 @@ class Database:
             session.close()
 
         return count
+
+    def save_document_stats(
+        self,
+        firm_id: str,
+        firm_name: str,
+        company_number: str,
+        report_year: int,
+        sector: str,
+        total_mentions: int,
+        total_chunks: int,
+        keyword_counts: dict,
+        source_file: Optional[str] = None,
+    ) -> DocumentMentionStats:
+        """Save per-document mention statistics.
+
+        Args:
+            firm_id: Firm identifier
+            firm_name: Company name
+            company_number: Companies House number
+            report_year: Report year
+            sector: Company sector
+            total_mentions: Total keyword mentions
+            total_chunks: Total chunks created
+            keyword_counts: Dict of keyword counts
+            source_file: Optional path to source report
+        """
+        session = self.get_session()
+        try:
+            existing = session.query(DocumentMentionStats).filter(
+                DocumentMentionStats.firm_id == firm_id,
+                DocumentMentionStats.report_year == report_year,
+            ).first()
+
+            if existing:
+                session.delete(existing)
+                session.flush()
+
+            record = DocumentMentionStats(
+                firm_id=firm_id,
+                firm_name=firm_name,
+                company_number=company_number,
+                report_year=report_year,
+                sector=sector,
+                total_mentions=total_mentions,
+                total_chunks=total_chunks,
+                keyword_counts=json.dumps(keyword_counts),
+                has_ai_mentions=total_mentions > 0,
+                source_file=source_file,
+                created_at=datetime.now(),
+            )
+            session.add(record)
+            session.commit()
+            return record
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving document stats: {e}")
+            raise
+        finally:
+            session.close()
 
     def get_mentions_for_firm(
         self,

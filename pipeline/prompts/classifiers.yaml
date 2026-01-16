@@ -1,0 +1,394 @@
+mention_type: |
+  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related mentions.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+  Report Section: {report_section}
+
+  ## TASK
+  The excerpt below contains a keyword match related to AI. Assign any applicable mention types.
+  Mention types are NOT mutually exclusive. Assign zero or more.
+  For each mention type, provide a confidence score between 0.0 and 1.0.
+
+  Mention types:
+  - adoption: Deployment or use of AI by the company or its clients
+  - risk: AI discussed as a risk to the business or stakeholders
+  - harm: AI-related harms or negative consequences (misinformation, hacking, safety issues)
+  - vendor: Mentions of AI vendors or platforms (Microsoft, Google, OpenAI, etc.)
+  - general_ambiguous: AI mentioned as a future plan, opportunity, or vague statement
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "mention_types": ["adoption", "risk"],
+    "confidence_scores": {{
+      "adoption": 0.83,
+      "risk": 0.12,
+      "harm": 0.0,
+      "vendor": 0.0,
+      "general_ambiguous": 0.05
+    }},
+    "reasoning": "Short explanation of tag choices"
+  }}
+
+  If no mention types apply, return:
+  {{
+    "mention_types": [],
+    "confidence_scores": {{
+      "adoption": 0.0,
+      "risk": 0.0,
+      "harm": 0.0,
+      "vendor": 0.0,
+      "general_ambiguous": 0.0
+    }},
+    "reasoning": "No AI-relevant mention detected"
+  }}
+
+  Return ONLY valid JSON.
+
+adoption_type: |
+  You are an expert analyst classifying the types of AI technologies mentioned in company annual reports.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+
+  ## TASK
+  Classify the AI adoption type(s) present in the excerpt.
+  The categories are NOT mutually exclusive. Provide a confidence score for each.
+  If the excerpt is vague, still assign low confidences rather than inventing a new category.
+
+  Categories:
+  - non_llm: Traditional AI/ML (computer vision, predictive analytics, fraud detection)
+  - llm: Large Language Models (GPT, ChatGPT, text generation, NLP)
+  - agentic: Autonomous/agentic AI systems (self-directed agents, planners)
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "adoption_confidences": {{
+      "non_llm": 0.10,
+      "llm": 0.85,
+      "agentic": 0.05
+    }},
+    "evidence": {{
+      "non_llm": ["quote if applicable"],
+      "llm": ["quote if applicable"],
+      "agentic": ["quote if applicable"]
+    }},
+    "reasoning": "Short explanation"
+  }}
+
+  Return ONLY valid JSON.
+
+risk: |
+  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related RISK DISCLOSURES.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+
+  ## TASK
+  Analyze the excerpt and identify ALL applicable AI risk categories.
+  Assign a confidence score to each category selected (0.0-1.0).
+  Also provide a substantiveness score between 0.0 (boilerplate) and 1.0 (highly substantive).
+
+  ## RISK CATEGORIES (Use these exact keys)
+  {risk_categories}
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "risk_types": ["operational_technical", "cybersecurity"],
+    "confidence_scores": {{
+      "operational_technical": 0.82,
+      "cybersecurity": 0.10
+    }},
+    "evidence": {{
+      "operational_technical": ["quote1", "quote2"],
+      "cybersecurity": ["quote1"]
+    }},
+    "key_snippets": {{
+      "operational_technical": "most important quote",
+      "cybersecurity": "most important quote"
+    }},
+    "substantiveness_score": 0.35,
+    "reasoning": "Brief summary of AI risk profile"
+  }}
+
+  If no AI risks are mentioned:
+  {{
+    "risk_types": [],
+    "confidence_scores": {{}},
+    "evidence": {{}},
+    "key_snippets": {{}},
+    "substantiveness_score": 0.0,
+    "reasoning": "No AI-related risks identified"
+  }}
+
+  **CRITICAL**: Only use these risk category keys: {risk_keys}
+
+  Return ONLY valid JSON.
+
+harms: |
+  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related HARMS.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+
+  ## TASK
+  Determine if the excerpt mentions AI-related harms or negative consequences.
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "harms_mentioned": true,
+    "confidence": 0.0-1.0,
+    "evidence": ["quote1", "quote2"],
+    "reasoning": "Brief explanation"
+  }}
+
+  If no harms are mentioned, set harms_mentioned to false with empty evidence.
+  Return ONLY valid JSON.
+
+vendor: |
+  You are an expert analyst extracting AI VENDOR mentions from company annual reports.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+
+  ## TASK
+  Identify AI vendors or providers explicitly mentioned in the excerpt.
+  Use only the vendor tags listed below. Tags are NOT mutually exclusive.
+  Provide a confidence score for each vendor tag.
+
+  Vendor tags:
+  - google
+  - microsoft
+  - openai
+  - internal
+  - undisclosed
+  - other (provide name in other_vendor)
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "vendor_confidences": {{
+      "google": 0.0,
+      "microsoft": 0.7,
+      "openai": 0.0,
+      "internal": 0.1,
+      "undisclosed": 0.0,
+      "other": 0.0
+    }},
+    "other_vendor": "",
+    "evidence": {{
+      "microsoft": ["quote mentioning Microsoft"]
+    }},
+    "reasoning": "Brief explanation"
+  }}
+
+  Return ONLY valid JSON.
+
+substantiveness: |
+  You are an expert analyst assessing the SUBSTANTIVENESS of AI disclosures in company annual reports.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+
+  ## TASK
+  Classify the AI-related content as boilerplate, contextual, or substantive.
+
+  ## EXCERPT
+  """
+  {text}
+  """
+
+  ## OUTPUT FORMAT
+  Return JSON only:
+  {{
+    "substantiveness": "boilerplate" | "contextual" | "substantive",
+    "confidence": 0.0-1.0,
+    "evidence": {{
+      "boilerplate_examples": ["quote"],
+      "contextual_examples": ["quote"],
+      "substantive_examples": ["quote"]
+    }},
+    "substantive_ratio": 0.0-1.0,
+    "indicators": ["indicator1", "indicator2"],
+    "reasoning": "Brief explanation"
+  }}
+
+  Return ONLY valid JSON.
+
+legacy_mention_classifier: |
+  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related risks and adoption.
+
+  ## INPUT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+  Report Section: {report_section}
+
+  Excerpt:
+  """
+  {text}
+  """
+
+  ## TASK
+  Analyze this excerpt and provide a structured classification.
+
+  ### Step 1: Is this AI-relevant?
+  Is this excerpt about AI, machine learning, algorithms, or automated decision-making in a context of risk, adoption, governance, or incidents?
+
+  Answer: [Yes/No]
+  If No, stop here.
+
+  ### Step 2: Mention Type
+  What is this excerpt primarily about?
+  - risk_statement: Explicit discussion of AI-related risk or downside
+  - adoption_use_case: Description of AI deployment or planned use
+  - governance_mitigation: Controls, policies, or risk management for AI
+  - incident_event: Concrete failure, breach, or regulatory action
+  - regulatory_environment: Discussion of AI regulation or compliance
+  - strategy_opportunity: Strategic AI discussion with implicit risk context
+
+  Answer: [mention_type]
+
+  ### Step 3: AI Specificity
+  - ai_specific: Explicit AI/ML terms (AI, machine learning, LLM, neural network, etc.)
+  - automation_general: Generic automation without clear AI reference
+
+  Answer: [ai_specificity]
+
+  ### Step 4: Frontier Technology
+  Does this mention frontier AI technologies (large language models, generative AI, foundation models, GPT, Claude, Gemini, etc.)?
+
+  Answer: [true/false]
+
+  ### Step 5: Risk Classification (if risk-related)
+  Tier 1 Category (select one, or null if not risk-related):
+  - operational_reliability: System failures, model errors, outages
+  - security_malicious_use: Cyber attacks, deepfakes, fraud
+  - legal_regulatory_compliance: AI Act, GDPR, IP, liability
+  - workforce_human_capital: Job displacement, skills, talent
+  - societal_ethical_reputational: Bias, misinformation, trust
+  - frontier_systemic: Loss of control, systemic risk
+
+  Answer: [tier_1_category or null]
+
+  Tier 2 Driver (select one if applicable, or null):
+  - third_party_dependence (parent: operational_reliability)
+  - hallucination_accuracy (parent: operational_reliability)
+  - model_drift_degradation (parent: operational_reliability)
+  - cyber_enablement (parent: security_malicious_use)
+  - adversarial_attacks (parent: security_malicious_use)
+  - deepfakes_synthetic_media (parent: security_malicious_use)
+  - data_privacy_leakage (parent: legal_regulatory_compliance)
+  - ip_copyright (parent: legal_regulatory_compliance)
+  - regulatory_uncertainty (parent: legal_regulatory_compliance)
+  - job_displacement (parent: workforce_human_capital)
+  - skill_obsolescence (parent: workforce_human_capital)
+  - shadow_ai (parent: workforce_human_capital)
+  - bias_discrimination (parent: societal_ethical_reputational)
+  - misinformation_content (parent: societal_ethical_reputational)
+  - trust_reputation (parent: societal_ethical_reputational)
+  - concentration_risk (parent: frontier_systemic)
+  - loss_of_control (parent: frontier_systemic)
+
+  Answer: [tier_2_driver or null]
+
+  ### Step 6: Specificity Level
+  - boilerplate: Generic language applicable to any firm
+  - contextual: Sector/company-relevant but not specific
+  - concrete: Named systems, quantified, or detailed
+
+  Answer: [specificity_level]
+
+  ### Step 7: Materiality Signal
+  Based on language cues ("material", "significant", "principal", etc.):
+  - low / medium / high / unspecified
+
+  Answer: [materiality_signal]
+
+  ### Step 8: Governance & Mitigation
+  Is mitigation or governance discussed?
+  Answer: [true/false]
+
+  If yes, what level of governance maturity is indicated?
+  - none / basic / intermediate / advanced
+
+  Answer: [governance_maturity]
+
+  ### Step 9: Confidence
+  How confident are you in this classification? (0.0 - 1.0)
+  - 0.9-1.0: Very clear, unambiguous
+  - 0.7-0.89: Clear, minor ambiguity
+  - 0.5-0.69: Moderate uncertainty
+  - Below 0.5: High uncertainty, needs human review
+
+  Answer: [confidence_score]
+
+  ### Step 10: Reasoning
+  Provide a 1-2 sentence explanation of your classification.
+
+  Answer: [reasoning_summary]
+
+  ## OUTPUT FORMAT
+  Return your response as JSON ONLY (no other text).
+
+  If the excerpt IS AI-relevant, return:
+  {{
+    "is_relevant": true,
+    "mention_type": "risk_statement",
+    "ai_specificity": "ai_specific",
+    "frontier_tech_flag": false,
+    "tier_1_category": "operational_reliability",
+    "tier_2_driver": "hallucination_accuracy",
+    "specificity_level": "contextual",
+    "materiality_signal": "medium",
+    "mitigation_mentioned": true,
+    "governance_maturity": "basic",
+    "confidence_score": 0.85,
+    "reasoning_summary": "Clear mention of AI model accuracy risks in customer-facing context, with generic policy reference but no specific controls."
+  }}
+
+  If the excerpt is NOT AI-relevant, return:
+  {{
+    "is_relevant": false
+  }}

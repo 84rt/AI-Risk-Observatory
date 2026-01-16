@@ -10,6 +10,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .config import get_settings
 from .chunker import CandidateSpan
+from .utils.prompt_loader import get_prompt_template
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -127,143 +128,14 @@ class LLMClassifier:
         Returns:
             Prompt string
         """
-        prompt = f"""You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related risks and adoption.
-
-## INPUT
-Company: {candidate.firm_name}
-Sector: {candidate.sector}
-Report Year: {candidate.report_year}
-Report Section: {candidate.report_section or "Unknown"}
-
-Excerpt:
-\"\"\"
-{candidate.text}
-\"\"\"
-
-## TASK
-Analyze this excerpt and provide a structured classification.
-
-### Step 1: Is this AI-relevant?
-Is this excerpt about AI, machine learning, algorithms, or automated decision-making in a context of risk, adoption, governance, or incidents?
-
-Answer: [Yes/No]
-If No, stop here.
-
-### Step 2: Mention Type
-What is this excerpt primarily about?
-- risk_statement: Explicit discussion of AI-related risk or downside
-- adoption_use_case: Description of AI deployment or planned use
-- governance_mitigation: Controls, policies, or risk management for AI
-- incident_event: Concrete failure, breach, or regulatory action
-- regulatory_environment: Discussion of AI regulation or compliance
-- strategy_opportunity: Strategic AI discussion with implicit risk context
-
-Answer: [mention_type]
-
-### Step 3: AI Specificity
-- ai_specific: Explicit AI/ML terms (AI, machine learning, LLM, neural network, etc.)
-- automation_general: Generic automation without clear AI reference
-
-Answer: [ai_specificity]
-
-### Step 4: Frontier Technology
-Does this mention frontier AI technologies (large language models, generative AI, foundation models, GPT, Claude, Gemini, etc.)?
-
-Answer: [true/false]
-
-### Step 5: Risk Classification (if risk-related)
-Tier 1 Category (select one, or null if not risk-related):
-- operational_reliability: System failures, model errors, outages
-- security_malicious_use: Cyber attacks, deepfakes, fraud
-- legal_regulatory_compliance: AI Act, GDPR, IP, liability
-- workforce_human_capital: Job displacement, skills, talent
-- societal_ethical_reputational: Bias, misinformation, trust
-- frontier_systemic: Loss of control, systemic risk
-
-Answer: [tier_1_category or null]
-
-Tier 2 Driver (select one if applicable, or null):
-- third_party_dependence (parent: operational_reliability)
-- hallucination_accuracy (parent: operational_reliability)
-- model_drift_degradation (parent: operational_reliability)
-- cyber_enablement (parent: security_malicious_use)
-- adversarial_attacks (parent: security_malicious_use)
-- deepfakes_synthetic_media (parent: security_malicious_use)
-- data_privacy_leakage (parent: legal_regulatory_compliance)
-- ip_copyright (parent: legal_regulatory_compliance)
-- regulatory_uncertainty (parent: legal_regulatory_compliance)
-- job_displacement (parent: workforce_human_capital)
-- skill_obsolescence (parent: workforce_human_capital)
-- shadow_ai (parent: workforce_human_capital)
-- bias_discrimination (parent: societal_ethical_reputational)
-- misinformation_content (parent: societal_ethical_reputational)
-- trust_reputation (parent: societal_ethical_reputational)
-- concentration_risk (parent: frontier_systemic)
-- loss_of_control (parent: frontier_systemic)
-
-Answer: [tier_2_driver or null]
-
-### Step 6: Specificity Level
-- boilerplate: Generic language applicable to any firm
-- contextual: Sector/company-relevant but not specific
-- concrete: Named systems, quantified, or detailed
-
-Answer: [specificity_level]
-
-### Step 7: Materiality Signal
-Based on language cues ("material", "significant", "principal", etc.):
-- low / medium / high / unspecified
-
-Answer: [materiality_signal]
-
-### Step 8: Governance & Mitigation
-Is mitigation or governance discussed?
-Answer: [true/false]
-
-If yes, what level of governance maturity is indicated?
-- none / basic / intermediate / advanced
-
-Answer: [governance_maturity]
-
-### Step 9: Confidence
-How confident are you in this classification? (0.0 - 1.0)
-- 0.9-1.0: Very clear, unambiguous
-- 0.7-0.89: Clear, minor ambiguity
-- 0.5-0.69: Moderate uncertainty
-- Below 0.5: High uncertainty, needs human review
-
-Answer: [confidence_score]
-
-### Step 10: Reasoning
-Provide a 1-2 sentence explanation of your classification.
-
-Answer: [reasoning_summary]
-
-## OUTPUT FORMAT
-Return your response as JSON ONLY (no other text).
-
-If the excerpt IS AI-relevant, return:
-{{
-  "is_relevant": true,
-  "mention_type": "risk_statement",
-  "ai_specificity": "ai_specific",
-  "frontier_tech_flag": false,
-  "tier_1_category": "operational_reliability",
-  "tier_2_driver": "hallucination_accuracy",
-  "specificity_level": "contextual",
-  "materiality_signal": "medium",
-  "mitigation_mentioned": true,
-  "governance_maturity": "basic",
-  "confidence_score": 0.85,
-  "reasoning_summary": "Clear mention of AI model accuracy risks in customer-facing context, with generic policy reference but no specific controls."
-}}
-
-If the excerpt is NOT AI-relevant, return:
-{{
-  "is_relevant": false
-}}
-"""
-        return prompt
+        template = get_prompt_template("legacy_mention_classifier")
+        return template.format(
+            firm_name=candidate.firm_name,
+            sector=candidate.sector,
+            report_year=candidate.report_year,
+            report_section=candidate.report_section or "Unknown",
+            text=candidate.text,
+        )
 
     @staticmethod
     def _parse_response(response_text: str) -> dict:

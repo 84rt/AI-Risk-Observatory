@@ -54,6 +54,7 @@ def build_risk_classifications(df: pd.DataFrame) -> List[RiskClassification]:
         evidence_map: Dict[str, List[str]] = defaultdict(list)
         confidence_map: Dict[str, float] = {}
         key_snippets: Dict[str, str] = {}
+        ai_flag = None
 
         for _, row in group.iterrows():
             dim = row["dimension"]
@@ -64,6 +65,8 @@ def build_risk_classifications(df: pd.DataFrame) -> List[RiskClassification]:
             conf = row.get("confidence")
             if pd.notna(conf):
                 confidence_map[dim] = max(confidence_map.get(dim, 0.0), float(conf))
+            if "ai_mentioned" in row:
+                ai_flag = bool(row.get("ai_mentioned")) if pd.notna(row.get("ai_mentioned")) else ai_flag
 
         classification = RiskClassification(
             firm_id=str(firm_id),
@@ -71,7 +74,7 @@ def build_risk_classifications(df: pd.DataFrame) -> List[RiskClassification]:
             company_number=str(company_number),
             sector=sector or "Unknown",
             report_year=int(year),
-            ai_mentioned=not group.empty,
+            ai_mentioned=bool(ai_flag) if ai_flag is not None else not group.empty,
             risk_types=json.dumps(risk_labels),
             evidence=json.dumps(evidence_map),
             key_snippets=json.dumps(key_snippets),

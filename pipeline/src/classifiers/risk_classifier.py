@@ -7,6 +7,7 @@ Refactored from llm_classifier.py to use the base classifier pattern.
 from typing import Any, Dict, List, Tuple
 
 from .base_classifier import BaseClassifier
+from ..utils.prompt_loader import get_prompt_template
 
 
 # Risk categories taxonomy
@@ -91,67 +92,15 @@ class RiskClassifier(BaseClassifier):
         if len(text) > max_chars:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
-        prompt = f"""You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related RISK DISCLOSURES.
-
-## CONTEXT
-Company: {firm_name}
-Sector: {sector}
-Report Year: {report_year}
-
-## TASK
-Analyze this annual report and identify ALL AI-related risk types mentioned.
-
-## RISK CATEGORIES (Use these exact keys)
-{category_descriptions}
-
-## REPORT EXCERPT
-\"\"\"
-{text}
-\"\"\"
-
-## INSTRUCTIONS
-1. Read the report carefully for AI-related risk mentions
-2. Identify ALL applicable risk categories (a report may mention multiple)
-3. For each category found, extract evidence quotes (up to 3 per category)
-4. Select the single most important quote as the key_snippet
-5. Assign a confidence score (0.0-1.0) per category
-6. ONLY use the risk category keys listed above - DO NOT invent new categories
-
-## OUTPUT FORMAT
-Return a JSON object:
-{{
-    "ai_mentioned": true/false,
-    "risk_types": ["operational_technical", "cybersecurity", ...],
-    "evidence": {{
-        "operational_technical": ["quote1", "quote2"],
-        "cybersecurity": ["quote1", "quote2"]
-    }},
-    "key_snippets": {{
-        "operational_technical": "most important quote",
-        "cybersecurity": "most important quote"
-    }},
-    "confidence_scores": {{
-        "operational_technical": 0.90,
-        "cybersecurity": 0.85
-    }},
-    "reasoning": "Brief summary of AI risk profile"
-}}
-
-If NO AI risks are mentioned:
-{{
-    "ai_mentioned": false,
-    "risk_types": [],
-    "evidence": {{}},
-    "key_snippets": {{}},
-    "confidence_scores": {{}},
-    "reasoning": "No AI-related risks identified"
-}}
-
-**CRITICAL**: Only use these risk category keys: {list(RISK_CATEGORIES.keys())}
-
-Return ONLY valid JSON, no additional text.
-"""
-        return prompt
+        template = get_prompt_template("risk")
+        return template.format(
+            firm_name=firm_name,
+            sector=sector,
+            report_year=report_year,
+            text=text,
+            risk_categories=category_descriptions,
+            risk_keys=list(RISK_CATEGORIES.keys()),
+        )
 
     def parse_result(
         self, response: Dict[str, Any], metadata: Dict[str, Any]
@@ -161,7 +110,6 @@ Return ONLY valid JSON, no additional text.
         Returns:
             Tuple of (primary_label, confidence, evidence_list, reasoning)
         """
-        ai_mentioned = response.get("ai_mentioned", False)
         risk_types = response.get("risk_types", [])
         evidence_dict = response.get("evidence", {})
         key_snippets = response.get("key_snippets", {})
@@ -213,7 +161,6 @@ Return ONLY valid JSON, no additional text.
             reasoning = f"{reasoning} | Key snippets: {snippet_summary}"
 
         return primary_label, avg_confidence, evidence, reasoning
-
 
 
 

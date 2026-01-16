@@ -12,7 +12,12 @@ from .chunker import chunk_report
 from .companies_house import fetch_reports_batch
 from .config import get_settings
 from .database import Database
-from .llm_classifier import classify_candidates
+from .classifiers import (
+    AdoptionTypeClassifier,
+    MentionTypeClassifier,
+    RiskClassifier,
+    VendorClassifier,
+)
 from .pdf_extractor import extract_text_from_pdf
 from .ixbrl_extractor import extract_text_from_ixbrl
 
@@ -87,30 +92,94 @@ class Pipeline:
         # Step 2: Extract text and chunk
         logger.info("\n[2/5] Extracting text and chunking documents...")
         all_candidates = []
+        stats_to_save = []
         for company in tqdm(self.companies, desc="Processing reports"):
-            candidates = self._process_company(company, report_paths)
+            candidates, stats, report_path = self._process_company(company, report_paths)
             if candidates:
                 all_candidates.extend(candidates)
+            if stats:
+                stats_to_save.append((company, stats, report_path))
 
         logger.info(f"Generated {len(all_candidates)} candidate spans")
 
+        # Save document mention stats
+        for company, stats, report_path in stats_to_save:
+            self.db.save_document_stats(
+                firm_id=company["ticker"],
+                firm_name=company["company_name"],
+                company_number=company["company_number"],
+                report_year=self.year or 2024,
+                sector=company["sector"],
+                total_mentions=stats.total_mentions,
+                total_chunks=stats.total_chunks,
+                keyword_counts=stats.keyword_counts,
+                source_file=str(report_path) if report_path else None,
+            )
+
         # Step 3: LLM Classification
         logger.info("\n[3/5] Classifying spans with LLM...")
-        results = classify_candidates(all_candidates)
+        run_id = f"pipeline_{self.year or 2024}"
+        mention_classifier = MentionTypeClassifier(run_id=run_id)
+        adoption_classifier = AdoptionTypeClassifier(run_id=run_id)
+        risk_classifier = RiskClassifier(run_id=run_id)
+        vendor_classifier = VendorClassifier(run_id=run_id)
 
-        # Count relevant
-        relevant_count = sum(1 for _, cls in results if cls.is_relevant)
-        logger.info(
-            f"Found {relevant_count} relevant mentions "
-            f"out of {len(results)} candidates"
-        )
+        threshold = settings.downstream_confidence_threshold
 
         # Step 4: Save to database
         logger.info("\n[4/5] Saving mentions to database...")
-        self.db.save_mentions_batch(
-            results=results,
-            model_version=settings.gemini_model
-        )
+        session = self.db.get_session()
+        saved_count = 0
+        try:
+            for candidate in tqdm(all_candidates, desc="Classifying mentions"):
+                metadata = {
+                    "firm_id": candidate.firm_id,
+                    "firm_name": candidate.firm_name,
+                    "report_year": candidate.report_year,
+                    "sector": candidate.sector,
+                    "report_section": candidate.report_section,
+                }
+
+                mention_result = mention_classifier.classify(candidate.text, metadata)
+                mention_payload = mention_result.classification or {}
+
+                confidences = mention_payload.get("confidence_scores", {})
+
+                adoption_payload = {}
+                if confidences.get("adoption", 0.0) > threshold:
+                    adoption_result = adoption_classifier.classify(candidate.text, metadata)
+                    adoption_payload = adoption_result.classification or {}
+
+                risk_payload = {}
+                if confidences.get("risk", 0.0) > threshold:
+                    risk_result = risk_classifier.classify(candidate.text, metadata)
+                    risk_payload = risk_result.classification or {}
+
+                vendor_payload = {}
+                if confidences.get("vendor", 0.0) > threshold:
+                    vendor_result = vendor_classifier.classify(candidate.text, metadata)
+                    vendor_payload = vendor_result.classification or {}
+
+                self.db.save_mention_record(
+                    session=session,
+                    candidate=candidate,
+                    mention_type_result=mention_payload,
+                    model_version=settings.gemini_model,
+                    adoption_result=adoption_payload,
+                    risk_result=risk_payload,
+                    vendor_result=vendor_payload,
+                )
+                saved_count += 1
+
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error saving mentions: {e}")
+            raise
+        finally:
+            session.close()
+
+        logger.info(f"Saved {saved_count} mentions to database")
 
         # Step 5: Aggregate to firm-level
         logger.info("\n[5/5] Aggregating to firm-level metrics...")
@@ -201,7 +270,7 @@ class Pipeline:
         self,
         company: dict,
         report_paths: dict
-    ) -> Optional[List]:
+    ) -> tuple[Optional[List], Optional[object], Optional[Path]]:
         """Process a single company's report.
 
         Args:
@@ -218,7 +287,7 @@ class Pipeline:
             logger.warning(
                 f"No report available for {company['company_name']}"
             )
-            return None
+            return None, None, None
 
         report_path = Path(report_info['path'])
         report_format = report_info.get('format', 'pdf')
@@ -228,7 +297,7 @@ class Pipeline:
                 f"Report file does not exist: {report_path} "
                 f"for {company['company_name']}"
             )
-            return None
+            return None, None, None
 
         try:
             # Extract text based on format
@@ -240,12 +309,13 @@ class Pipeline:
                 extracted = extract_text_from_pdf(report_path)
 
             # Chunk
-            candidates = chunk_report(
+            candidates, stats = chunk_report(
                 extracted_report=extracted,
                 firm_id=company['ticker'],
                 firm_name=company['company_name'],
                 sector=company['sector'],
-                report_year=self.year or 2024
+                report_year=self.year or 2024,
+                return_stats=True,
             )
 
             logger.info(
@@ -253,14 +323,14 @@ class Pipeline:
                 f"{len(candidates)} candidates"
             )
 
-            return candidates
+            return candidates, stats, report_path
 
         except Exception as e:
             logger.error(
                 f"Error processing {company['company_name']}: {e}",
                 exc_info=True
             )
-            return None
+            return None, None, report_path
 
 
 def run_pipeline(

@@ -14,8 +14,8 @@ import json
 import logging
 from pathlib import Path
 
-# Add pipeline src to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add pipeline root to path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.xbrl_filings_client import XBRLFilingsClient
 from src.companies_house import CompaniesHouseClient
@@ -82,13 +82,13 @@ def download_report(company: dict):
     # Fallback to Companies House
     logger.info("📄 Trying Companies House (PDF)...")
     try:
-    result = ch_client.fetch_annual_report(
-        company_number=company_number,
-        company_name=company_name,
-        output_dir=output_dir / "pdfs"
-    )
+        result = ch_client.fetch_annual_report(
+            company_number=company_number,
+            company_name=company_name,
+            output_dir=output_dir / "pdfs"
+        )
         if result and result.get("path"):
-            logger.info(f"✅ Downloaded PDF report")
+            logger.info("✅ Downloaded PDF report")
             return Path(result["path"]), "pdf"
     except Exception as e:
         logger.error(f"❌ PDF download failed: {e}")

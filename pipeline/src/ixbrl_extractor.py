@@ -189,12 +189,18 @@ class iXBRLParser(HTMLParser):
         # "principal risk s" -> "principal risks"
 
         # Be conservative: only fix obvious single-character fragments
-        # Pattern 1: Single letter suffix at end: "risk s" -> "risks"
-        text = re.sub(r'([a-z]{3,})\s+([a-z])(?=\s|[,.;:\)]|$)', r'\1\2', text)
+        # Pattern 1: Single letter at start of word: "c ust" -> "cust"
+        # Exclude "a" and "i" to avoid merging articles/pronouns ("a company" -> "acompany").
+        # Avoid common stopwords to prevent "s and" -> "sand".
+        text = re.sub(
+            r'(?<=\s)([b-hj-z])\s+(?!(?:and|the|for|with|to|of|in|on|at)\b)([a-z]{3,})',
+            r'\1\2',
+            text
+        )
 
-        # Pattern 2: Single letter at start of word: "c ust" -> "cust"
-        # But only when followed by 3+ more letters to avoid false positives
-        text = re.sub(r'(?<=\s)([a-z])\s+([a-z]{3,})', r'\1\2', text)
+        # Pattern 2: Single letter suffix at end: "risk s" -> "risks"
+        # Exclude "a" and "i" to avoid merging articles/pronouns ("uses a" -> "usesa").
+        text = re.sub(r'([a-z]{3,})\s+([b-hj-z])(?=\s|[,.;:\)]|$)', r'\1\2', text)
 
         return text
 
@@ -243,6 +249,7 @@ class iXBRLExtractor:
         parser = iXBRLParser()
         parser.feed(html_content)
         spans = parser.get_spans()
+        spans = self._rebuild_paragraphs(spans)
 
         # Build full text
         full_text = "\n\n".join(
@@ -266,6 +273,91 @@ class iXBRLExtractor:
             full_text=full_text
         )
 
+    def _rebuild_paragraphs(self, spans: List[TextSpan]) -> List[TextSpan]:
+        """Merge line-like spans into paragraphs using simple heuristics."""
+        rebuilt = []
+        buffer_parts = []
+        buffer_section = None
+
+        for span in spans:
+            text = span.text.strip()
+            if not text:
+                continue
+
+            if span.is_heading:
+                self._flush_paragraph(buffer_parts, buffer_section, rebuilt)
+                buffer_parts = []
+                buffer_section = None
+                rebuilt.append(span)
+                continue
+
+            if not buffer_parts:
+                buffer_parts = [text]
+                buffer_section = span.section
+                continue
+
+            prev_text = buffer_parts[-1]
+            if self._should_join(prev_text, text):
+                buffer_parts[-1] = self._merge_fragments(prev_text, text)
+            else:
+                self._flush_paragraph(buffer_parts, buffer_section, rebuilt)
+                buffer_parts = [text]
+                buffer_section = span.section
+
+        self._flush_paragraph(buffer_parts, buffer_section, rebuilt)
+        return rebuilt
+
+    def _flush_paragraph(
+        self,
+        parts: List[str],
+        section: Optional[str],
+        rebuilt: List[TextSpan]
+    ) -> None:
+        if not parts:
+            return
+        merged = " ".join(part.strip() for part in parts if part.strip())
+        if merged:
+            rebuilt.append(TextSpan(text=merged, section=section, is_heading=False))
+
+    def _should_join(self, prev_text: str, next_text: str) -> bool:
+        if self._looks_like_heading(next_text):
+            return False
+        if re.match(r'^[•\\-–]\\s', next_text):
+            return False
+
+        prev_stripped = prev_text.rstrip()
+        if prev_stripped.endswith(('.', '!', '?')):
+            return False
+
+        if prev_stripped.endswith((':', ';')):
+            return True
+
+        if re.match(r'^[a-z0-9(]', next_text):
+            return True
+
+        if len(prev_stripped) < 60:
+            return False
+
+        return True
+
+    def _merge_fragments(self, prev_text: str, next_text: str) -> str:
+        if prev_text.endswith('-') and next_text and next_text[0].islower():
+            return prev_text[:-1] + next_text
+        return f"{prev_text} {next_text}"
+
+    def _looks_like_heading(self, text: str) -> bool:
+        if len(text) > 60:
+            return False
+        words = text.split()
+        if not words:
+            return False
+        uppercase_ratio = sum(1 for c in text if c.isupper()) / max(1, sum(1 for c in text if c.isalpha()))
+        if uppercase_ratio > 0.6 and len(words) <= 8:
+            return True
+        if len(words) <= 6 and all(w[:1].isupper() for w in words if w[:1].isalpha()):
+            return True
+        return False
+
 
 def extract_text_from_ixbrl(file_path: Path) -> ExtractedReport:
     """Convenience function to extract text from iXBRL/XHTML file.
@@ -278,4 +370,3 @@ def extract_text_from_ixbrl(file_path: Path) -> ExtractedReport:
     """
     extractor = iXBRLExtractor()
     return extractor.extract_report(file_path)
-

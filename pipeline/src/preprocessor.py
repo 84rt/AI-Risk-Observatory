@@ -12,8 +12,9 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Set, Optional
 
-logger = logging.getLogger(__name__)
+from .utils.keywords import AI_KEYWORD_PATTERNS
 
+logger = logging.getLogger(__name__)
 
 class PreprocessingStrategy(Enum):
     """Available preprocessing strategies."""
@@ -23,45 +24,7 @@ class PreprocessingStrategy(Enum):
 
 
 # AI/ML Keywords (comprehensive list covering various terms)
-AI_ML_KEYWORDS = [
-    # Core AI terms
-    r"\bartificial\s+intelligence\b",
-    r"\bai\b",  # Word boundary ensures we don't match "paid", "main", etc.
-    r"\bmachine\s+learning\b",
-    r"\bml\s+(?:model|algorithm|system)",  # ML with context
-    r"\bdeep\s+learning\b",
-
-    # Neural networks and models
-    r"\bneural\s+network",
-    r"\blarge\s+language\s+model",
-    r"\bllm\b",
-    r"\bgenerative\s+(?:ai|model)",
-    r"\bgen\s+ai\b",
-    r"\btransformer",
-
-    # NLP and computer vision
-    r"\bnatural\s+language\s+processing\b",
-    r"\bnlp\b",
-    r"\bcomputer\s+vision\b",
-    r"\bimage\s+recognition\b",
-
-    # Automation and analytics
-    r"\bintelligent\s+automation\b",
-    r"\brobotic\s+process\s+automation\b",
-    r"\brpa\b",
-    r"\bpredictive\s+analytics?\b",
-    r"\bdata\s+analytics?\b",
-
-    # AI applications
-    r"\bchatbot",
-    r"\bvirtual\s+assistant",
-    r"\brecommendation\s+(?:engine|system|algorithm)",
-    r"\bautonomous",
-
-    # AI-powered/driven
-    r"\bai[‐\-](?:powered|driven|enabled|based)",
-    r"\balgorithm(?:ic)?\s+(?:trading|decision|bias)",
-]
+AI_ML_KEYWORDS = [kp.pattern for kp in AI_KEYWORD_PATTERNS]
 
 # Risk-related keywords
 RISK_KEYWORDS = [
