@@ -1,36 +1,16 @@
 #!/usr/bin/env python3
 """Look up LEI codes for golden dataset companies using GLEIF API."""
 
-import requests
+import argparse
 import json
 import time
+from pathlib import Path
 from typing import Optional
 
-from src.config import get_settings
+import requests
 
-# Golden dataset companies
-GOLDEN_DATASET = [
-    {"rank": 1, "name": "AstraZeneca plc", "number": "02723534", "ticker": "AZN"},
-    {"rank": 2, "name": "Shell plc", "number": "04366849", "ticker": "SHEL"},
-    {"rank": 3, "name": "HSBC Holdings plc", "number": "00617987", "ticker": "HSBA"},
-    {"rank": 4, "name": "Unilever PLC", "number": "00041424", "ticker": "ULVR"},
-    {"rank": 5, "name": "BP p.l.c.", "number": "00102498", "ticker": "BP"},
-    {"rank": 6, "name": "GSK plc", "number": "03888792", "ticker": "GSK"},
-    {"rank": 7, "name": "RELX PLC", "number": "00077536", "ticker": "REL"},
-    {"rank": 8, "name": "Diageo plc", "number": "00023307", "ticker": "DGE"},
-    {"rank": 9, "name": "Rio Tinto plc", "number": "00719885", "ticker": "RIO"},
-    {"rank": 10, "name": "British American Tobacco p.l.c.", "number": "03407696", "ticker": "BATS"},
-    {"rank": 11, "name": "London Stock Exchange Group plc", "number": "05369106", "ticker": "LSEG"},
-    {"rank": 12, "name": "National Grid plc", "number": "04031152", "ticker": "NG"},
-    {"rank": 13, "name": "Compass Group PLC", "number": "04083914", "ticker": "CPG"},
-    {"rank": 14, "name": "Barclays PLC", "number": "00048839", "ticker": "BARC"},
-    {"rank": 15, "name": "Lloyds Banking Group plc", "number": "SC095000", "ticker": "LLOY"},
-    {"rank": 16, "name": "BAE Systems plc", "number": "01470151", "ticker": "BA"},
-    {"rank": 17, "name": "Reckitt Benckiser Group plc", "number": "06270876", "ticker": "RKT"},
-    {"rank": 18, "name": "Rolls-Royce Holdings plc", "number": "07524813", "ticker": "RR"},
-    {"rank": 19, "name": "Anglo American plc", "number": "03564138", "ticker": "AAL"},
-    {"rank": 20, "name": "Tesco PLC", "number": "00445790", "ticker": "TSCO"},
-]
+from src.company_utils import load_companies_csv
+from src.config import get_settings
 
 
 def search_lei_by_name(company_name: str) -> Optional[str]:
@@ -130,8 +110,8 @@ def search_lei_in_xbrl_filings(company_name: str) -> Optional[str]:
         return None, None
 
 
-def lookup_all_lei_codes():
-    """Look up LEI codes for all companies in golden dataset."""
+def lookup_all_lei_codes(companies: list[dict]):
+    """Look up LEI codes for companies in a CSV."""
 
     print("=" * 100)
     print("Looking up LEI codes for Golden Dataset Companies")
@@ -141,11 +121,23 @@ def lookup_all_lei_codes():
 
     results = []
 
-    for company in GOLDEN_DATASET:
-        name = company["name"]
-        ticker = company["ticker"]
+    for idx, company in enumerate(companies, start=1):
+        name = company["company_name"]
+        ticker = company.get("ticker") or company.get("company_id")
 
-        print(f"{company['rank']:2d}. {name:<45} ({ticker})")
+        print(f"{idx:2d}. {name:<45} ({ticker})")
+
+        if company.get("lei"):
+            results.append(
+                {
+                    **company,
+                    "lei_legal_name": None,
+                    "lei_source": "existing",
+                }
+            )
+            print(f"    ✅ Existing LEI: {company['lei']}")
+            print()
+            continue
 
         # Try GLEIF first
         lei, legal_name = search_lei_by_name(name)
@@ -157,7 +149,7 @@ def lookup_all_lei_codes():
                 **company,
                 "lei": lei,
                 "lei_legal_name": legal_name,
-                "source": "GLEIF"
+                "lei_source": "GLEIF"
             })
         else:
             # Try filings.xbrl.org
@@ -171,7 +163,7 @@ def lookup_all_lei_codes():
                     **company,
                     "lei": lei,
                     "lei_legal_name": entity_name,
-                    "source": "filings.xbrl.org"
+                    "lei_source": "filings.xbrl.org"
                 })
             else:
                 print(f"    ❌ Not found")
@@ -179,7 +171,7 @@ def lookup_all_lei_codes():
                     **company,
                     "lei": None,
                     "lei_legal_name": None,
-                    "source": None
+                    "lei_source": None
                 })
 
         # Rate limiting - be nice to APIs
@@ -190,40 +182,60 @@ def lookup_all_lei_codes():
     print("=" * 100)
     print("SUMMARY")
     print("=" * 100)
-    found_count = sum(1 for r in results if r["lei"])
-    print(f"\nFound LEI codes for {found_count}/{len(GOLDEN_DATASET)} companies")
+    found_count = sum(1 for r in results if r.get("lei"))
+    print(f"\nFound LEI codes for {found_count}/{len(companies)} companies")
 
     settings = get_settings()
     reference_dir = settings.data_dir / "reference"
     reference_dir.mkdir(parents=True, exist_ok=True)
 
     # Save results
-    output_file = reference_dir / "companies_with_lei.json"
+    output_file = reference_dir / "golden_set_companies_with_lei.json"
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n✅ Results saved to: {output_file}")
 
     # Generate CSV
-    csv_file = reference_dir / "companies_with_lei.csv"
+    csv_file = reference_dir / "golden_set_companies_with_lei.csv"
     with open(csv_file, "w") as f:
-        f.write("rank,ticker,company_name,company_number,lei,lei_legal_name,sector\n")
+        f.write("company_id,ticker,company_name,company_number,lei,lei_legal_name,lei_source,sector,index,type\n")
         for r in results:
             lei = r.get("lei") or ""
             lei_name = (r.get("lei_legal_name") or "").replace(",", ";")
             sector = r.get("sector", "")
-            f.write(f"{r['rank']},{r['ticker']},{r['name']},{r['number']},{lei},\"{lei_name}\",{sector}\n")
+            index_name = r.get("index", "")
+            company_type = r.get("type", "")
+            f.write(
+                f"{r.get('company_id','')},{r.get('ticker','')},{r.get('company_name','')},"
+                f"{r.get('company_number','')},{lei},\"{lei_name}\",{r.get('lei_source','')},"
+                f"{sector},{index_name},{company_type}\n"
+            )
 
     print(f"✅ CSV saved to: {csv_file}")
 
     # Show companies that need manual lookup
-    not_found = [r for r in results if not r["lei"]]
+    not_found = [r for r in results if not r.get("lei")]
     if not_found:
         print(f"\n⚠️  {len(not_found)} companies need manual LEI lookup:")
         for r in not_found:
-            print(f"   - {r['name']} ({r['ticker']})")
-            print(f"     Manual lookup: https://search.gleif.org/#/search/{r['name'].replace(' ', '%20')}")
+            print(f"   - {r['company_name']} ({r.get('ticker') or r.get('company_id')})")
+            print(f"     Manual lookup: https://search.gleif.org/#/search/{r['company_name'].replace(' ', '%20')}")
+
+def parse_args() -> argparse.Namespace:
+    settings = get_settings()
+    default_csv = settings.data_dir / "reference" / "golden_set_companies.csv"
+    parser = argparse.ArgumentParser(description="Lookup LEI codes for golden set companies")
+    parser.add_argument(
+        "--companies",
+        type=Path,
+        default=default_csv,
+        help=f"Path to companies CSV (default: {default_csv})",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    lookup_all_lei_codes()
+    args = parse_args()
+    companies = load_companies_csv(args.companies)
+    lookup_all_lei_codes(companies)

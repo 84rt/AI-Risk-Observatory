@@ -7,7 +7,7 @@
 - Design the database schema to support later classification work.
 
 ## Starting Sample (Updated)
-We have a new starting set of companies (about 13). We may add a helper to pull filings by identifier (LEI / Companies House), but manual ingestion is acceptable for the initial sample.
+We have a new starting set of companies. We may add a helper to pull filings by identifier (LEI / Companies House), but manual ingestion is acceptable for the initial sample.
 
 If manual:
 1. Download iXBRL filings for each company and year.
@@ -56,6 +56,9 @@ Goal: Convert raw iXBRL filings into readable markdown.
   - extraction method/version
   - section and page mapping (if available)
 
+### Quality Assurance
+- Implement a comprehensive quality assurance test in `pipeline/tests/` to verify that processed markdown files meet the required formatting and contain no processing errors.
+
 ## Phase 2: Processing (Chunking AI Mentions)
 Goal: Convert full markdown into a set of AI-mention chunks with enough context for later classifiers.
 
@@ -79,10 +82,9 @@ Goal: Convert full markdown into a set of AI-mention chunks with enough context 
 - One chunk record per AI-mention chunk in `/data/processed/chunks/`.
 - Each chunk is also stored in the database for later classification.
 
-## Phase 3: Classification (Deferred)
-Classification comes after we trust preprocessing and chunking. Later stages will:
-- Group AI types (non-LLM, LLM, agentic)
-- Apply risk taxonomy and substantiveness scoring
+## Phase 3: Post-processing (Classification & Enrichment) (Deferred)
+Post-processing comes after we trust preprocessing and chunking. Later stages will:
+- LLM classification (AI type, risk taxonomy, substantiveness, confidence levels on classifications etc.)
 - Add harms tagging if present
 
 ## Database Schema Considerations

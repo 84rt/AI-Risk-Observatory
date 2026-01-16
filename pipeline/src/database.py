@@ -32,6 +32,55 @@ def _max_confidence(confidences: dict) -> float:
     return max(values) if values else 0.0
 
 
+class Company(Base):
+    """Table for canonical company records."""
+
+    __tablename__ = "companies"
+
+    company_id = Column(String, primary_key=True)
+    company_name = Column(String, nullable=False)
+    company_number = Column(String)
+    lei = Column(String)
+    ticker = Column(String)
+    sector = Column(String)
+    index_name = Column(String)
+    company_type = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+    documents = relationship("Document", back_populates="company")
+
+    def __repr__(self):
+        return f"<Company {self.company_name} ({self.company_id})>"
+
+
+class Document(Base):
+    """Table for raw filing documents."""
+
+    __tablename__ = "documents"
+
+    document_id = Column(String, primary_key=True)
+    company_id = Column(String, ForeignKey("companies.company_id"), nullable=False)
+    company_name = Column(String, nullable=False)
+    company_number = Column(String)
+    lei = Column(String)
+    ticker = Column(String)
+    sector = Column(String)
+    report_year = Column(Integer, nullable=False)
+    source_format = Column(String)
+    raw_path = Column(String)
+    checksum_sha256 = Column(String)
+    source = Column(String)
+    status = Column(String)
+    error = Column(Text)
+    run_id = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+    company = relationship("Company", back_populates="documents")
+
+    def __repr__(self):
+        return f"<Document {self.document_id} {self.report_year}>"
+
+
 class RiskClassification(Base):
     """Table for AI risk type classifications at the report level.
 
@@ -457,6 +506,82 @@ class Database:
             SQLAlchemy session
         """
         return self.SessionLocal()
+
+    def upsert_company(self, session: Session, data: dict) -> Company:
+        """Insert or update a company record."""
+        company_id = data["company_id"]
+        existing = session.query(Company).filter(
+            Company.company_id == company_id
+        ).first()
+
+        if existing:
+            existing.company_name = data.get("company_name", existing.company_name)
+            existing.company_number = data.get("company_number")
+            existing.lei = data.get("lei")
+            existing.ticker = data.get("ticker")
+            existing.sector = data.get("sector")
+            existing.index_name = data.get("index")
+            existing.company_type = data.get("type")
+            return existing
+
+        record = Company(
+            company_id=company_id,
+            company_name=data.get("company_name") or company_id,
+            company_number=data.get("company_number"),
+            lei=data.get("lei"),
+            ticker=data.get("ticker"),
+            sector=data.get("sector"),
+            index_name=data.get("index"),
+            company_type=data.get("type"),
+            created_at=datetime.now(),
+        )
+        session.add(record)
+        return record
+
+    def upsert_document(self, session: Session, data: dict) -> Document:
+        """Insert or update a document record."""
+        document_id = data["document_id"]
+        existing = session.query(Document).filter(
+            Document.document_id == document_id
+        ).first()
+
+        if existing:
+            existing.company_id = data.get("company_id", existing.company_id)
+            existing.company_name = data.get("company_name", existing.company_name)
+            existing.company_number = data.get("company_number")
+            existing.lei = data.get("lei")
+            existing.ticker = data.get("ticker")
+            existing.sector = data.get("sector")
+            existing.report_year = data.get("report_year", existing.report_year)
+            existing.source_format = data.get("source_format")
+            existing.raw_path = data.get("raw_path")
+            existing.checksum_sha256 = data.get("checksum_sha256")
+            existing.source = data.get("source")
+            existing.status = data.get("status")
+            existing.error = data.get("error")
+            existing.run_id = data.get("run_id")
+            return existing
+
+        record = Document(
+            document_id=document_id,
+            company_id=data["company_id"],
+            company_name=data.get("company_name") or data["company_id"],
+            company_number=data.get("company_number"),
+            lei=data.get("lei"),
+            ticker=data.get("ticker"),
+            sector=data.get("sector"),
+            report_year=data.get("report_year"),
+            source_format=data.get("source_format"),
+            raw_path=data.get("raw_path"),
+            checksum_sha256=data.get("checksum_sha256"),
+            source=data.get("source"),
+            status=data.get("status"),
+            error=data.get("error"),
+            run_id=data.get("run_id"),
+            created_at=datetime.now(),
+        )
+        session.add(record)
+        return record
 
     def save_mention(
         self,

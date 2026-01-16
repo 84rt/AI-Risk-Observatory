@@ -12,6 +12,8 @@
 
 # data
 data/
+!data/reference/
+!data/reference/**
 data/db/
 data/raw/
 data/processed/

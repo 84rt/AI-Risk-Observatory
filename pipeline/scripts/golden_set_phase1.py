@@ -1,7 +1,7 @@
 """Phase 1 golden set helper: download, preprocess, and register documents.
 
 This script:
-- loads the appendix CNI companies from `data/reference/cni_calibration_set.csv`
+- loads the golden set companies from `data/reference/golden_set_companies.csv` (or --companies)
 - downloads 2024/2023 filings into `data/raw/{ixbrl,pdfs}/{year}/`
 - writes ingestion metadata to `data/runs/{run_id}/ingestion.json`
 - preprocesses the downloaded filings into `data/processed/{run_id}/documents.parquet`
@@ -30,7 +30,10 @@ PIPELINE_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PIPELINE_ROOT))
 
 from src.companies_house import CompaniesHouseClient  # noqa: E402
+from src.company_utils import load_companies_csv  # noqa: E402
 from src.config import get_settings  # noqa: E402
+from src.database import Database  # noqa: E402
+from src.identifiers import make_company_id, make_document_id  # noqa: E402
 from src.ixbrl_extractor import iXBRLExtractor  # noqa: E402
 from src.pdf_extractor import PDFExtractor  # noqa: E402
 from src.preprocessor import Preprocessor, PreprocessingStrategy  # noqa: E402
@@ -38,7 +41,7 @@ from src.xbrl_filings_client import XBRLFilingsClient  # noqa: E402
 
 settings = get_settings()
 
-REFERENCE_CSV = settings.data_dir / "reference" / "cni_calibration_set.csv"
+REFERENCE_CSV = settings.data_dir / "reference" / "golden_set_companies.csv"
 RUNS_DIR = settings.data_dir / "runs"
 
 
@@ -57,16 +60,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def slugify(value: str) -> str:
-    """Minimal slugifier for IDs."""
-    return "".join(ch.lower() if ch.isalnum() else "-" for ch in value).strip("-")
-
-
-def make_document_id(company_number: str, year: int, sector: str, fmt: str) -> str:
-    """Stable document_id based on company-year-sector-format."""
-    return f"{company_number}-{year}-{slugify(sector or 'unknown')}-{fmt}"
 
 
 def ensure_run_dirs(run_id: str) -> Dict[str, Path]:
@@ -89,12 +82,9 @@ def ensure_run_dirs(run_id: str) -> Dict[str, Path]:
     }
 
 
-def load_cni_companies(path: Path) -> List[Dict[str, str]]:
-    """Load the appendix companies from the reference CSV (preserve leading zeros)."""
-    df = pd.read_csv(path, dtype=str)
-    # Normalize keys and pad company numbers to 8 digits (Companies House format)
-    df["company_number"] = df["company_number"].str.zfill(8)
-    return df.to_dict(orient="records")
+def load_companies(path: Path) -> List[Dict[str, str]]:
+    """Load companies from a reference CSV."""
+    return load_companies_csv(path)
 
 
 def save_json(obj: dict, path: Path) -> None:
@@ -120,14 +110,16 @@ def download_reports(
     manifest: List[Dict] = []
 
     for company in companies:
-        company_number = str(company["company_number"])
+        company_number = company.get("company_number")
         company_name = company["company_name"]
-        ticker = company.get("ticker") or company_number
         lei = company.get("lei")
-        sector = company.get("cni_sector", "Unknown")
+        sector = company.get("sector", "Unknown")
+        company_id = company.get("company_id") or make_company_id(company_number, lei, company_name)
+        ticker = company.get("ticker") or company_id
 
         for year in years:
             record = {
+                "company_id": company_id,
                 "company_number": company_number,
                 "company_name": company_name,
                 "ticker": ticker,
@@ -173,32 +165,36 @@ def download_reports(
                     print(f"[{company_name} {year}] ⚠️ iXBRL failed: {exc}")
 
             # Fallback to Companies House PDF/iXBRL
-            try:
-                pdf_dir = dirs["raw_pdfs"] / str(year)
-                pdf_dir.mkdir(parents=True, exist_ok=True)
-                result = ch_client.fetch_annual_report(
-                    company_number=company_number,
-                    company_name=company_name,
-                    year=year,
-                    output_dir=pdf_dir,
-                )
-                if result and result.get("path"):
-                    path = Path(result["path"])
-                    record.update(
-                        {
-                            "status": "downloaded",
-                            "format": result.get("format", "pdf"),
-                            "raw_path": str(path),
-                            "checksum_sha256": sha256_file(path),
-                            "source": "companies_house",
-                        }
+            if company_number:
+                try:
+                    pdf_dir = dirs["raw_pdfs"] / str(year)
+                    pdf_dir.mkdir(parents=True, exist_ok=True)
+                    result = ch_client.fetch_annual_report(
+                        company_number=company_number,
+                        company_name=company_name,
+                        year=year,
+                        output_dir=pdf_dir,
                     )
-                    manifest.append(record)
-                    print(f"[{company_name} {year}] ✅ Companies House downloaded")
-                    continue
-            except Exception as exc:
-                record["error"] = f"companies_house_failed:{exc}"
-                print(f"[{company_name} {year}] ❌ download failed: {exc}")
+                    if result and result.get("path"):
+                        path = Path(result["path"])
+                        record.update(
+                            {
+                                "status": "downloaded",
+                                "format": result.get("format", "pdf"),
+                                "raw_path": str(path),
+                                "checksum_sha256": sha256_file(path),
+                                "source": "companies_house",
+                            }
+                        )
+                        manifest.append(record)
+                        print(f"[{company_name} {year}] ✅ Companies House downloaded")
+                        continue
+                except Exception as exc:
+                    record["error"] = f"companies_house_failed:{exc}"
+                    print(f"[{company_name} {year}] ❌ download failed: {exc}")
+            else:
+                record["error"] = "missing_company_number"
+                print(f"[{company_name} {year}] ⚠️ missing company_number (Companies House skipped)")
 
             # If we reach here, download failed
             record["status"] = "missing"
@@ -213,6 +209,58 @@ def write_ingestion_manifest(run_id: str, manifest: List[Dict]) -> Path:
     manifest_path = run_dir / "ingestion.json"
     save_json({"run_id": run_id, "created_at": datetime.utcnow(), "records": manifest}, manifest_path)
     return manifest_path
+
+
+def save_manifest_to_db(companies: List[Dict[str, str]], manifest: List[Dict]) -> None:
+    """Save company list and manifest records into SQLite."""
+    db = Database()
+    session = db.get_session()
+    try:
+        for company in companies:
+            db.upsert_company(session, company)
+
+        for record in manifest:
+            company_number = record.get("company_number")
+            company_name = record.get("company_name") or ""
+            lei = record.get("lei")
+            sector = record.get("cni_sector") or record.get("sector") or "Unknown"
+            year = record.get("year")
+            fmt = record.get("format") or "unknown"
+
+            company_id = record.get("company_id") or make_company_id(
+                company_number, lei, company_name
+            )
+            document_id = make_document_id(
+                company_number, lei, company_name, year, sector, fmt
+            )
+
+            db.upsert_document(
+                session,
+                {
+                    "document_id": document_id,
+                    "company_id": company_id,
+                    "company_name": company_name,
+                    "company_number": company_number,
+                    "lei": lei,
+                    "ticker": record.get("ticker"),
+                    "sector": sector,
+                    "report_year": year,
+                    "source_format": record.get("format"),
+                    "raw_path": record.get("raw_path"),
+                    "checksum_sha256": record.get("checksum_sha256"),
+                    "source": record.get("source"),
+                    "status": record.get("status"),
+                    "error": record.get("error"),
+                    "run_id": record.get("run_id"),
+                },
+            )
+
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 # -----------------------------------------------------------------------------
@@ -250,7 +298,7 @@ def preprocess_manifest(
         raw_path = Path(rec["raw_path"])
         fmt = rec.get("format", "pdf")
         company_name = rec["company_name"]
-        company_number = rec["company_number"]
+        company_number = rec.get("company_number")
         year = rec["year"]
         sector = rec.get("cni_sector", "Unknown")
 
@@ -262,10 +310,11 @@ def preprocess_manifest(
 
             preprocessed = preprocessor.process(extracted, firm_name=company_name)
 
-            document_id = make_document_id(company_number, year, sector, fmt)
+            document_id = make_document_id(company_number, rec.get("lei"), company_name, year, sector, fmt)
             rows.append(
                 {
                     "document_id": document_id,
+                    "company_id": rec.get("company_id") or make_company_id(company_number, rec.get("lei"), company_name),
                     "company_number": company_number,
                     "company_name": company_name,
                     "ticker": rec.get("ticker"),
@@ -304,7 +353,7 @@ def preprocess_manifest(
 
 def verify_run(run_id: str, years: Optional[List[int]] = None) -> None:
     """Sanity check that each CNI sector has coverage for the specified years."""
-    companies = load_cni_companies(REFERENCE_CSV)
+    companies = load_companies(REFERENCE_CSV)
     manifest = load_manifest(run_id)
     processed_path = settings.processed_dir / run_id / "documents.parquet"
 
@@ -324,7 +373,7 @@ def verify_run(run_id: str, years: Optional[List[int]] = None) -> None:
     for company in companies:
         for year in years:
             downloaded = any(
-                rec.get("company_number") == str(company["company_number"])
+                rec.get("company_id") == company.get("company_id")
                 and rec.get("year") == year
                 and rec.get("status") == "downloaded"
                 for rec in manifest
@@ -332,16 +381,16 @@ def verify_run(run_id: str, years: Optional[List[int]] = None) -> None:
             processed = False
             if not processed_df.empty:
                 processed = not processed_df[
-                    (processed_df.company_number == str(company["company_number"]))
+                    (processed_df.company_id == company.get("company_id"))
                     & (processed_df.year == year)
                 ].empty
 
             print(
-                f"{company['cni_sector']:<20} {company['company_name']:<32} {year:<6} "
+                f"{company['sector']:<20} {company['company_name']:<32} {year:<6} "
                 f"{'yes' if downloaded else 'no':<10} {'yes' if processed else 'no':<10}"
             )
             if not downloaded or not processed:
-                missing.append((company["cni_sector"], company["company_name"], year))
+                missing.append((company["sector"], company["company_name"], year))
 
     if missing:
         print("\nMissing coverage for:")
@@ -368,6 +417,12 @@ def parse_args() -> argparse.Namespace:
         help="Years to fetch (default: 2024 2023)",
     )
     parser.add_argument(
+        "--companies",
+        type=Path,
+        default=REFERENCE_CSV,
+        help=f"Path to companies CSV (default: {REFERENCE_CSV})",
+    )
+    parser.add_argument(
         "--run-id",
         type=str,
         default=None,
@@ -385,6 +440,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Include context around keyword matches (only relevant for keyword strategy)",
     )
+    parser.add_argument(
+        "--save-db",
+        action="store_true",
+        help="Save companies + ingestion manifest into SQLite",
+    )
     return parser.parse_args()
 
 
@@ -399,10 +459,13 @@ def main() -> None:
 
     # Download
     if do_download:
-        companies = load_cni_companies(REFERENCE_CSV)
+        companies = load_companies(args.companies)
         manifest = download_reports(companies, args.years, run_id=run_id)
         manifest_path = write_ingestion_manifest(run_id, manifest)
         print(f"Ingestion manifest written to {manifest_path}")
+        if args.save_db:
+            save_manifest_to_db(companies, manifest)
+            print("Saved ingestion records to SQLite")
 
     # Preprocess
     if do_preprocess:
