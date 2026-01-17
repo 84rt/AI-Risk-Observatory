@@ -81,6 +81,55 @@ class Document(Base):
         return f"<Document {self.document_id} {self.report_year}>"
 
 
+class ProcessedDocument(Base):
+    """Table for preprocessed markdown documents."""
+
+    __tablename__ = "processed_documents"
+
+    processed_id = Column(String, primary_key=True)
+    document_id = Column(String, ForeignKey("documents.document_id"), nullable=False)
+    company_id = Column(String, ForeignKey("companies.company_id"))
+    company_name = Column(String, nullable=False)
+    report_year = Column(Integer, nullable=False)
+    source_format = Column(String)
+    preprocess_strategy = Column(String)
+    markdown_text = Column(Text, nullable=False)
+    run_id = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+    document = relationship("Document")
+    company = relationship("Company")
+    chunks = relationship("DocumentChunk", back_populates="processed_document")
+
+    def __repr__(self):
+        return f"<ProcessedDocument {self.processed_id} {self.report_year}>"
+
+
+class DocumentChunk(Base):
+    """Table for AI keyword chunks derived from markdown."""
+
+    __tablename__ = "document_chunks"
+
+    chunk_id = Column(String, primary_key=True)
+    processed_id = Column(String, ForeignKey("processed_documents.processed_id"), nullable=False)
+    document_id = Column(String, ForeignKey("documents.document_id"))
+    company_id = Column(String, ForeignKey("companies.company_id"))
+    company_name = Column(String, nullable=False)
+    report_year = Column(Integer, nullable=False)
+    report_section = Column(String)
+    paragraph_index = Column(Integer)
+    context_before = Column(Integer)
+    context_after = Column(Integer)
+    chunk_text = Column(Text, nullable=False)
+    keyword_matches = Column(Text, default="[]")  # JSON list
+    created_at = Column(DateTime, default=datetime.now)
+
+    processed_document = relationship("ProcessedDocument", back_populates="chunks")
+
+    def __repr__(self):
+        return f"<DocumentChunk {self.chunk_id}>"
+
+
 class RiskClassification(Base):
     """Table for AI risk type classifications at the report level.
 
@@ -506,6 +555,81 @@ class Database:
             SQLAlchemy session
         """
         return self.SessionLocal()
+
+    def upsert_processed_document(self, session: Session, data: dict) -> ProcessedDocument:
+        """Insert or update a processed markdown document."""
+        processed_id = data["processed_id"]
+        existing = session.query(ProcessedDocument).filter(
+            ProcessedDocument.processed_id == processed_id
+        ).first()
+
+        if existing:
+            existing.document_id = data.get("document_id", existing.document_id)
+            existing.company_id = data.get("company_id", existing.company_id)
+            existing.company_name = data.get("company_name", existing.company_name)
+            existing.report_year = data.get("report_year", existing.report_year)
+            existing.source_format = data.get("source_format")
+            existing.preprocess_strategy = data.get("preprocess_strategy")
+            existing.markdown_text = data.get("markdown_text", existing.markdown_text)
+            existing.run_id = data.get("run_id")
+            return existing
+
+        record = ProcessedDocument(
+            processed_id=processed_id,
+            document_id=data.get("document_id"),
+            company_id=data.get("company_id"),
+            company_name=data.get("company_name") or data.get("company_id") or processed_id,
+            report_year=data.get("report_year"),
+            source_format=data.get("source_format"),
+            preprocess_strategy=data.get("preprocess_strategy"),
+            markdown_text=data.get("markdown_text") or "",
+            run_id=data.get("run_id"),
+            created_at=datetime.now(),
+        )
+        session.add(record)
+        return record
+
+    def upsert_document_chunk(self, session: Session, data: dict) -> DocumentChunk:
+        """Insert or update a document chunk."""
+        chunk_id = data["chunk_id"]
+        existing = session.query(DocumentChunk).filter(
+            DocumentChunk.chunk_id == chunk_id
+        ).first()
+
+        keyword_matches = data.get("keyword_matches")
+        keyword_matches_json = json.dumps(keyword_matches) if isinstance(keyword_matches, list) else keyword_matches
+
+        if existing:
+            existing.processed_id = data.get("processed_id", existing.processed_id)
+            existing.document_id = data.get("document_id", existing.document_id)
+            existing.company_id = data.get("company_id", existing.company_id)
+            existing.company_name = data.get("company_name", existing.company_name)
+            existing.report_year = data.get("report_year", existing.report_year)
+            existing.report_section = data.get("report_section")
+            existing.paragraph_index = data.get("paragraph_index")
+            existing.context_before = data.get("context_before")
+            existing.context_after = data.get("context_after")
+            existing.chunk_text = data.get("chunk_text", existing.chunk_text)
+            existing.keyword_matches = keyword_matches_json or existing.keyword_matches
+            return existing
+
+        record = DocumentChunk(
+            chunk_id=chunk_id,
+            processed_id=data.get("processed_id"),
+            document_id=data.get("document_id"),
+            company_id=data.get("company_id"),
+            company_name=data.get("company_name") or data.get("company_id") or chunk_id,
+            report_year=data.get("report_year"),
+            report_section=data.get("report_section"),
+            paragraph_index=data.get("paragraph_index"),
+            context_before=data.get("context_before"),
+            context_after=data.get("context_after"),
+            chunk_text=data.get("chunk_text") or "",
+            keyword_matches=keyword_matches_json or "[]",
+            created_at=datetime.now(),
+        )
+        session.add(record)
+        return record
 
     def upsert_company(self, session: Session, data: dict) -> Company:
         """Insert or update a company record."""
