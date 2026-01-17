@@ -4,7 +4,7 @@ This script:
 - loads the golden set companies from `data/reference/golden_set_companies.csv` (or --companies)
 - downloads 2024/2023 filings into `data/raw/{ixbrl,pdfs}/{year}/`
 - writes ingestion metadata to `data/runs/{run_id}/ingestion.json`
-- preprocesses the downloaded filings into `data/processed/{run_id}/documents.parquet`
+- preprocesses the downloaded filings into `data/processed/{run_id}/documents/*.md`
 
 Usage (examples):
     python scripts/golden_set_phase1.py --all
@@ -21,8 +21,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
-
-import pandas as pd
 
 # Ensure src is importable
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -282,15 +280,19 @@ def preprocess_manifest(
     strategy: PreprocessingStrategy,
     include_context: bool,
 ) -> Path:
-    """Preprocess downloaded files and write documents.parquet."""
+    """Preprocess downloaded files and write markdown + metadata outputs."""
     dirs = ensure_run_dirs(run_id)
     processed_dir = dirs["processed_dir"]
+    documents_dir = processed_dir / "documents"
+    metadata_dir = processed_dir / "metadata"
+    documents_dir.mkdir(parents=True, exist_ok=True)
+    metadata_dir.mkdir(parents=True, exist_ok=True)
 
     ixbrl_extractor = iXBRLExtractor()
     pdf_extractor = PDFExtractor()
     preprocessor = Preprocessor(strategy=strategy, include_context=include_context)
 
-    rows: List[Dict] = []
+    documents: List[Dict] = []
     for rec in manifest:
         if rec.get("status") != "downloaded" or not rec.get("raw_path"):
             continue
@@ -309,58 +311,69 @@ def preprocess_manifest(
                 extracted = pdf_extractor.extract_report(raw_path)
 
             preprocessed = preprocessor.process(extracted, firm_name=company_name)
-
             document_id = make_document_id(company_number, rec.get("lei"), company_name, year, sector, fmt)
-            rows.append(
-                {
-                    "document_id": document_id,
-                    "company_id": rec.get("company_id") or make_company_id(company_number, rec.get("lei"), company_name),
-                    "company_number": company_number,
-                    "company_name": company_name,
-                    "ticker": rec.get("ticker"),
-                    "lei": rec.get("lei"),
-                    "cni_sector": sector,
-                    "year": year,
-                    "source_format": fmt,
-                    "raw_path": str(raw_path),
-                    "checksum_sha256": rec.get("checksum_sha256"),
-                    "preprocess_strategy": strategy.value,
-                    "spans_original": len(extracted.spans),
-                    "spans_retained": preprocessed.metadata.get("filtered_spans"),
-                    "sections_original": preprocessed.metadata.get("original_sections"),
-                    "run_id": run_id,
-                    "created_at": datetime.utcnow(),
-                    "text_markdown": preprocessed.markdown_content,
-                    "stats": preprocessed.stats,
-                }
+            company_id = rec.get("company_id") or make_company_id(
+                company_number, rec.get("lei"), company_name
             )
+            markdown_path = documents_dir / f"{document_id}.md"
+            preprocessor.save_to_file(
+                preprocessed,
+                markdown_path,
+                include_header=False,
+            )
+
+            metadata = {
+                "document_id": document_id,
+                "company_id": company_id,
+                "company_number": company_number,
+                "company_name": company_name,
+                "ticker": rec.get("ticker"),
+                "lei": rec.get("lei"),
+                "cni_sector": sector,
+                "year": year,
+                "source_format": fmt,
+                "raw_path": str(raw_path),
+                "checksum_sha256": rec.get("checksum_sha256"),
+                "preprocess_strategy": strategy.value,
+                "spans_original": len(extracted.spans),
+                "spans_retained": preprocessed.metadata.get("filtered_spans"),
+                "sections_original": preprocessed.metadata.get("original_sections"),
+                "extraction_metadata": extracted.metadata,
+                "stats": preprocessed.stats,
+                "run_id": run_id,
+                "created_at": datetime.utcnow().isoformat(),
+                "markdown_path": str(markdown_path),
+            }
+
+            metadata_path = metadata_dir / f"{document_id}.json"
+            save_json(metadata, metadata_path)
+            documents.append({**metadata, "metadata_path": str(metadata_path)})
             print(f"[{company_name} {year}] ✅ preprocessed ({fmt})")
         except Exception as exc:
             print(f"[{company_name} {year}] ❌ preprocess failed: {exc}")
 
-    if not rows:
+    if not documents:
         raise RuntimeError("No documents were preprocessed; check downloads and inputs.")
 
-    df = pd.DataFrame(rows)
-    parquet_path = processed_dir / "documents.parquet"
-    df.to_parquet(parquet_path, index=False)
-
     manifest_path = processed_dir / "documents_manifest.json"
-    save_json({"run_id": run_id, "count": len(rows), "parquet": str(parquet_path)}, manifest_path)
+    save_json({"run_id": run_id, "count": len(documents), "documents": documents}, manifest_path)
 
-    return parquet_path
+    return manifest_path
 
 
 def verify_run(run_id: str, years: Optional[List[int]] = None) -> None:
     """Sanity check that each CNI sector has coverage for the specified years."""
     companies = load_companies(REFERENCE_CSV)
     manifest = load_manifest(run_id)
-    processed_path = settings.processed_dir / run_id / "documents.parquet"
+    processed_manifest = settings.processed_dir / run_id / "documents_manifest.json"
 
     if years is None:
         years = sorted({rec["year"] for rec in manifest})
 
-    processed_df = pd.read_parquet(processed_path) if processed_path.exists() else pd.DataFrame()
+    processed_records = []
+    if processed_manifest.exists():
+        with open(processed_manifest, "r", encoding="utf-8") as f:
+            processed_records = json.load(f).get("documents", [])
 
     print("\n" + "=" * 60)
     print(f"COVERAGE CHECK FOR RUN {run_id}")
@@ -378,12 +391,12 @@ def verify_run(run_id: str, years: Optional[List[int]] = None) -> None:
                 and rec.get("status") == "downloaded"
                 for rec in manifest
             )
-            processed = False
-            if not processed_df.empty:
-                processed = not processed_df[
-                    (processed_df.company_id == company.get("company_id"))
-                    & (processed_df.year == year)
-                ].empty
+            processed = any(
+                rec.get("company_id") == company.get("company_id")
+                and rec.get("year") == year
+                and Path(rec.get("markdown_path", "")).exists()
+                for rec in processed_records
+            )
 
             print(
                 f"{company['sector']:<20} {company['company_name']:<32} {year:<6} "
@@ -470,13 +483,13 @@ def main() -> None:
     # Preprocess
     if do_preprocess:
         manifest = load_manifest(run_id)
-        parquet_path = preprocess_manifest(
+        manifest_path = preprocess_manifest(
             manifest=manifest,
             run_id=run_id,
             strategy=PreprocessingStrategy(args.strategy),
             include_context=args.include_context,
         )
-        print(f"Processed documents written to {parquet_path}")
+        print(f"Processed documents written to {manifest_path}")
 
     if args.verify:
         verify_run(run_id, years=args.years)
@@ -484,4 +497,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

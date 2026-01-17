@@ -6,6 +6,16 @@
 - Ensure outputs are saved consistently in the `/data` structure.
 - Design the database schema to support later classification work.
 
+## Current Status
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Ingestion | Complete | Raw iXBRL files in `data/raw/ixbrl/{year}/` |
+| Phase 2: Preprocessing | Complete | Markdown + JSON sidecars in `data/processed/<run_id>/documents/` |
+| Phase 3: Chunking | In Progress | AI-mention chunks with 2+2 context window, JSONL output |
+| Phase 4: Human Annotation | Next | Guidelines below |
+| Phase 5: Classification | Deferred | LLM classification after annotation |
+
 ## Starting Sample (Updated)
 We have a new starting set of companies. We may add a helper to pull filings by identifier (LEI / Companies House), but manual ingestion is acceptable for the initial sample.
 
@@ -35,8 +45,10 @@ If manual:
 
 ## Data Layout
 - `/data/raw/` for original iXBRL files and download metadata.
-- `/data/processed/` for cleaned, readable markdown outputs.
-- `/data/processed/chunks/` for AI-mention chunks (initial processing output).
+- `/data/processed/<run_id>/documents/` for cleaned, readable markdown outputs.
+- `/data/processed/<run_id>/metadata/` for JSON sidecars per document.
+- `/data/processed/<run_id>/documents_manifest.json` for processed document index.
+- `/data/processed/<run_id>/chunks/` for AI-mention chunks (JSONL).
 - `/data/results/` reserved for classifier outputs later.
 
 ## Phase 1: Preprocessing (Primary Focus)
@@ -48,27 +60,28 @@ Goal: Convert raw iXBRL filings into readable markdown.
 - Capture basic structure metadata (section titles, page numbers if available).
 
 ### Outputs
-- One markdown file per report in `/data/processed/`.
+- One markdown file per report in `/data/processed/<run_id>/documents/`.
 - A lightweight JSON sidecar with:
   - source file path
   - company identifier
   - year
   - extraction method/version
   - section and page mapping (if available)
+  - preprocessing stats (retention, spans, sections)
+- A `documents_manifest.json` index for all processed outputs in the run.
 
 ### Quality Assurance
-- Implement a comprehensive quality assurance test in `pipeline/tests/` to verify that processed markdown files meet the required formatting and contain no processing errors.
+- Use the QA manager in `pipeline/tests/qa_manager.py` to run preprocessing checks (warn-only).
 
 ## Phase 2: Processing (Chunking AI Mentions)
 Goal: Convert full markdown into a set of AI-mention chunks with enough context for later classifiers.
 
 ### Chunking Rules
 - Detect AI mentions (AI, artificial intelligence, ML, machine learning, LLM, large language model, etc.).
-- Create a chunk from:
-  - the paragraph containing the mention
-  - plus one paragraph before and after (configurable)
-- Save multiple mentions in the same sentence as a single chunk.
-- Store matched terms as a list (do not split into separate chunks yet).
+- Create chunks from processed markdown (source of truth for later classifiers).
+- Use a context window of 2 paragraphs before and after by default (configurable).
+- Deduplicate overlapping mention windows so each chunk is unique, even with multiple mentions.
+- Store matched terms as a list per chunk (do not split into separate chunks yet).
 
 ### Metadata to Save
 - Document identifier and file path
@@ -79,8 +92,8 @@ Goal: Convert full markdown into a set of AI-mention chunks with enough context 
 - Context window size (paragraphs before/after)
 
 ### Output
-- One chunk record per AI-mention chunk in `/data/processed/chunks/`.
-- Each chunk is also stored in the database for later classification.
+- One chunk record per AI-mention chunk in `/data/processed/<run_id>/chunks/chunks.jsonl`.
+- Each chunk can be stored in the database later for classification.
 
 ## Phase 3: Post-processing (Classification & Enrichment) (Deferred)
 Post-processing comes after we trust preprocessing and chunking. Later stages will:

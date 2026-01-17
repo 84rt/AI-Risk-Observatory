@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
+import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
+SCRIPT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PIPELINE_ROOT))
 
-from src.config import get_settings
-from src.ixbrl_extractor import SECTION_PATTERNS
+from src.config import get_settings  # noqa: E402
+from src.ixbrl_extractor import SECTION_PATTERNS  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,7 +26,7 @@ def parse_args() -> argparse.Namespace:
         "--run-id",
         type=str,
         required=True,
-        help="Run ID for data/processed/<run_id>/documents.parquet",
+        help="Run ID for data/processed/<run_id>/documents_manifest.json",
     )
     parser.add_argument(
         "--min-chars",
@@ -119,8 +123,7 @@ def control_char_stats(text: str) -> Dict[str, int]:
     }
 
 
-def qa_document(row: pd.Series, thresholds: dict) -> Dict:
-    markdown = row.get("text_markdown") or ""
+def qa_document(record: Dict, markdown: str, thresholds: dict) -> Dict:
     headings = extract_headings(markdown)
     found_sections, missing_sections = section_coverage(headings)
 
@@ -150,12 +153,12 @@ def qa_document(row: pd.Series, thresholds: dict) -> Dict:
         issues.append("many_long_sentences")
 
     return {
-        "document_id": row.get("document_id"),
-        "company_name": row.get("company_name"),
-        "company_number": row.get("company_number"),
-        "lei": row.get("lei"),
-        "year": row.get("year"),
-        "source_format": row.get("source_format"),
+        "document_id": record.get("document_id"),
+        "company_name": record.get("company_name"),
+        "company_number": record.get("company_number"),
+        "lei": record.get("lei"),
+        "year": record.get("year"),
+        "source_format": record.get("source_format"),
         "char_count": char_count,
         "word_count": word_count,
         "heading_count": len(headings),
@@ -172,30 +175,41 @@ def qa_document(row: pd.Series, thresholds: dict) -> Dict:
     }
 
 
-def main() -> None:
-    args = parse_args()
+def run_qa(
+    run_id: str,
+    output_dir: Optional[Path] = None,
+    thresholds: Optional[Dict[str, float]] = None,
+) -> List[Dict]:
     settings = get_settings()
-    processed_dir = settings.processed_dir / args.run_id
-    parquet_path = processed_dir / "documents.parquet"
+    processed_dir = settings.processed_dir / run_id
+    manifest_path = processed_dir / "documents_manifest.json"
 
-    if not parquet_path.exists():
-        raise FileNotFoundError(f"Missing documents.parquet at {parquet_path}")
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Missing documents_manifest.json at {manifest_path}")
 
-    df = pd.read_parquet(parquet_path)
-    if df.empty:
-        raise RuntimeError(f"No rows found in {parquet_path}")
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    documents = manifest.get("documents", [])
+    if not documents:
+        raise RuntimeError(f"No documents listed in {manifest_path}")
 
-    thresholds = {
-        "min_chars": args.min_chars,
-        "min_words": args.min_words,
-        "min_headings": args.min_headings,
-        "max_control_char_ratio": args.max_control_char_ratio,
-        "max_replacement_char_count": args.max_replacement_char_count,
+    thresholds = thresholds or {
+        "min_chars": 20000,
+        "min_words": 3000,
+        "min_headings": 8,
+        "max_control_char_ratio": 0.0001,
+        "max_replacement_char_count": 5,
     }
 
-    results = [qa_document(row, thresholds) for _, row in df.iterrows()]
+    results = []
+    for record in documents:
+        markdown_path = Path(record.get("markdown_path", ""))
+        if not markdown_path.exists():
+            raise FileNotFoundError(f"Missing markdown file at {markdown_path}")
+        markdown = markdown_path.read_text(encoding="utf-8")
+        results.append(qa_document(record, markdown, thresholds))
 
-    output_dir = args.output_dir or processed_dir
+    output_dir = output_dir or processed_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = output_dir / "qa_preprocessing_report.json"
@@ -212,12 +226,33 @@ def main() -> None:
             }
         )
     csv_path = output_dir / "qa_preprocessing_report.csv"
-    pd.DataFrame(csv_rows).to_csv(csv_path, index=False)
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        if csv_rows:
+            writer = csv.DictWriter(f, fieldnames=csv_rows[0].keys())
+            writer.writeheader()
+            writer.writerows(csv_rows)
 
     flagged = sum(1 for r in results if r["issues"])
     print(f"✅ QA complete: {len(results)} docs checked, {flagged} flagged")
     print(f"Report: {json_path}")
     print(f"Report: {csv_path}")
+    return results
+
+
+def main() -> None:
+    args = parse_args()
+    thresholds = {
+        "min_chars": args.min_chars,
+        "min_words": args.min_words,
+        "min_headings": args.min_headings,
+        "max_control_char_ratio": args.max_control_char_ratio,
+        "max_replacement_char_count": args.max_replacement_char_count,
+    }
+    run_qa(
+        run_id=args.run_id,
+        output_dir=args.output_dir,
+        thresholds=thresholds,
+    )
 
 
 if __name__ == "__main__":

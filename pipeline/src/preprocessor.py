@@ -290,17 +290,24 @@ class Preprocessor:
 
         return "\n".join(markdown_parts)
 
-    def save_to_file(self, preprocessed: PreprocessedReport, output_path: Path):
+    def save_to_file(
+        self,
+        preprocessed: PreprocessedReport,
+        output_path: Path,
+        include_header: bool = True,
+    ):
         """Save preprocessed report to markdown file.
 
         Args:
             preprocessed: PreprocessedReport object
             output_path: Path to save markdown file
+            include_header: Whether to include a metadata header in markdown
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Add metadata header
-        header = f"""---
+        content = preprocessed.markdown_content
+        if include_header:
+            header = f"""---
 firm: {preprocessed.metadata['firm_name']}
 strategy: {preprocessed.strategy.value}
 original_spans: {preprocessed.metadata['original_spans']}
@@ -309,8 +316,7 @@ retention: {preprocessed.stats.get('retention_pct', 0):.1f}%
 ---
 
 """
-
-        content = header + preprocessed.markdown_content
+            content = header + content
 
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(content)
