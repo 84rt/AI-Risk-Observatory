@@ -120,3 +120,14 @@ We need a schema that cleanly separates:
    - classifier type, version, outputs, confidence
 
 This structure keeps preprocessing outputs stable and allows later classifiers to evolve without re-ingesting raw data.
+
+
+# To make a new run
+
+  ./pipeline/venv/bin/python pipeline/scripts/golden_set_phase1.py --all
+
+  That auto-generates a new run_id and writes data/runs/<run_id>/ingestion.json plus processed outputs in data/processed/<run_id>/....
+
+  If you only want a new run id without download/preprocess:
+
+  ./pipeline/venv/bin/python pipeline/scripts/golden_set_phase1.py --run-id <your-id>

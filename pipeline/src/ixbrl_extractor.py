@@ -320,6 +320,8 @@ class iXBRLParser(HTMLParser):
         self.current_tag = None
         self.in_script = False
         self.in_style = False
+        self._hidden_stack = []
+        self._hidden_depth = 0
         self.section_patterns = [
             re.compile(pattern, re.IGNORECASE)
             for pattern in SECTION_PATTERNS
@@ -328,19 +330,50 @@ class iXBRLParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         """Handle opening tags."""
         self.current_tag = tag.lower()
+        tag_lower = self.current_tag
+        attrs_dict = {k.lower(): v for k, v in attrs}
         
-        if tag.lower() in ['script', 'style']:
-            if tag.lower() == 'script':
+        if tag_lower in ['script', 'style']:
+            if tag_lower == 'script':
                 self.in_script = True
-            elif tag.lower() == 'style':
+            elif tag_lower == 'style':
                 self.in_style = True
             return
 
+        is_hidden_tag = tag_lower in {
+            'ix:header', 'ix:hidden', 'ix:resources',
+            'xbrli:context', 'xbrli:unit', 'xbrli:entity',
+        }
+        style = (attrs_dict.get('style') or '').lower()
+        is_hidden_style = (
+            'display:none' in style or
+            'display: none' in style or
+            'visibility:hidden' in style or
+            'visibility: hidden' in style
+        )
+        is_hidden_attr = (
+            'hidden' in attrs_dict or
+            (attrs_dict.get('aria-hidden') or '').lower() == 'true'
+        )
+        is_hidden = is_hidden_tag or is_hidden_style or is_hidden_attr
+        self._hidden_stack.append(is_hidden)
+        if is_hidden:
+            self._hidden_depth += 1
+            return
+
         # Check if this is a heading tag
-        if tag.lower() in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+        if tag_lower in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             # Save any accumulated text before the heading
             if self.current_text:
-                text = ' '.join(self.current_text).strip()
+                text = ''.join(self.current_text).strip()
+                if text:
+                    self._add_span(text, is_heading=False)
+                self.current_text = []
+            return
+
+        if tag_lower == 'br':
+            if self.current_text:
+                text = ''.join(self.current_text).strip()
                 if text:
                     self._add_span(text, is_heading=False)
                 self.current_text = []
@@ -356,30 +389,35 @@ class iXBRLParser(HTMLParser):
             self.in_style = False
             return
 
+        if self._hidden_stack:
+            was_hidden = self._hidden_stack.pop()
+            if was_hidden:
+                self._hidden_depth = max(0, self._hidden_depth - 1)
+                return
+
         # When we close a heading, save it as a heading span
         if tag_lower in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             if self.current_text:
-                text = ' '.join(self.current_text).strip()
+                text = ''.join(self.current_text).strip()
                 if text:
                     self._add_span(text, is_heading=True)
                 self.current_text = []
         # When we close block-level elements, save accumulated text
         elif tag_lower in ['p', 'div', 'li', 'td', 'th', 'section', 'article']:
             if self.current_text:
-                text = ' '.join(self.current_text).strip()
-                if text and len(text) > 10:  # Minimum length filter
+                text = ''.join(self.current_text).strip()
+                if text:
                     self._add_span(text, is_heading=False)
                 self.current_text = []
 
     def handle_data(self, data):
         """Handle text data."""
-        if self.in_script or self.in_style:
+        if self.in_script or self.in_style or self._hidden_depth > 0:
             return
 
         # Clean and accumulate text
-        text = data.strip()
-        if text:
-            self.current_text.append(text)
+        if data and data.strip():
+            self.current_text.append(data)
 
     def _add_span(self, text: str, is_heading: bool):
         """Add a text span."""
@@ -509,7 +547,13 @@ class iXBRLParser(HTMLParser):
         # Step 1: Dictionary-based word repair (handles "cus to mers" -> "customers")
         # Run FIRST to merge fragments before splitting concatenations
         # -----------------------------------------------------------------------
-        text = _repair_fragmented_words(text)
+        tokens = text.split()
+        single_letters = [t for t in tokens if len(t) == 1 and t.isalpha()]
+        suspicious_letters = [t for t in single_letters if t.lower() not in ('a', 'i')]
+        has_spelled = re.search(r"(?:\b[A-Za-z]\b\s+){2,}\b[A-Za-z]\b", text)
+        needs_repair = bool(has_spelled) or (len(suspicious_letters) / max(1, len(tokens)) > 0.05)
+        if needs_repair:
+            text = _repair_fragmented_words(text)
 
         # -----------------------------------------------------------------------
         # Step 2: Split concatenated words like "colleaguesand" -> "colleagues and"
@@ -571,17 +615,19 @@ class iXBRLParser(HTMLParser):
                 return token
             return split_concatenated_with_dict(token)
 
-        for _ in range(2):
-            updated = re.sub(r"\b[a-zA-Z]{7,}\b", apply_split, text)
-            if updated == text:
-                break
-            text = updated
-            text = _repair_fragmented_words(text)
+        if needs_repair:
+            for _ in range(2):
+                updated = re.sub(r"\b[a-zA-Z]{7,}\b", apply_split, text)
+                if updated == text:
+                    break
+                text = updated
+                text = _repair_fragmented_words(text)
 
         # -----------------------------------------------------------------------
         # Step 3: Run dictionary repair again (splitting may have created new fragments)
         # -----------------------------------------------------------------------
-        text = _repair_fragmented_words(text)
+        if needs_repair:
+            text = _repair_fragmented_words(text)
 
         # Final whitespace normalization
         text = ' '.join(text.split())
@@ -592,8 +638,8 @@ class iXBRLParser(HTMLParser):
         """Get all extracted spans."""
         # Flush any remaining text
         if self.current_text:
-            text = ' '.join(self.current_text).strip()
-            if text and len(text) > 10:
+            text = ''.join(self.current_text).strip()
+            if text:
                 self._add_span(text, is_heading=False)
         
         return self.spans
@@ -741,7 +787,7 @@ class iXBRLExtractor:
     def _should_join(self, prev_text: str, next_text: str) -> bool:
         if self._looks_like_heading(next_text):
             return False
-        if re.match(r'^[•\\-–]\\s', next_text):
+        if re.match(r'^[•\-–]\s', next_text):
             return False
 
         prev_stripped = prev_text.rstrip()
