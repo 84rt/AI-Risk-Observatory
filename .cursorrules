@@ -1,4 +1,7 @@
 # .cursorrules (additive snippet)
 - For work inside `pipeline/`, read and follow `pipeline/CLAUDE.md`.
 - Never commit real API keys; use placeholders. Keys belong only in `.env.local` / `.env` (gitignored).
+- Always activate the Python venv in the `pipeline/` directory before running pipeline scripts: `source pipeline/venv/bin/activate`
+    - Note: If you use Fish shell, activate with `source pipeline/venv/bin/activate.fish` (this should not cause issues).
+- The root-level `.env.local` file is used for environment configuration and secrets shared by all pipeline code.
 - Keep QA checks and test scripts in `pipeline/tests`.
