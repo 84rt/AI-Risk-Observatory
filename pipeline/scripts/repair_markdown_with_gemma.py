@@ -109,8 +109,9 @@ def needs_llm_repair(text: str) -> bool:
     return valid_ratio < 0.6 or long_ratio > 0.15 or bool(connector_runs)
 
 
-def digits_only(text: str) -> str:
-    return re.sub(r"\D", "", text)
+def content_signature(text: str) -> str:
+    """Normalize text to compare only alphanumeric content (case-insensitive)."""
+    return re.sub(r"[^A-Za-z0-9]+", "", text).lower()
 
 
 def openrouter_chat(
@@ -198,6 +199,16 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Optional output directory for repaired markdown",
+    )
+    parser.add_argument(
+        "--redo-existing",
+        action="store_true",
+        help="Reprocess documents even if repaired output already exists",
+    )
+    parser.add_argument(
+        "--append-log",
+        action="store_true",
+        help="Append to existing repair log instead of overwriting",
     )
     parser.add_argument(
         "--max-docs",
@@ -314,7 +325,7 @@ def repair_items_recursive(
     if corrected_paragraphs and len(corrected_paragraphs) == len(items):
         results = []
         for (idx, block), corrected in zip(items, corrected_paragraphs):
-            accepted = digits_only(block.text) == digits_only(corrected)
+            accepted = content_signature(block.text) == content_signature(corrected)
             results.append((idx, corrected if accepted else block.text, accepted))
         return results
 
@@ -371,13 +382,18 @@ def main() -> None:
     repairs_dir = processed_dir / "llm_repairs"
     repairs_dir.mkdir(parents=True, exist_ok=True)
     repairs_log = repairs_dir / "gemma_repairs.jsonl"
+    log_mode = "a" if args.append_log and repairs_log.exists() else "w"
 
     repaired_count = 0
     call_counter = [0]
     processed_docs = 0
-    with open(repairs_log, "w", encoding="utf-8") as log_f:
+    with open(repairs_log, log_mode, encoding="utf-8") as log_f:
         for doc in documents:
             markdown_path = Path(doc["markdown_path"])
+            repaired_path = output_dir / f"{doc.get('document_id')}.md"
+            if repaired_path.exists() and not args.redo_existing:
+                logger.info("Skipping %s (already repaired)", doc.get("document_id"))
+                continue
             markdown = markdown_path.read_text(encoding="utf-8")
             blocks = parse_blocks(markdown)
 
@@ -430,7 +446,6 @@ def main() -> None:
                     }) + "\n")
 
             repaired_markdown = reassemble_blocks(blocks)
-            repaired_path = output_dir / f"{doc.get('document_id')}.md"
             repaired_path.write_text(repaired_markdown, encoding="utf-8")
             processed_docs += 1
             logger.info(

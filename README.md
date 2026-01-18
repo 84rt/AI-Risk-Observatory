@@ -55,3 +55,10 @@ See `/pipeline/QUICKSTART.md` for details.
 
 ## 12. Further Documentation
 See `/context` for taxonomy, specs, experimental notes, and design decisions.
+
+
+---
+Run the human annotation script:
+```bash
+  python3 pipeline/scripts/annotate_golden_set.py --chunks data/processed/gs-phase1-20260117-152257/chunks/chunks.jsonl
+```

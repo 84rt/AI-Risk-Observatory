@@ -365,7 +365,7 @@ class iXBRLParser(HTMLParser):
         if tag_lower in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             # Save any accumulated text before the heading
             if self.current_text:
-                text = ''.join(self.current_text).strip()
+                text = self._join_text_segments()
                 if text:
                     self._add_span(text, is_heading=False)
                 self.current_text = []
@@ -373,7 +373,7 @@ class iXBRLParser(HTMLParser):
 
         if tag_lower == 'br':
             if self.current_text:
-                text = ''.join(self.current_text).strip()
+                text = self._join_text_segments()
                 if text:
                     self._add_span(text, is_heading=False)
                 self.current_text = []
@@ -398,14 +398,14 @@ class iXBRLParser(HTMLParser):
         # When we close a heading, save it as a heading span
         if tag_lower in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             if self.current_text:
-                text = ''.join(self.current_text).strip()
+                text = self._join_text_segments()
                 if text:
                     self._add_span(text, is_heading=True)
                 self.current_text = []
         # When we close block-level elements, save accumulated text
         elif tag_lower in ['p', 'div', 'li', 'td', 'th', 'section', 'article']:
             if self.current_text:
-                text = ''.join(self.current_text).strip()
+                text = self._join_text_segments()
                 if text:
                     self._add_span(text, is_heading=False)
                 self.current_text = []
@@ -418,6 +418,17 @@ class iXBRLParser(HTMLParser):
         # Clean and accumulate text
         if data and data.strip():
             self.current_text.append(data)
+
+    def _join_text_segments(self) -> str:
+        """Join accumulated text segments with proper spacing.
+
+        Ensures spaces between segments from different HTML elements
+        while preserving document structure.
+        """
+        if not self.current_text:
+            return ""
+        # Strip each segment and join with spaces to ensure proper word boundaries
+        return ' '.join(segment.strip() for segment in self.current_text if segment.strip())
 
     def _add_span(self, text: str, is_heading: bool):
         """Add a text span."""
@@ -638,10 +649,10 @@ class iXBRLParser(HTMLParser):
         """Get all extracted spans."""
         # Flush any remaining text
         if self.current_text:
-            text = ''.join(self.current_text).strip()
+            text = self._join_text_segments()
             if text:
                 self._add_span(text, is_heading=False)
-        
+
         return self.spans
 
 
