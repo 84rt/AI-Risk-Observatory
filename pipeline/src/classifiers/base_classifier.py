@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import google.generativeai as genai
+import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..config import get_settings
@@ -146,6 +147,7 @@ class BaseClassifier(ABC):
         api_key: Optional[str] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.0,
+        use_openrouter: Optional[bool] = None,
     ):
         """Initialize the classifier.
 
@@ -159,21 +161,28 @@ class BaseClassifier(ABC):
         self.api_key = api_key or settings.gemini_api_key
         self.model_name = model_name or settings.gemini_model
         self.temperature = temperature
-
-        # Configure Gemini
-        genai.configure(api_key=self.api_key)
-
-        # Initialize model with JSON response mode
-        generation_config = {
-            "temperature": self.temperature,
-            "max_output_tokens": settings.max_tokens,
-            "response_mime_type": "application/json",
-        }
-
-        self.model = genai.GenerativeModel(
-            model_name=self.model_name,
-            generation_config=generation_config,
+        self.use_openrouter = (
+            use_openrouter
+            if use_openrouter is not None
+            else bool(settings.openrouter_api_key and "/" in self.model_name)
         )
+
+        self.model = None
+        if not self.use_openrouter:
+            # Configure Gemini
+            genai.configure(api_key=self.api_key)
+
+            # Initialize model with JSON response mode
+            generation_config = {
+                "temperature": self.temperature,
+                "max_output_tokens": settings.max_tokens,
+                "response_mime_type": "application/json",
+            }
+
+            self.model = genai.GenerativeModel(
+                model_name=self.model_name,
+                generation_config=generation_config,
+            )
 
         # Set up logging
         self.logger = get_classifier_logger(
@@ -365,13 +374,43 @@ class BaseClassifier(ABC):
         Returns:
             Tuple of (response_text, token_count)
         """
-        response = self.model.generate_content(prompt)
-        text = response.text
+        if self.use_openrouter:
+            text = self._call_openrouter(prompt)
+        else:
+            response = self.model.generate_content(prompt)
+            text = response.text
 
         # Estimate tokens from response
         tokens = len(text) // 4
 
         return text, tokens
+
+    def _call_openrouter(self, prompt: str) -> str:
+        if not settings.openrouter_api_key:
+            raise RuntimeError("OPENROUTER_API_KEY is not set.")
+
+        url = f"{settings.openrouter_base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "system", "content": "Return ONLY valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": self.temperature,
+            "max_tokens": settings.max_tokens,
+        }
+
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"OpenRouter error {response.status_code}: {response.text[:500]}"
+            )
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
 
     def run_batch(
         self,
@@ -473,7 +512,6 @@ class BaseClassifier(ABC):
         }
 
         return self.classify(text, metadata, str(report_path))
-
 
 
 

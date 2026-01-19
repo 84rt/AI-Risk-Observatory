@@ -12,6 +12,7 @@
 
 # data
 data/
+!data/golden_set/
 !data/reference/
 !data/reference/**
 data/db/

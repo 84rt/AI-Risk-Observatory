@@ -2,6 +2,7 @@
 google-generativeai>=0.3.0
 pymupdf>=1.24.0
 requests>=2.31.0
+aiohttp>=3.9.0  # Async HTTP for concurrent API requests
 python-dotenv>=1.0.0
 
 # Database

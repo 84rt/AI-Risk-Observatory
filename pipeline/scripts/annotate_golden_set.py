@@ -30,6 +30,7 @@ ADOPTION_TYPES = [
 ]
 
 RISK_TAXONOMY = [
+    ("strategic_market", "Strategic & Market (failure to adopt, displacement)"),
     ("operational_technical", "Operational & Technical (failures, bias, reliability, errors)"),
     ("cybersecurity", "Cybersecurity (AI attacks, breaches, vulnerabilities)"),
     ("workforce", "Workforce Impacts (jobs, skills, automation)"),
@@ -241,9 +242,10 @@ def annotate_chunk(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "mention_types": [],
         "adoption_types": [],
-        "adoption_confidence": None,
+        "adoption_confidence": {},  # per-type confidence: {"llm": 0.8, "non_llm": 0.6}
         "risk_taxonomy": [],
-        "risk_substantiveness": None,
+        "risk_confidence": {},  # per-risk confidence: {"cybersecurity": 0.9}
+        "risk_substantiveness": None,  # overall substantiveness for the mention
         "vendor_tags": [],
         "vendor_other": None,
     }
@@ -270,7 +272,16 @@ def annotate_chunk(
         record["adoption_types"] = adoption_types
         write_json(in_progress_path, record)
 
-        adoption_confidence = prompt_float("Adoption confidence", 0.0, 1.0)
+        # Ask for confidence on each selected adoption type
+        adoption_confidence = {}
+        for atype in adoption_types:
+            if atype == "none":
+                continue
+            label = next((lbl for key, lbl in ADOPTION_TYPES if key == atype), atype)
+            conf = prompt_float(f"Confidence for '{label}'", 0.0, 1.0)
+            if conf is not None:
+                adoption_confidence[atype] = conf
+            write_json(in_progress_path, record)
         record["adoption_confidence"] = adoption_confidence
         write_json(in_progress_path, record)
 
@@ -286,7 +297,23 @@ def annotate_chunk(
         write_json(in_progress_path, record)
 
         if risk_types != ["none"]:
-            substantiveness = prompt_float("Risk substantiveness", 0.0, 1.0)
+            # Ask for confidence on each selected risk type
+            risk_confidence = {}
+            for rtype in risk_types:
+                if rtype == "none":
+                    continue
+                label = next((lbl for key, lbl in RISK_TAXONOMY if key == rtype), rtype)
+                # Truncate label for display
+                short_label = label.split("(")[0].strip() if "(" in label else label
+                conf = prompt_float(f"Confidence for '{short_label}'", 0.0, 1.0)
+                if conf is not None:
+                    risk_confidence[rtype] = conf
+                write_json(in_progress_path, record)
+            record["risk_confidence"] = risk_confidence
+            write_json(in_progress_path, record)
+
+            # Ask for overall substantiveness of the risk mention
+            substantiveness = prompt_float("Overall risk substantiveness", 0.0, 1.0)
             record["risk_substantiveness"] = substantiveness
             write_json(in_progress_path, record)
 

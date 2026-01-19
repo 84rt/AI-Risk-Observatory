@@ -14,7 +14,7 @@ class KeywordPattern:
 
 AI_KEYWORD_PATTERNS: List[KeywordPattern] = [
     KeywordPattern("artificial_intelligence", r"\bartificial\s+intelligence\b"),
-    KeywordPattern("ai", r"\bai\b"),
+    KeywordPattern("ai", r"\bAI\b"),  # Case-sensitive uppercase only to avoid "Shanghai", "Chairman", etc.
     KeywordPattern("a_i", r"\ba\.i\.\b"),
     KeywordPattern("machine_learning", r"\bmachine\s+learning\b"),
     KeywordPattern("ml", r"\bml\b"),

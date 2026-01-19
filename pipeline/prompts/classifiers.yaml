@@ -256,6 +256,121 @@ substantiveness: |
 
   Return ONLY valid JSON.
 
+mention_type_batch: |
+  Classify each chunk for AI mention types. Multi-label.
+  Return confidence per type (0.0-1.0). If none, return empty mention_types and all 0.0.
+
+  Types: adoption, risk, harm, vendor, general_ambiguous.
+
+  Input JSON array of items with fields: chunk_id, text.
+  ITEMS: {items}
+
+  Output JSON array of:
+  {{
+    "chunk_id": "...",
+    "mention_types": ["adoption", "risk"],
+    "confidence_scores": {{
+      "adoption": 0.83,
+      "risk": 0.12,
+      "harm": 0.0,
+      "vendor": 0.0,
+      "general_ambiguous": 0.05
+    }},
+    "reasoning": "Short explanation"
+  }}
+
+  Return ONLY JSON array.
+
+adoption_type_batch: |
+  Classify AI adoption type(s) per chunk. Multi-label.
+  Return confidence per type (0.0-1.0).
+
+  Types: non_llm, llm, agentic.
+
+  Input JSON array of items with fields: chunk_id, text.
+  ITEMS: {items}
+
+  Output JSON array of:
+  {{
+    "chunk_id": "...",
+    "adoption_confidences": {{
+      "non_llm": 0.10,
+      "llm": 0.85,
+      "agentic": 0.05
+    }},
+    "evidence": {{
+      "non_llm": ["quote if applicable"],
+      "llm": ["quote if applicable"],
+      "agentic": ["quote if applicable"]
+    }},
+    "reasoning": "Short explanation"
+  }}
+
+  Return ONLY JSON array.
+
+risk_batch: |
+  Classify AI risk categories per chunk. Multi-label.
+  Return confidence per risk (0.0-1.0) and a substantiveness_score (0.0-1.0).
+
+  Risk keys: {risk_keys}
+  Risk descriptions:
+  {risk_categories}
+
+  Input JSON array of items with fields: chunk_id, text.
+  ITEMS: {items}
+
+  Output JSON array of:
+  {{
+    "chunk_id": "...",
+    "risk_types": ["operational_technical", "cybersecurity"],
+    "confidence_scores": {{
+      "operational_technical": 0.82,
+      "cybersecurity": 0.10
+    }},
+    "evidence": {{
+      "operational_technical": ["quote1", "quote2"],
+      "cybersecurity": ["quote1"]
+    }},
+    "key_snippets": {{
+      "operational_technical": "most important quote",
+      "cybersecurity": "most important quote"
+    }},
+    "substantiveness_score": 0.35,
+    "reasoning": "Short explanation"
+  }}
+
+  If no AI risks, return empty risk_types and empty confidence_scores.
+  Return ONLY JSON array.
+
+vendor_batch: |
+  Identify AI vendor mentions per chunk. Multi-label.
+  Return confidence per vendor (0.0-1.0).
+
+  Vendor tags: google, microsoft, openai, internal, undisclosed, other.
+
+  Input JSON array of items with fields: chunk_id, text.
+  ITEMS: {items}
+
+  Output JSON array of:
+  {{
+    "chunk_id": "...",
+    "vendor_confidences": {{
+      "google": 0.0,
+      "microsoft": 0.7,
+      "openai": 0.0,
+      "internal": 0.1,
+      "undisclosed": 0.0,
+      "other": 0.0
+    }},
+    "other_vendor": "",
+    "evidence": {{
+      "microsoft": ["quote mentioning Microsoft"]
+    }},
+    "reasoning": "Brief explanation"
+  }}
+
+  Return ONLY JSON array.
+
 legacy_mention_classifier: |
   You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related risks and adoption.
 

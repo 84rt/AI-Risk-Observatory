@@ -2,7 +2,7 @@
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -50,6 +50,11 @@ def _load_word_dictionary() -> Set[str]:
         "programme", "programmes", "organisation", "organisations",
         "recognised", "recognising", "analysed", "analysing", "capitalised",
         "utilised", "utilising", "optimised", "optimising", "prioritised",
+        # Place names commonly split in iXBRL (to prevent "Shangh ai" → AI false positive)
+        "shanghai", "chairman", "curtain", "ertain", "maintain", "contain",
+        "fountain", "mountain", "captain", "britain", "villain", "domain",
+        "porcelain", "terrain", "campaign", "bargain", "complain", "explain",
+        "obtain", "remain", "retain", "sustain", "attain", "detain", "strain",
         # Common report words
         "governance", "remuneration", "diversification", "transformation",
         "infrastructure", "operations", "operational", "strategically",
@@ -102,6 +107,7 @@ def _load_word_dictionary() -> Set[str]:
 
 # Module-level dictionary (loaded once)
 _WORD_DICT: Optional[Set[str]] = None
+_SYMSPELL = None
 
 
 def _get_word_dict() -> Set[str]:
@@ -110,6 +116,31 @@ def _get_word_dict() -> Set[str]:
     if _WORD_DICT is None:
         _WORD_DICT = _load_word_dictionary()
     return _WORD_DICT
+
+
+def _get_symspell():
+    """Get a SymSpell instance if available, otherwise None."""
+    global _SYMSPELL
+    if _SYMSPELL is not None:
+        return _SYMSPELL
+
+    try:
+        from symspellpy import SymSpell
+    except Exception:
+        _SYMSPELL = None
+        return None
+
+    symspell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
+    try:
+        for word in _get_word_dict():
+            symspell.create_dictionary_entry(word, 1)
+    except Exception as exc:
+        logger.warning(f"Failed to build SymSpell dictionary: {exc}")
+        _SYMSPELL = None
+        return None
+
+    _SYMSPELL = symspell
+    return _SYMSPELL
 
 
 @lru_cache(maxsize=10000)
@@ -243,6 +274,177 @@ def _repair_fragmented_words(text: str) -> str:
     return ' '.join(result)
 
 
+def _basic_normalize_text(text: str) -> str:
+    """Apply conservative normalization without word repairs."""
+    text = ' '.join(text.split())
+
+    text = re.sub(
+        r'\b[A-Z0-9]{18,20}\b(?:\s+\d{4}-\d{2}-\d{2}(?:\s+\d{4}-\d{2}-\d{2})?)*',
+        '',
+        text
+    )
+    text = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', '', text)
+    text = re.sub(r'\b(?:iso4217|xbrli):[A-Za-z]+\b', '', text)
+
+    def merge_spelled(match: re.Match) -> str:
+        letters = re.findall(r"[A-Za-z]", match.group(0))
+        return "".join(letters)
+
+    text = re.sub(
+        r"(?:\b[A-Za-z]\b(?:\s+|&nbsp;)+){2,}\b[A-Za-z]\b",
+        merge_spelled,
+        text,
+    )
+
+    text = re.sub(
+        r"\b[a-z0-9]{2,}(?:-[a-z0-9]{2,})?:[A-Za-z][A-Za-z0-9_-]*\b",
+        "",
+        text,
+    )
+
+    text = re.sub(r"\s*\.{3,}\s*\d+\b", "", text)
+    text = re.sub(r"(\d)\s+(\d)", r"\1\2", text)
+    text = re.sub(r"(\d)\s+,\s+(\d)", r"\1,\2", text)
+    text = re.sub(r"(\d)\s+\.\s+(\d)", r"\1.\2", text)
+    text = re.sub(r"(\d)\s+%","\\1%", text)
+    text = re.sub(r"([£$€])\s+(\d)", r"\1\2", text)
+    text = re.sub(r"([A-Za-z])-\s+([A-Za-z])", r"\1\2", text)
+    text = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", text)
+
+    if "\uFFFD" in text:
+        text = text.replace("\uFFFD", "")
+
+    return ' '.join(text.split())
+
+
+def _merge_single_letter_fragments(text: str) -> str:
+    """Merge obvious single-letter fragments into adjacent words."""
+    text = re.sub(
+        r'(?<=\s)([b-hj-z])\s+(?!(?:and|the|for|with|to|of|in|on|at)\b)([a-z]{3,})',
+        r'\1\2',
+        text
+    )
+
+    text = re.sub(r'([a-z]{3,})\s+([b-hj-z])(?=\s|[,.;:\)]|$)', r'\1\2', text)
+
+    return text
+
+
+def _calculate_quality_metrics(text: str) -> Dict[str, float]:
+    """Compute heuristic quality metrics for routing."""
+    tokens = [t for t in text.split() if t]
+    alpha_chars = sum(c.isalpha() for c in text)
+    alpha_ratio = alpha_chars / max(1, len(text))
+    single_letters = [t for t in tokens if len(t) == 1 and t.isalpha()]
+    single_letter_rate = len(single_letters) / max(1, len(tokens))
+    long_tokens = [t for t in tokens if len(t) >= 12 and t.isalpha()]
+    long_token_rate = len(long_tokens) / max(1, len(tokens))
+    space_ratio = text.count(" ") / max(1, len(text))
+
+    return {
+        "alpha_ratio": alpha_ratio,
+        "single_letter_rate": single_letter_rate,
+        "long_token_rate": long_token_rate,
+        "space_ratio": space_ratio,
+        "token_count": float(len(tokens)),
+    }
+
+
+def _count_unknown_tokens(text: str) -> int:
+    """Count alphabetic tokens not found in the dictionary."""
+    words = _get_word_dict()
+    tokens = [t for t in text.split() if t.isalpha()]
+    return sum(1 for t in tokens if t.lower() not in words)
+
+
+def _count_suspicious_single_letters(text: str) -> int:
+    """Count single-letter tokens excluding 'a' and 'i'."""
+    tokens = text.split()
+    return sum(
+        1 for t in tokens
+        if len(t) == 1 and t.isalpha() and t.lower() not in ("a", "i")
+    )
+
+
+def _repair_fragmented_words_with_symspell(
+    text: str,
+    *,
+    per_sentence: bool = False,
+    aggressive: bool = False,
+) -> str:
+    """Use SymSpell compound lookup to repair spaced fragments."""
+    symspell = _get_symspell()
+    if symspell is None:
+        return text
+
+    def apply_symspell(segment: str) -> str:
+        try:
+            suggestions = symspell.lookup_compound(segment, max_edit_distance=2)
+        except Exception as exc:
+            logger.warning(f"SymSpell lookup failed: {exc}")
+            return segment
+
+        if not suggestions:
+            return segment
+
+        candidate = suggestions[0].term
+        if not candidate or candidate == segment:
+            return segment
+
+        unknown_before = _count_unknown_tokens(segment)
+        unknown_after = _count_unknown_tokens(candidate)
+        single_before = _count_suspicious_single_letters(segment)
+        single_after = _count_suspicious_single_letters(candidate)
+
+        if aggressive:
+            if single_after < single_before and unknown_after <= unknown_before:
+                return candidate
+            return segment
+
+        if unknown_after < unknown_before:
+            return candidate
+        if unknown_after == unknown_before and single_after < single_before:
+            return candidate
+
+        return segment
+
+    if per_sentence:
+        parts = re.split(r"(?<=[.!?])\s+", text)
+        return " ".join(apply_symspell(part) for part in parts if part)
+
+    return apply_symspell(text)
+
+
+def _split_concatenated_with_wordninja(
+    token: str,
+    words_dict: Set[str],
+    allowed_connectors: Set[str],
+    *,
+    aggressive: bool = False,
+) -> Optional[str]:
+    """Split concatenated words using wordninja with dictionary validation."""
+    try:
+        import wordninja
+    except Exception:
+        return None
+
+    parts = wordninja.split(token)
+    if len(parts) <= 1:
+        return None
+
+    validated = []
+    for part in parts:
+        part_lower = part.lower()
+        if len(part) == 1 and part_lower not in ("a", "i"):
+            return None
+        if part_lower not in words_dict and part_lower not in allowed_connectors:
+            if not aggressive or len(part) < 3 or not part.isalpha():
+                return None
+        validated.append(part)
+
+    return " ".join(validated)
+
+
 # Common section headings in UK annual reports
 SECTION_PATTERNS = [
     r"principal\s+risks?(?:\s+and\s+uncertainties)?",
@@ -265,10 +467,13 @@ class TextSpan:
     """A span of text extracted from an iXBRL/XHTML document."""
 
     text: str
+    raw_text: Optional[str] = None
     page_number: Optional[int] = None  # iXBRL doesn't have pages, but we keep for compatibility
     section: Optional[str] = None
     is_heading: bool = False
     font_size: Optional[float] = None
+    quality: Dict[str, float] = field(default_factory=dict)
+    repaired: bool = False
 
 
 @dataclass
@@ -427,31 +632,71 @@ class iXBRLParser(HTMLParser):
         """
         if not self.current_text:
             return ""
-        # Strip each segment and join with spaces to ensure proper word boundaries
-        return ' '.join(segment.strip() for segment in self.current_text if segment.strip())
+        stitched = self._stitch_adjacent_segments(self.current_text)
+        return ' '.join(stitched)
+
+    def _stitch_adjacent_segments(self, segments: List[str]) -> List[str]:
+        """Merge adjacent segments that look like split words."""
+        stitched: List[str] = []
+        for segment in segments:
+            part = segment.strip()
+            if not part:
+                continue
+            if not stitched:
+                stitched.append(part)
+                continue
+
+            prev = stitched[-1]
+            if self._should_stitch(prev, part):
+                stitched[-1] = prev + part
+            else:
+                stitched.append(part)
+
+        return stitched
+
+    def _should_stitch(self, left: str, right: str) -> bool:
+        """Heuristic for merging two adjacent fragments."""
+        if not left or not right:
+            return False
+        if left[-1].isspace() or right[0].isspace():
+            return False
+        if not left[-1].isalnum() or not right[0].isalnum():
+            return False
+        if left[-1].isdigit() and right[0].isdigit():
+            return True
+
+        if left[-1].isalpha() and right[0].isalpha():
+            if len(left) <= 3 or len(right) <= 3:
+                return True
+            if left.islower() and right.islower() and len(right) <= 4:
+                return True
+
+        return False
 
     def _add_span(self, text: str, is_heading: bool):
         """Add a text span."""
-        # Clean up excessive whitespace (iXBRL often has spaces between characters)
-        # This fixes issues like "risk s" -> "risks"
-        cleaned_text = self._clean_text(text)
+        raw_text = unescape(text)
+        section_text = _basic_normalize_text(raw_text)
+        quality = _calculate_quality_metrics(raw_text)
 
         # Detect section from heading (or from any span that matches)
         section = None
         for pattern in self.section_patterns:
-            if pattern.search(cleaned_text.lower()):
-                match = pattern.search(cleaned_text.lower())
+            if pattern.search(section_text.lower()):
+                match = pattern.search(section_text.lower())
                 if match:
                     section = match.group(0).replace(" ", "_")
                     # Mark as heading if it matches a section pattern
-                    if not is_heading and len(cleaned_text) < 100:
+                    if not is_heading and len(section_text) < 100:
                         is_heading = True
                     break
 
         self.spans.append(TextSpan(
-            text=unescape(cleaned_text),
+            text=raw_text,
+            raw_text=raw_text,
             section=section,
-            is_heading=is_heading
+            is_heading=is_heading,
+            quality=quality,
         ))
 
     def _clean_text(self, text: str) -> str:
@@ -460,45 +705,26 @@ class iXBRLParser(HTMLParser):
         iXBRL files often have spaces between characters or within words.
         This method normalizes the spacing while preserving intentional word breaks.
         """
-        # First, normalize all whitespace to single spaces
-        text = ' '.join(text.split())
-
-        # -----------------------------------------------------------------------
-        # Quick win #1: Remove LEI codes + date patterns (XBRL context identifiers)
-        # These appear at document start: "549300PPXHEU2JF0AM85 2024-01-01 2024-12-31"
-        # -----------------------------------------------------------------------
-        # Remove LEI code (20 alphanumeric chars) followed by optional date ranges
-        text = re.sub(
-            r'\b[A-Z0-9]{18,20}\b(?:\s+\d{4}-\d{2}-\d{2}(?:\s+\d{4}-\d{2}-\d{2})?)*',
-            '',
-            text
-        )
-
-        # Also remove standalone ISO date patterns that may remain
-        text = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', '', text)
-
-        # Remove currency/unit codes from XBRL (iso4217:GBP, xbrli:shares)
-        text = re.sub(r'\b(?:iso4217|xbrli):[A-Za-z]+\b', '', text)
-
-        # Merge spelled-out words where each letter is separated by spaces
-        # Example: "S T R A T E G I C" -> "STRATEGIC"
-        def merge_spelled(match: re.Match) -> str:
-            letters = re.findall(r"[A-Za-z]", match.group(0))
-            return "".join(letters)
-
-        text = re.sub(
-            r"(?:\b[A-Za-z]\b(?:\s+|&nbsp;)+){2,}\b[A-Za-z]\b",
-            merge_spelled,
-            text,
-        )
+        text = _basic_normalize_text(text)
 
         # Merge short token runs when single-letter fragments appear
         # Example: "STR A T EGIC" -> "STRATEGIC"
         def merge_short_run(match: re.Match) -> str:
             tokens = match.group(0).split()
-            if any(len(t) == 1 for t in tokens):
-                return "".join(tokens)
-            return match.group(0)
+            single_letter_count = sum(1 for t in tokens if len(t) == 1)
+            if single_letter_count < 2:
+                return match.group(0)
+
+            stopwords = {
+                "a", "an", "and", "the", "for", "with", "to", "of", "in", "on",
+                "at", "as", "or", "by", "is", "are", "was", "were", "be", "been",
+                "being",
+            }
+            lower_tokens = [t.lower() for t in tokens if len(t) > 1]
+            if any(t in stopwords for t in lower_tokens):
+                return match.group(0)
+
+            return "".join(tokens)
 
         text = re.sub(
             r"(?:\b[A-Za-z]{1,4}\b\s+){1,}\b[A-Za-z]{1,4}\b",
@@ -506,53 +732,11 @@ class iXBRLParser(HTMLParser):
             text,
         )
 
-        # Remove XBRL namespace tokens (e.g., ifrs-full:RetainedEarningsMember)
-        text = re.sub(
-            r"\b[a-z0-9]{2,}(?:-[a-z0-9]{2,})?:[A-Za-z][A-Za-z0-9_-]*\b",
-            "",
-            text,
-        )
-
-        # Remove dotted leaders and trailing page numbers in TOC-like lines
-        text = re.sub(r"\s*\.{3,}\s*\d+\b", "", text)
-
-        # Fix digit spacing and numeric punctuation
-        text = re.sub(r"(\d)\s+(\d)", r"\1\2", text)
-        text = re.sub(r"(\d)\s+,\s+(\d)", r"\1,\2", text)
-        text = re.sub(r"(\d)\s+\.\s+(\d)", r"\1.\2", text)
-        text = re.sub(r"(\d)\s+%","\\1%", text)
-        text = re.sub(r"([£$€])\s+(\d)", r"\1\2", text)
-
-        # Fix hyphenation across line breaks/spans
-        text = re.sub(r"([A-Za-z])-\s+([A-Za-z])", r"\1\2", text)
-
         # Common spacing issue in iXBRL: characters/syllables are split
         # "risk s" -> "risks"
         # "principal risk s" -> "principal risks"
 
-        # Be conservative: only fix obvious single-character fragments
-        # Pattern 1: Single letter at start of word: "c ust" -> "cust"
-        # Exclude "a" and "i" to avoid merging articles/pronouns ("a company" -> "acompany").
-        # Avoid common stopwords to prevent "s and" -> "sand".
-        text = re.sub(
-            r'(?<=\s)([b-hj-z])\s+(?!(?:and|the|for|with|to|of|in|on|at)\b)([a-z]{3,})',
-            r'\1\2',
-            text
-        )
-
-        # Pattern 2: Single letter suffix at end: "risk s" -> "risks"
-        # Exclude "a" and "i" to avoid merging articles/pronouns ("uses a" -> "usesa").
-        text = re.sub(r'([a-z]{3,})\s+([b-hj-z])(?=\s|[,.;:\)]|$)', r'\1\2', text)
-
-        # Insert word breaks on camel-case boundaries (e.g., "theStrategic" -> "the Strategic")
-        text = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", text)
-
-        # Remove Unicode replacement characters introduced by bad glyph decoding
-        if "\uFFFD" in text:
-            text = text.replace("\uFFFD", "")
-
-        # Normalize whitespace
-        text = ' '.join(text.split())
+        text = _merge_single_letter_fragments(text)
 
         # -----------------------------------------------------------------------
         # Step 1: Dictionary-based word repair (handles "cus to mers" -> "customers")
@@ -562,9 +746,18 @@ class iXBRLParser(HTMLParser):
         single_letters = [t for t in tokens if len(t) == 1 and t.isalpha()]
         suspicious_letters = [t for t in single_letters if t.lower() not in ('a', 'i')]
         has_spelled = re.search(r"(?:\b[A-Za-z]\b\s+){2,}\b[A-Za-z]\b", text)
-        needs_repair = bool(has_spelled) or (len(suspicious_letters) / max(1, len(tokens)) > 0.05)
+        suspicious_ratio = len(suspicious_letters) / max(1, len(tokens))
+        needs_repair = bool(has_spelled) or (suspicious_ratio > 0.05)
         if needs_repair:
             text = _repair_fragmented_words(text)
+        if suspicious_ratio > 0.02:
+            text = _repair_fragmented_words_with_symspell(
+                text,
+                per_sentence=True,
+                aggressive=True,
+            )
+        elif needs_repair:
+            text = _repair_fragmented_words_with_symspell(text)
 
         # -----------------------------------------------------------------------
         # Step 2: Split concatenated words like "colleaguesand" -> "colleagues and"
@@ -585,6 +778,17 @@ class iXBRLParser(HTMLParser):
             # Safe connectors that rarely appear inside words
             safe_connectors = ["and", "the", "for", "our", "are", "has", "was",
                                "with", "from", "been", "this", "that", "will"]
+            risky_connectors = ["of", "to", "in", "on", "at", "as", "or", "by", "its"]
+            allowed_connectors = set(safe_connectors + risky_connectors)
+
+            wordninja_split = _split_concatenated_with_wordninja(
+                token,
+                words_dict,
+                allowed_connectors,
+                aggressive=True,
+            )
+            if wordninja_split:
+                return wordninja_split
 
             # Try safe connectors first (no dictionary check needed)
             for connector in safe_connectors:
@@ -599,7 +803,6 @@ class iXBRLParser(HTMLParser):
                         return f"{left_split} {connector} {right_split}"
 
             # Try risky connectors only if they produce valid dictionary words
-            risky_connectors = ["of", "to", "in", "on", "at", "as", "or", "by", "its"]
             for connector in risky_connectors:
                 idx = token_lower.find(connector, 2)
                 while idx != -1 and idx < len(token) - len(connector) - 1:
@@ -626,12 +829,12 @@ class iXBRLParser(HTMLParser):
                 return token
             return split_concatenated_with_dict(token)
 
-        if needs_repair:
-            for _ in range(2):
-                updated = re.sub(r"\b[a-zA-Z]{7,}\b", apply_split, text)
-                if updated == text:
-                    break
-                text = updated
+        for _ in range(2):
+            updated = re.sub(r"\b[a-zA-Z]{6,}\b", apply_split, text)
+            if updated == text:
+                break
+            text = updated
+            if needs_repair:
                 text = _repair_fragmented_words(text)
 
         # -----------------------------------------------------------------------
@@ -692,6 +895,7 @@ class iXBRLExtractor:
         spans = parser.get_spans()
         spans = self._filter_repeated_spans(spans)
         spans = self._rebuild_paragraphs(spans)
+        spans = self._repair_spans(spans)
 
         # Build full text
         full_text = "\n\n".join(
@@ -714,6 +918,18 @@ class iXBRLExtractor:
             metadata=metadata,
             full_text=full_text
         )
+
+    def _repair_spans(self, spans: List[TextSpan]) -> List[TextSpan]:
+        """Repair spans via the text repair service if available."""
+        if not spans:
+            return spans
+        try:
+            from .text_repair import TextRepairService
+        except Exception as exc:
+            logger.warning(f"TextRepairService unavailable: {exc}")
+            return spans
+
+        return TextRepairService().repair_spans(spans)
 
     def _rebuild_paragraphs(self, spans: List[TextSpan]) -> List[TextSpan]:
         """Merge line-like spans into paragraphs using simple heuristics."""

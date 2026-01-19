@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List, Set, Optional
 
 from .utils.keywords import AI_KEYWORD_PATTERNS
+from .text_repair import TextRepairService
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,7 @@ class Preprocessor:
         self.ai_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in AI_ML_KEYWORDS]
         self.risk_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in RISK_KEYWORDS]
         self.all_keyword_patterns = self.ai_patterns + self.risk_patterns
+        self.text_repair = TextRepairService()
 
     def process(self, extracted_report, firm_name: str) -> PreprocessedReport:
         """Process an extracted report according to the strategy.
@@ -109,6 +111,8 @@ class Preprocessor:
             PreprocessedReport with filtered markdown content
         """
         logger.info(f"Preprocessing {firm_name} using strategy: {self.strategy.value}")
+
+        extracted_report.spans = self._repair_spans(extracted_report.spans)
 
         if self.strategy == PreprocessingStrategy.FULL:
             filtered_spans, stats = self._filter_full(extracted_report)
@@ -142,6 +146,14 @@ class Preprocessor:
             metadata=metadata,
             stats=stats
         )
+
+    def _repair_spans(self, spans: List) -> List:
+        """Repair spans if they include raw iXBRL fragments."""
+        if not spans:
+            return spans
+        if not hasattr(spans[0], "raw_text"):
+            return spans
+        return self.text_repair.repair_spans(spans)
 
     def _filter_full(self, report) -> tuple[List, dict]:
         """No filtering - return all spans."""
