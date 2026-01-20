@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import nltk
 
-from .utils.keywords import AI_KEYWORD_PATTERNS, KeywordPattern
+from .utils.keywords import AI_KEYWORD_PATTERNS, KeywordPattern, compile_keyword_patterns
 # Download required NLTK data (run once)
 try:
     nltk.data.find('tokenizers/punkt')
@@ -69,10 +69,7 @@ class TextChunker:
         self.max_chunk_length = max_chunk_length
         self.chunk_by = chunk_by
         patterns = keyword_patterns or AI_KEYWORD_PATTERNS
-        self.keyword_patterns = [
-            (kp.name, re.compile(kp.pattern, re.IGNORECASE))
-            for kp in patterns
-        ]
+        self.keyword_patterns = compile_keyword_patterns(patterns)
 
     def chunk_report(
         self,

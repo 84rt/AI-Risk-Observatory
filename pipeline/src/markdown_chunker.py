@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from .utils.keywords import AI_KEYWORD_PATTERNS, KeywordPattern
+from .utils.keywords import AI_KEYWORD_PATTERNS, KeywordPattern, compile_keyword_patterns
 
 
 @dataclass
@@ -121,7 +121,7 @@ def _extract_paragraphs(blocks: List[MarkdownBlock]) -> List[MarkdownParagraph]:
 
 def _compile_patterns(patterns: Optional[List[KeywordPattern]] = None):
     patterns = patterns or AI_KEYWORD_PATTERNS
-    return [(kp.name, re.compile(kp.pattern, re.IGNORECASE)) for kp in patterns]
+    return compile_keyword_patterns(patterns)
 
 
 def _find_matches(text: str, patterns: List[tuple]) -> List[dict]:

@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Set, Optional
 
-from .utils.keywords import AI_KEYWORD_PATTERNS
+from .utils.keywords import AI_KEYWORD_PATTERNS, compile_keyword_patterns
 from .text_repair import TextRepairService
 
 logger = logging.getLogger(__name__)
@@ -23,9 +23,6 @@ class PreprocessingStrategy(Enum):
     RISK_ONLY = "risk_only"  # Only risk sections
     KEYWORD = "keyword"  # Keyword-based filtering
 
-
-# AI/ML Keywords (comprehensive list covering various terms)
-AI_ML_KEYWORDS = [kp.pattern for kp in AI_KEYWORD_PATTERNS]
 
 # Risk-related keywords
 RISK_KEYWORDS = [
@@ -95,9 +92,9 @@ class Preprocessor:
         self.include_context = include_context
 
         # Compile regex patterns for efficiency
-        self.ai_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in AI_ML_KEYWORDS]
+        self.ai_patterns = compile_keyword_patterns(AI_KEYWORD_PATTERNS)
         self.risk_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in RISK_KEYWORDS]
-        self.all_keyword_patterns = self.ai_patterns + self.risk_patterns
+        self.all_keyword_patterns = [p[1] for p in self.ai_patterns] + self.risk_patterns
         self.text_repair = TextRepairService()
 
     def process(self, extracted_report, firm_name: str) -> PreprocessedReport:
@@ -215,20 +212,18 @@ class Preprocessor:
                 should_include = True
             else:
                 # Check for keyword matches
-                text_lower = span.text.lower()
-
                 # Check AI keywords
-                for pattern in self.ai_patterns:
-                    if pattern.search(text_lower):
+                for name, pattern in self.ai_patterns:
+                    if pattern.search(span.text):
                         should_include = True
                         ai_matches += 1
-                        matched_keywords.add(pattern.pattern)
+                        matched_keywords.add(name)
                         break
 
                 # Check risk keywords
                 if not should_include:
                     for pattern in self.risk_patterns:
-                        if pattern.search(text_lower):
+                        if pattern.search(span.text):
                             should_include = True
                             risk_matches += 1
                             matched_keywords.add(pattern.pattern)

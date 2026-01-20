@@ -6,32 +6,25 @@ import {
 
 // --- Shared Colors ---
 export const COLORS: Record<string, string> = {
-  // Risks
-  'operational_reliability': '#f97316', // Orange
-  'security_malicious_use': '#ef4444', // Red
-  'legal_regulatory_compliance': '#eab308', // Yellow
-  'workforce_human_capital': '#8b5cf6', // Purple
-  'societal_ethical_reputational': '#3b82f6', // Blue
-  'frontier_systemic': '#ec4899', // Pink
-  
-  // Sectors
-  'Financials': '#0f172a', // Slate 900
-  'Technology': '#3b82f6', // Blue 500
-  'Healthcare': '#ef4444', // Red 500
-  'Industrials': '#f59e0b', // Amber 500
-  'Energy': '#10b981', // Emerald 500
-  'Consumer Discretionary': '#8b5cf6', // Violet 500
-
-  // Confidence
-  '0': '#cbd5e1', // Low - Slate 300
-  '1': '#64748b', // Medium - Slate 500
-  '2': '#0f172a', // High - Slate 900
-  
-  'default': '#cbd5e1' // Slate 300
+  default: '#cbd5e1',
 };
 
 const formatLabel = (val: string) => {
-  return val.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const overrides: Record<string, string> = {
+    llm: 'LLM',
+    non_llm: 'Non-LLM',
+    general_ambiguous: 'General / Ambiguous',
+    third_party_supply_chain: 'Third-Party Supply Chain',
+    operational_technical: 'Operational / Technical',
+    reputational_ethical: 'Reputational / Ethical',
+    information_integrity: 'Information Integrity',
+    none: 'Unspecified',
+  };
+  if (overrides[val]) return overrides[val];
+  return val
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 };
 
 // --- Component: Stacked Bar Chart ---
@@ -44,7 +37,7 @@ interface StackedBarChartProps {
 
 export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS }: StackedBarChartProps) {
   return (
-    <div className="h-[500px] w-full bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+    <div className="h-[500px] w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
@@ -102,9 +95,20 @@ interface GenericHeatmapProps {
   xLabels: (string | number)[];
   yLabels: (string | number)[];
   valueFormatter?: (val: number) => string;
+  baseColor?: string;
+  xLabelFormatter?: (val: string | number) => string;
+  yLabelFormatter?: (val: string | number) => string;
 }
 
-export function GenericHeatmap({ data, xLabels, yLabels, valueFormatter = (v) => v.toString() }: GenericHeatmapProps) {
+export function GenericHeatmap({
+  data,
+  xLabels,
+  yLabels,
+  valueFormatter = (v) => v.toString(),
+  baseColor = '#0ea5e9',
+  xLabelFormatter = (val) => val.toString(),
+  yLabelFormatter = (val) => val.toString(),
+}: GenericHeatmapProps) {
   // Create a lookup map
   const dataMap = new Map<string, number>();
   let maxValue = 0;
@@ -115,7 +119,7 @@ export function GenericHeatmap({ data, xLabels, yLabels, valueFormatter = (v) =>
   });
 
   return (
-    <div className="w-full overflow-x-auto bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
       <div 
         className="grid gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden"
         style={{ 
@@ -128,16 +132,15 @@ export function GenericHeatmap({ data, xLabels, yLabels, valueFormatter = (v) =>
         </div>
         {xLabels.map(x => (
           <div key={x} className="bg-slate-50 p-3 text-sm font-semibold text-slate-700 text-center flex items-center justify-center h-12">
-            {x}
+            {xLabelFormatter(x)}
           </div>
         ))}
 
         {/* Rows */}
         {yLabels.map(y => (
-          <>
-            {/* Y Label */}
-            <div key={`label-${y}`} className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-16 border-r border-slate-100">
-              {y === 0 ? 'Low (0)' : y === 1 ? 'Medium (1)' : y === 2 ? 'High (2)' : y}
+          <div key={`row-${y}`} className="contents">
+            <div className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-16 border-r border-slate-100">
+              {yLabelFormatter(y)}
             </div>
 
             {/* Cells */}
@@ -158,7 +161,7 @@ export function GenericHeatmap({ data, xLabels, yLabels, valueFormatter = (v) =>
                   <div 
                     className="absolute inset-0 transition-all duration-300"
                     style={{ 
-                      backgroundColor: '#3b82f6', // Blue 500 base
+                      backgroundColor: baseColor,
                       opacity: val === 0 ? 0 : opacity 
                     }}
                   />
@@ -168,7 +171,7 @@ export function GenericHeatmap({ data, xLabels, yLabels, valueFormatter = (v) =>
                 </div>
               );
             })}
-          </>
+          </div>
         ))}
       </div>
     </div>

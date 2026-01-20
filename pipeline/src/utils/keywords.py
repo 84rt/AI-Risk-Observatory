@@ -1,7 +1,8 @@
 """Keyword patterns used for AI mention detection."""
 
 from dataclasses import dataclass
-from typing import List
+import re
+from typing import List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -10,14 +11,30 @@ class KeywordPattern:
 
     name: str
     pattern: str
+    case_sensitive: bool = False
+
+
+def compile_keyword_patterns(
+    patterns: Optional[List[KeywordPattern]] = None,
+) -> List[Tuple[str, re.Pattern]]:
+    """Compile keyword patterns with per-pattern case sensitivity."""
+    compiled: List[Tuple[str, re.Pattern]] = []
+    for kp in patterns or AI_KEYWORD_PATTERNS:
+        flags = 0 if kp.case_sensitive else re.IGNORECASE
+        compiled.append((kp.name, re.compile(kp.pattern, flags)))
+    return compiled
 
 
 AI_KEYWORD_PATTERNS: List[KeywordPattern] = [
     KeywordPattern("artificial_intelligence", r"\bartificial\s+intelligence\b"),
-    KeywordPattern("ai", r"\bAI\b"),  # Case-sensitive uppercase only to avoid "Shanghai", "Chairman", etc.
+    KeywordPattern(
+        "ai",
+        r"\bAI\b",
+        case_sensitive=True,
+    ),  # Uppercase only to avoid "Shanghai", "Chairman", etc.
     KeywordPattern("a_i", r"\ba\.i\.\b"),
     KeywordPattern("machine_learning", r"\bmachine\s+learning\b"),
-    KeywordPattern("ml", r"\bml\b"),
+    KeywordPattern("ml", r"\bML\b", case_sensitive=True),
     KeywordPattern("machine_learned", r"\bmachine[-\s]+learned\b"),
     KeywordPattern("deep_learning", r"\bdeep\s+learning\b"),
     KeywordPattern("neural_network", r"\bneural\s+network"),
@@ -29,7 +46,6 @@ AI_KEYWORD_PATTERNS: List[KeywordPattern] = [
     KeywordPattern("foundation_model", r"\bfoundation\s+model(?:s)?\b"),
     KeywordPattern("generative_ai", r"\bgenerative\s+(?:ai|model)"),
     KeywordPattern("gen_ai", r"\bgen\s+ai\b"),
-    KeywordPattern("transformer", r"\btransformer"),
     KeywordPattern("natural_language_processing", r"\bnatural\s+language\s+processing\b"),
     KeywordPattern("nlp", r"\bnlp\b"),
     KeywordPattern("computer_vision", r"\bcomputer\s+vision\b"),
@@ -41,28 +57,20 @@ AI_KEYWORD_PATTERNS: List[KeywordPattern] = [
     KeywordPattern("rpa", r"\brobotic\s+process\s+automation\b"),
     KeywordPattern("rpa_acronym", r"\brpa\b"),
     KeywordPattern("predictive_analytics", r"\bpredictive\s+analytics?\b"),
-    KeywordPattern("data_analytics", r"\bdata\s+analytics?\b"),
     KeywordPattern("chatbot", r"\bchatbot"),
     KeywordPattern("virtual_assistant", r"\bvirtual\s+assistant"),
     KeywordPattern("recommendation_system", r"\brecommendation\s+(?:engine|system|algorithm)"),
-    KeywordPattern("autonomous", r"\bautonomous"),
-    KeywordPattern("ai_compound", r"\bai[-](?:powered|driven|enabled|based)"),
+    KeywordPattern("autonomous", r"\bautonomous\b"),
     KeywordPattern("algorithmic", r"\balgorithm(?:ic)?\s+(?:trading|decision|bias)"),
     KeywordPattern("chatgpt", r"\bchatgpt\b"),
     KeywordPattern("gpt", r"\bgpt-?\d+\b"),
     KeywordPattern("gpt_family", r"\bgpt\b"),
     KeywordPattern("claude", r"\bclaude\b"),
-    KeywordPattern("gemini", r"\bgemini\b"),
     KeywordPattern("llama", r"\bllama\b"),
-    KeywordPattern("mistral", r"\bmistral\b"),
-    KeywordPattern("bert", r"\bbert\b"),
-    KeywordPattern("diffusion", r"\bdiffusion\b"),
     KeywordPattern("stable_diffusion", r"\bstable\s+diffusion\b"),
     KeywordPattern("speech_recognition", r"\bspeech\s+recognition\b"),
-    KeywordPattern("asr", r"\basr\b"),
     KeywordPattern("speech_to_text", r"\bspeech[-\s]+to[-\s]+text\b"),
     KeywordPattern("text_to_speech", r"\btext[-\s]+to[-\s]+speech\b"),
-    KeywordPattern("tts", r"\btts\b"),
     KeywordPattern("text_to_image", r"\btext[-\s]+to[-\s]+image\b"),
     KeywordPattern("text_to_video", r"\btext[-\s]+to[-\s]+video\b"),
     KeywordPattern("image_generation", r"\bimage\s+generation\b"),
