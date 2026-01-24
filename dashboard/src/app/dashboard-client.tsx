@@ -126,14 +126,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
                 Live view of the golden set used to calibrate the taxonomy choices in the report.
-                Every chart is built from the 470 annotated chunks across the priority CNI sample.
+                Charts display per-report aggregated labels across the priority CNI sample.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="animate-rise animate-rise-delay-1 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Annotated Chunks</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Reports</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.totalChunks)}
+                  {formatNumber(data.summary.totalReports)}
                 </p>
               </div>
               <div className="animate-rise animate-rise-delay-2 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
@@ -143,9 +143,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 </p>
               </div>
               <div className="animate-rise animate-rise-delay-3 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Signal Chunks</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Signal Reports</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.aiSignalChunks)}
+                  {formatNumber(data.summary.aiSignalReports)}
                 </p>
               </div>
             </div>
@@ -191,28 +191,28 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   Signal Coverage
                 </h3>
                 <p className="mt-3 text-3xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.adoptionChunks + data.summary.riskChunks)}
+                  {formatNumber(data.summary.adoptionReports + data.summary.riskReports)}
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
-                  Chunks tagged as adoption or risk signals in the golden set.
+                  Reports with adoption or risk signals in the golden set.
                 </p>
                 <div className="mt-6 space-y-3 text-sm text-slate-600">
                   <div className="flex items-center justify-between">
-                    <span>Adoption mentions</span>
+                    <span>Adoption reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.adoptionChunks)}
+                      {formatNumber(data.summary.adoptionReports)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Risk mentions</span>
+                    <span>Risk reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.riskChunks)}
+                      {formatNumber(data.summary.riskReports)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Vendor mentions</span>
+                    <span>Vendor reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.vendorChunks)}
+                      {formatNumber(data.summary.vendorReports)}
                     </span>
                   </div>
                 </div>
@@ -220,9 +220,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
                 <p className="font-semibold text-slate-900">Interpretation</p>
                 <p className="mt-2 leading-relaxed">
-                  Mention types are multi-label: a single chunk can count toward multiple signals
-                  (e.g., adoption + risk). This aligns with the choices report recommendation to
-                  preserve granular, segment-level tagging.
+                  Labels are aggregated per report: a report receives a tag if any chunk has
+                  confidence ≥0.2 for that label. This provides a company-year level view of
+                  AI disclosure patterns.
                 </p>
               </div>
             </div>
@@ -264,17 +264,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             />
             <GenericHeatmap
               data={data.riskBySector}
-              xLabels={data.sectors}
-              yLabels={data.labels.riskLabels}
+              xLabels={data.labels.riskLabels.filter(l => l !== 'none')}
+              yLabels={data.sectors}
               baseColor="#f97316"
-              valueFormatter={value => `${value} chunks`}
-              yLabelFormatter={formatLabel}
+              valueFormatter={value => `${value}`}
+              xLabelFormatter={formatLabel}
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
               <p className="font-semibold text-slate-900">Read the heatmap</p>
               <p className="mt-2 leading-relaxed">
-                Rows correspond to the recommended risk taxonomy; columns follow the CNI sector
-                sample list. Darker cells indicate more annotated risk mentions in that sector.
+                Rows show CNI sectors; columns show the risk taxonomy categories.
+                Cell values show the number of reports; darker cells indicate higher counts.
               </p>
             </div>
           </div>
@@ -287,7 +287,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={data.years}
               yLabels={data.labels.confidenceBands}
               baseColor="#0ea5e9"
-              valueFormatter={value => `${value} chunks`}
+              valueFormatter={value => `${value} reports`}
               yLabelFormatter={formatLabel}
             />
             <GenericHeatmap
@@ -295,15 +295,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={data.years}
               yLabels={data.labels.substantivenessBands}
               baseColor="#14b8a6"
-              valueFormatter={value => `${value} chunks`}
+              valueFormatter={value => `${value} reports`}
               yLabelFormatter={formatLabel}
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm lg:col-span-2">
               <p className="font-semibold text-slate-900">Quality Lens</p>
               <p className="mt-2 leading-relaxed">
-                Confidence bands reflect the maximum confidence score attached to an adoption or
-                risk label in a chunk. Substantiveness uses the calibrated scalar from the
-                golden set to separate boilerplate from more concrete disclosures.
+                Confidence bands reflect the average confidence score across adoption and risk
+                labels in each report. Substantiveness is averaged across chunks to separate
+                boilerplate-heavy reports from those with more concrete disclosures.
               </p>
             </div>
           </div>

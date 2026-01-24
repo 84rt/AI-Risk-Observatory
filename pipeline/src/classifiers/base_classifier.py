@@ -255,12 +255,16 @@ class BaseClassifier(ABC):
             response_text, tokens = self._call_llm(prompt)
             latency_ms = int((time.time() - start_time) * 1000)
 
+            prompt_chars = len(prompt)
+            response_chars = len(response_text)
             log_api_call(
                 self.logger,
                 self.model_name,
-                len(prompt) // 4,  # Approximate prompt tokens
-                tokens,
+                prompt_chars // 4,  # Approximate prompt tokens
+                response_chars // 4,
                 latency_ms,
+                prompt_chars=prompt_chars,
+                response_chars=response_chars,
             )
 
         except Exception as e:
@@ -512,7 +516,6 @@ class BaseClassifier(ABC):
         }
 
         return self.classify(text, metadata, str(report_path))
-
 
 
 

@@ -276,6 +276,8 @@ def log_api_call(
     prompt_tokens: int,
     response_tokens: int,
     latency_ms: int,
+    prompt_chars: int | None = None,
+    response_chars: int | None = None,
 ) -> None:
     """Log an API call to the LLM."""
     logger.debug(
@@ -285,6 +287,8 @@ def log_api_call(
                 "model": model,
                 "prompt_tokens": prompt_tokens,
                 "response_tokens": response_tokens,
+                "prompt_chars": prompt_chars,
+                "response_chars": response_chars,
                 "latency_ms": latency_ms,
             }
         },
@@ -333,4 +337,3 @@ def log_run_summary(
         f"errors={error_count}, "
         f"duration={duration_seconds:.1f}s"
     )
-

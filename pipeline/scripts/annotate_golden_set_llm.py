@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""LLM classifier for AI-mention chunks (multi-step, JSONL output)."""
+"""Two-phase LLM classifier for AI-mention chunks.
+
+Phase 1: Run MentionTypeClassifier on all chunks (checkpoint to disk).
+Phase 2: Run downstream classifiers (risk, adoption) based on phase 1 results.
+"""
 
 from __future__ import annotations
 
 import argparse
 import concurrent.futures
 import json
+import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-# Ensure src is importable
 import sys
-
-import requests
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PIPELINE_ROOT = SCRIPT_DIR.parent
@@ -23,122 +26,81 @@ from src.classifiers import (  # noqa: E402
     AdoptionTypeClassifier,
     MentionTypeClassifier,
     RiskClassifier,
-    VendorClassifier,
 )
 from src.config import get_settings  # noqa: E402
-from src.classifiers.risk_classifier import RISK_CATEGORIES  # noqa: E402
-from src.utils.prompt_loader import get_prompt_template  # noqa: E402
 from src.utils.validation import validate_classification_response  # noqa: E402
 
 settings = get_settings()
 
 
-PROMPT_PREAMBLE = (
-    "You are labeling AI-related mentions in UK annual report excerpts. "
-    "Follow the label schema exactly, use only allowed keys, and return JSON only. "
-    "Do not invent facts. If unsure, return low confidence scores. "
-    "If there is no AI-related signal, return empty labels."
-)
+# ---------------------------------------------------------------------------
+# Downstream phase registry
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DownstreamPhase:
+    """Declarative definition of a downstream classification phase."""
+    name: str
+    mention_tag: str
+    classifier_class: Type
+    build_record: Optional[Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]] = None
 
 
-class GoldenMentionTypeClassifier(MentionTypeClassifier):
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        return f"{PROMPT_PREAMBLE}\n\n{super().get_prompt(text, metadata)}"
+def _build_risk_fields(chunk: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    risk_taxonomy = payload.get("risk_types", []) or []
+    risk_confidences = payload.get("confidence_scores", {}) or {}
+    return {
+        "risk_taxonomy": risk_taxonomy,
+        "risk_confidences": risk_confidences,
+    }
 
 
-class GoldenAdoptionTypeClassifier(AdoptionTypeClassifier):
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        return f"{PROMPT_PREAMBLE}\n\n{super().get_prompt(text, metadata)}"
+def _build_adoption_fields(chunk: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    adoption_confidences = payload.get("adoption_confidences", {}) or {}
+    adoption_types = tags_from_confidences(adoption_confidences, 0.0)  # threshold applied later
+    valid_scores = [
+        s for s in adoption_confidences.values() if isinstance(s, (int, float))
+    ]
+    return {
+        "adoption_types_raw": adoption_types,
+        "adoption_confidences": adoption_confidences,
+        "adoption_confidence": max(valid_scores) if valid_scores else 0.0,
+    }
 
 
-class GoldenRiskClassifier(RiskClassifier):
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        return f"{PROMPT_PREAMBLE}\n\n{super().get_prompt(text, metadata)}"
+DOWNSTREAM_PHASES: List[DownstreamPhase] = [
+    DownstreamPhase(
+        name="Risk",
+        mention_tag="risk",
+        classifier_class=RiskClassifier,
+        build_record=_build_risk_fields,
+    ),
+    DownstreamPhase(
+        name="Adoption",
+        mention_tag="adoption",
+        classifier_class=AdoptionTypeClassifier,
+        build_record=_build_adoption_fields,
+    ),
+]
 
 
-class GoldenVendorClassifier(VendorClassifier):
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        return f"{PROMPT_PREAMBLE}\n\n{super().get_prompt(text, metadata)}"
-
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="LLM annotation for AI-mention chunks.")
-    parser.add_argument(
-        "--chunks",
-        type=Path,
-        required=True,
-        help="Path to chunks.jsonl or chunks_gemma.jsonl",
-    )
-    parser.add_argument(
-        "--run-id",
-        type=str,
-        default=None,
-        help="Optional run_id override (defaults to inferred from chunks path).",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("data/golden_set/llm"),
-        help="Output directory for annotations and progress files.",
-    )
-    parser.add_argument(
-        "--append",
-        action="store_true",
-        help="Append to existing output and skip already processed chunk_ids.",
-    )
-    parser.add_argument(
-        "--max-chunks",
-        type=int,
-        default=0,
-        help="Stop after processing this many chunks (0 = no limit).",
-    )
-    parser.add_argument(
-        "--mention-threshold",
-        type=float,
-        default=0.1,
-        help="Confidence threshold for mention type inclusion.",
-    )
-    parser.add_argument(
-        "--downstream-threshold",
-        type=float,
-        default=None,
-        help="Confidence threshold for downstream classifiers.",
-    )
-    parser.add_argument(
-        "--max-attempts",
-        type=int,
-        default=2,
-        help="Retry attempts if LLM returns invalid JSON for a classifier.",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=150,
-        help="Batch size for OpenRouter requests (default: 150).",
-    )
-    parser.add_argument(
-        "--max-concurrent",
-        type=int,
-        default=4,
-        help="Max concurrent batch requests per stage.",
-    )
-    parser.add_argument(
-        "--max-chars",
-        type=int,
-        default=2000,
-        help="Max characters per chunk to send to the LLM.",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        help="Override Gemini model name for classification.",
-    )
-    parser.add_argument(
-        "--openrouter",
-        action="store_true",
-        help="Route classifier calls through OpenRouter.",
-    )
+    parser = argparse.ArgumentParser(description="Two-phase LLM annotation for AI-mention chunks.")
+    parser.add_argument("--chunks", type=Path, required=True, help="Path to chunks JSONL file.")
+    parser.add_argument("--run-id", type=str, default=None, help="Optional run_id override.")
+    parser.add_argument("--output-dir", type=Path, default=Path("data/golden_set/llm"), help="Output directory.")
+    parser.add_argument("--append", action="store_true", help="Resume from existing checkpoints.")
+    parser.add_argument("--max-chunks", type=int, default=0, help="Limit chunks to process (0 = no limit).")
+    parser.add_argument("--mention-threshold", type=float, default=0.1, help="Confidence threshold for mention tags.")
+    parser.add_argument("--downstream-threshold", type=float, default=None, help="Confidence threshold for downstream routing.")
+    parser.add_argument("--max-attempts", type=int, default=2, help="Retry attempts per classifier call.")
+    parser.add_argument("--max-concurrent", type=int, default=30, help="Max concurrent requests per phase.")
+    parser.add_argument("--model", type=str, default=None, help="Override model name.")
+    parser.add_argument("--openrouter", action="store_true", help="Route calls through OpenRouter.")
     return parser.parse_args()
 
 
@@ -151,10 +113,34 @@ def infer_run_id(chunks_path: Path) -> str:
     return "unknown-run"
 
 
-def load_processed_chunk_ids(path: Path) -> set:
+
+
+def tags_from_confidences(confidences: Dict[str, Any], threshold: float) -> List[str]:
+    return [
+        tag for tag, score in confidences.items()
+        if isinstance(score, (int, float)) and score >= threshold
+    ]
+
+
+def load_chunks(path: Path) -> List[Dict[str, Any]]:
+    chunks = []
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                chunks.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return chunks
+
+
+def load_checkpoint(path: Path) -> Dict[str, Dict[str, Any]]:
+    """Load a JSONL checkpoint file, returning {chunk_id: record}."""
+    records: Dict[str, Dict[str, Any]] = {}
     if not path.exists():
-        return set()
-    chunk_ids = set()
+        return records
     with path.open() as f:
         for line in f:
             line = line.strip()
@@ -164,22 +150,10 @@ def load_processed_chunk_ids(path: Path) -> set:
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            chunk_id = obj.get("chunk_id")
-            if chunk_id:
-                chunk_ids.add(chunk_id)
-    return chunk_ids
-
-
-def load_chunks(path: Path) -> Iterable[Dict[str, Any]]:
-    with path.open() as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
+            cid = obj.get("chunk_id")
+            if cid:
+                records[cid] = obj
+    return records
 
 
 def classify_with_validation(
@@ -190,6 +164,7 @@ def classify_with_validation(
     max_attempts: int,
 ) -> Tuple[Dict[str, Any], List[str]]:
     last_messages: List[str] = []
+    payload: Dict[str, Any] = {}
     for attempt in range(max_attempts):
         result = classifier.classify(text, metadata, source_file)
         payload = result.classification or {}
@@ -197,254 +172,307 @@ def classify_with_validation(
         if ok:
             return payload, []
         last_messages = messages
-        if attempt < max_attempts - 1:
-            continue
     return payload, last_messages
 
 
-def trim_text(text: str, max_chars: int) -> str:
-    if max_chars <= 0 or len(text) <= max_chars:
-        return text
-    head = max_chars // 2
-    tail = max_chars - head
-    return text[:head] + "\n\n[...truncated...]\n\n" + text[-tail:]
-
-
-def call_openrouter(prompt: str, model: str, timeout: int = 120) -> str:
-    if not settings.openrouter_api_key:
-        raise RuntimeError("OPENROUTER_API_KEY is not set.")
-    url = f"{settings.openrouter_base_url}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {settings.openrouter_api_key}",
-        "Content-Type": "application/json",
+def build_metadata(chunk: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "firm_id": chunk.get("company_id") or "unknown",
+        "firm_name": chunk.get("company_name") or "unknown",
+        "report_year": chunk.get("report_year") or 0,
+        "sector": chunk.get("sector") or "Unknown",
+        "report_section": ", ".join(chunk.get("report_sections") or []),
     }
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "Return ONLY valid JSON."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.0,
-        "max_tokens": settings.max_tokens,
-    }
-    response = requests.post(url, headers=headers, json=payload, timeout=timeout)
-    if response.status_code != 200:
-        raise RuntimeError(f"OpenRouter error {response.status_code}: {response.text[:500]}")
-    data = response.json()
-    return data["choices"][0]["message"]["content"].strip()
 
 
-def build_batch_items(chunks: List[Dict[str, Any]], max_chars: int) -> List[Dict[str, Any]]:
-    items = []
-    for chunk in chunks:
-        text = trim_text(chunk.get("chunk_text") or "", max_chars)
-        items.append({
-            "chunk_id": chunk.get("chunk_id"),
-            "text": text,
-        })
-    return items
+# ---------------------------------------------------------------------------
+# Phase 1: Mention Type Classification
+# ---------------------------------------------------------------------------
 
-
-def build_batch_prompt(key: str, items: List[Dict[str, Any]]) -> str:
-    template = get_prompt_template(key)
-    payload = json.dumps(items, ensure_ascii=False)
-    if key == "risk_batch":
-        category_descriptions = "\n".join([
-            f"- **{key}**: {val['name']} - {val['description']}"
-            for key, val in RISK_CATEGORIES.items()
-        ])
-        return template.format(
-            items=payload,
-            risk_categories=category_descriptions,
-            risk_keys=list(RISK_CATEGORIES.keys()),
-        )
-    return template.format(items=payload)
-
-
-def parse_batch_response(
-    response_text: str,
-    classifier_type: str,
-) -> Dict[str, Dict[str, Any]]:
-    parsed = json.loads(response_text)
-    if not isinstance(parsed, list):
-        raise ValueError("Batch response is not a JSON array.")
-    results: Dict[str, Dict[str, Any]] = {}
-    for item in parsed:
-        if not isinstance(item, dict):
-            continue
-        chunk_id = item.get("chunk_id")
-        if not chunk_id:
-            continue
-        payload = {k: v for k, v in item.items() if k != "chunk_id"}
-        results[str(chunk_id)] = payload
-    return results
-
-
-def run_batch_classifier(
-    key: str,
-    classifier_type: str,
+def run_phase1(
     chunks: List[Dict[str, Any]],
-    model: str,
-    max_attempts: int,
-    max_chars: int,
-) -> Dict[str, Dict[str, Any]]:
-    items = build_batch_items(chunks, max_chars)
-    prompt = build_batch_prompt(key, items)
-    last_error = None
-    for attempt in range(max_attempts):
-        try:
-            response_text = call_openrouter(prompt, model)
-            results = parse_batch_response(response_text, classifier_type)
-            return results
-        except Exception as exc:
-            last_error = exc
-            if attempt < max_attempts - 1:
-                continue
-    if len(chunks) > 1:
-        mid = len(chunks) // 2
-        left = run_batch_classifier(key, classifier_type, chunks[:mid], model, max_attempts, max_chars)
-        right = run_batch_classifier(key, classifier_type, chunks[mid:], model, max_attempts, max_chars)
-        merged = {**left, **right}
-        return merged
-    raise RuntimeError(f"Batch {classifier_type} failed: {last_error}")
-
-
-def run_batches_parallel(
-    key: str,
-    classifier_type: str,
-    chunks: List[Dict[str, Any]],
-    model: str,
-    max_attempts: int,
-    batch_size: int,
-    max_concurrent: int,
-    max_chars: int,
-) -> Dict[str, Dict[str, Any]]:
-    batches = []
-    for i in range(0, len(chunks), batch_size):
-        batches.append(chunks[i:i + batch_size])
-
-    results: Dict[str, Dict[str, Any]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-        future_map = {
-            executor.submit(
-                run_batch_classifier,
-                key,
-                classifier_type,
-                batch,
-                model,
-                max_attempts,
-                max_chars,
-            ): batch
-            for batch in batches
-        }
-        for future in concurrent.futures.as_completed(future_map):
-            batch_results = future.result()
-            results.update(batch_results)
-    return results
-
-
-def build_record(
-    chunk: Dict[str, Any],
+    checkpoint_path: Path,
+    args: argparse.Namespace,
     run_id: str,
-    mention_payload: Dict[str, Any],
-    adoption_payload: Optional[Dict[str, Any]],
-    risk_payload: Optional[Dict[str, Any]],
-    vendor_payload: Optional[Dict[str, Any]],
-    mention_threshold: float,
-    downstream_threshold: float,
-) -> Dict[str, Any]:
-    mention_types = mention_payload.get("mention_types", [])
-    mention_confidences = mention_payload.get("confidence_scores", {}) or {}
-    if not isinstance(mention_types, list):
-        mention_types = []
+    model_name: str,
+) -> Dict[str, Dict[str, Any]]:
+    """Classify mention types for all chunks. Returns {chunk_id: phase1_record}."""
 
-    if not mention_types:
-        mention_types = [
-            tag for tag, score in mention_confidences.items()
-            if isinstance(score, (int, float)) and score >= mention_threshold
-        ]
+    existing = load_checkpoint(checkpoint_path) if args.append else {}
+    to_process = [c for c in chunks if c.get("chunk_id") not in existing]
 
-    if not mention_types:
-        mention_types = ["none"]
+    total = len(to_process)
+    if total == 0:
+        print(f"[Phase 1 – Mention Type] All {len(chunks)} chunks already in checkpoint, skipping.")
+        return existing
 
-    adoption_types: List[str] = []
-    adoption_confidence = None
-    adoption_confidences = {}
-    if adoption_payload:
-        adoption_confidences = adoption_payload.get("adoption_confidences", {}) or {}
-        adoption_types = [
-            key for key, score in adoption_confidences.items()
-            if isinstance(score, (int, float)) and score >= downstream_threshold
-        ]
-        if not adoption_types:
-            adoption_types = ["none"]
-        valid_scores = [
-            score for score in adoption_confidences.values()
-            if isinstance(score, (int, float))
-        ]
-        adoption_confidence = max(valid_scores) if valid_scores else 0.0
+    print(f"[Phase 1 – Mention Type] Starting: {total} chunks")
 
-    risk_taxonomy: List[str] = []
-    risk_substantiveness = None
-    risk_confidences = {}
-    if risk_payload:
-        risk_taxonomy = risk_payload.get("risk_types", []) or []
-        risk_confidences = risk_payload.get("confidence_scores", {}) or {}
-        if risk_taxonomy:
-            risk_substantiveness = risk_payload.get("substantiveness_score", None)
+    classifier = MentionTypeClassifier(
+        run_id=run_id,
+        model_name=model_name,
+        use_openrouter=args.openrouter,
+    )
 
-    vendor_tags: List[str] = []
-    vendor_other = None
-    vendor_confidences = {}
-    if vendor_payload:
-        vendor_confidences = vendor_payload.get("vendor_confidences", {}) or {}
-        vendor_tags = [
-            key for key, score in vendor_confidences.items()
-            if isinstance(score, (int, float)) and score >= downstream_threshold
-        ]
-        other_vendor = vendor_payload.get("other_vendor") or ""
-        if other_vendor:
-            vendor_other = other_vendor
-            if "other" not in vendor_tags:
-                vendor_tags.append("other")
+    lock = threading.Lock()
+    counters = {"done": 0, "success": 0, "errors": 0}
 
-    record = {
-        "annotation_id": f"llm-{run_id}-{chunk.get('chunk_id')}",
-        "run_id": run_id,
-        "chunk_id": chunk.get("chunk_id"),
-        "document_id": chunk.get("document_id"),
-        "company_id": chunk.get("company_id"),
-        "company_name": chunk.get("company_name"),
-        "report_year": chunk.get("report_year"),
-        "report_sections": chunk.get("report_sections"),
-        "chunk_text": chunk.get("chunk_text"),
-        "matched_keywords": chunk.get("matched_keywords"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "mention_types": mention_types,
-        "adoption_types": adoption_types,
-        "adoption_confidence": adoption_confidence,
-        "risk_taxonomy": risk_taxonomy,
-        "risk_substantiveness": risk_substantiveness,
-        "vendor_tags": vendor_tags,
-        "vendor_other": vendor_other,
-        "llm_details": {
-            "model": settings.gemini_model,
+    def classify_one(chunk: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        chunk_id = chunk["chunk_id"]
+        text = (chunk.get("chunk_text") or "")
+        metadata = build_metadata(chunk)
+
+        payload, errors = classify_with_validation(
+            classifier, text, metadata, str(args.chunks), args.max_attempts
+        )
+
+        mention_confidences = payload.get("confidence_scores", {}) or {}
+        mention_types = tags_from_confidences(mention_confidences, args.mention_threshold)
+
+        record = {
+            "chunk_id": chunk_id,
+            "mention_types": mention_types,
             "mention_confidences": mention_confidences,
-            "adoption_confidences": adoption_confidences,
-            "risk_confidences": risk_confidences,
-            "vendor_confidences": vendor_confidences,
-        },
-    }
-    return record
+            "chunk": chunk,
+        }
 
+        with lock:
+            counters["done"] += 1
+            if errors:
+                counters["errors"] += 1
+            else:
+                counters["success"] += 1
+            if counters["done"] % 10 == 0 or counters["done"] == total:
+                print(
+                    f"[Phase 1 – Mention Type] {counters['done']}/{total} "
+                    f"| success: {counters['success']} | errors: {counters['errors']}"
+                )
+
+        return record
+
+    results: List[Dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_concurrent) as executor:
+        futures = {executor.submit(classify_one, c): c for c in to_process}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                record = future.result()
+                if record:
+                    results.append(record)
+            except Exception as e:
+                chunk = futures[future]
+                print(f"[Phase 1 – Mention Type] Exception for chunk {chunk.get('chunk_id')}: {e}")
+                with lock:
+                    counters["done"] += 1
+                    counters["errors"] += 1
+
+    # Write results to checkpoint (append mode for resumability)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    with checkpoint_path.open("a", encoding="utf-8") as f:
+        for record in results:
+            f.write(json.dumps(record) + "\n")
+
+    # Merge with existing
+    for r in results:
+        existing[r["chunk_id"]] = r
+
+    # Summary
+    tag_counts: Dict[str, int] = {}
+    for rec in existing.values():
+        for tag in rec.get("mention_types", []):
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    summary = ", ".join(f"{k}={v}" for k, v in sorted(tag_counts.items()))
+    print(f"[Phase 1 – Mention Type] Complete: {counters['done']}/{total} "
+          f"| success: {counters['success']} | errors: {counters['errors']}")
+    print(f"[Phase 1 – Mention Type] Results: {summary}")
+
+    return existing
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Downstream Classification
+# ---------------------------------------------------------------------------
+
+def run_phase2(
+    phase1_records: Dict[str, Dict[str, Any]],
+    args: argparse.Namespace,
+    run_id: str,
+    model_name: str,
+    downstream_threshold: float,
+) -> List[Dict[str, Any]]:
+    """Run downstream classifiers and produce final annotation records."""
+
+    # Collect all (chunk_id, phase_def) pairs that need downstream calls
+    @dataclass
+    class DownstreamTask:
+        chunk_id: str
+        phase: DownstreamPhase
+        chunk: Dict[str, Any]
+        text: str
+        metadata: Dict[str, Any]
+
+    tasks: List[DownstreamTask] = []
+    for cid, rec in phase1_records.items():
+        chunk = rec["chunk"]
+        mention_confidences = rec.get("mention_confidences", {})
+        text = (chunk.get("chunk_text") or "")
+        metadata = build_metadata(chunk)
+
+        for phase_def in DOWNSTREAM_PHASES:
+            conf = mention_confidences.get(phase_def.mention_tag, 0.0)
+            if isinstance(conf, (int, float)) and conf >= downstream_threshold:
+                tasks.append(DownstreamTask(
+                    chunk_id=cid,
+                    phase=phase_def,
+                    chunk=chunk,
+                    text=text,
+                    metadata=metadata,
+                ))
+
+    # Group tasks by phase name for reporting
+    tasks_by_phase: Dict[str, List[DownstreamTask]] = {}
+    for t in tasks:
+        tasks_by_phase.setdefault(t.phase.name, []).append(t)
+
+    for name, phase_tasks in tasks_by_phase.items():
+        print(f"[Phase 2 – {name}] Queued: {len(phase_tasks)} chunks")
+
+    # Instantiate classifiers
+    classifiers: Dict[str, Any] = {}
+    for phase_def in DOWNSTREAM_PHASES:
+        classifiers[phase_def.name] = phase_def.classifier_class(
+            run_id=run_id,
+            model_name=model_name,
+            use_openrouter=args.openrouter,
+        )
+
+    # Run all downstream tasks in a shared pool
+    lock = threading.Lock()
+    counters: Dict[str, Dict[str, int]] = {
+        p.name: {"done": 0, "success": 0, "errors": 0, "total": len(tasks_by_phase.get(p.name, []))}
+        for p in DOWNSTREAM_PHASES
+    }
+    # Store downstream results: {chunk_id: {phase_name: fields_dict}}
+    downstream_results: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def run_downstream_task(task: DownstreamTask) -> None:
+        classifier = classifiers[task.phase.name]
+        payload, errors = classify_with_validation(
+            classifier, task.text, task.metadata, str(args.chunks), args.max_attempts
+        )
+
+        fields = {}
+        if task.phase.build_record:
+            fields = task.phase.build_record(task.chunk, payload)
+        else:
+            fields = {"payload": payload}
+
+        with lock:
+            if task.chunk_id not in downstream_results:
+                downstream_results[task.chunk_id] = {}
+            downstream_results[task.chunk_id][task.phase.name] = fields
+
+            c = counters[task.phase.name]
+            c["done"] += 1
+            if errors:
+                c["errors"] += 1
+            else:
+                c["success"] += 1
+            if c["done"] % 10 == 0 or c["done"] == c["total"]:
+                print(
+                    f"[Phase 2 – {task.phase.name}] {c['done']}/{c['total']} "
+                    f"| success: {c['success']} | errors: {c['errors']}"
+                )
+
+    if tasks:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_concurrent) as executor:
+            futures = {executor.submit(run_downstream_task, t): t for t in tasks}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    task = futures[future]
+                    print(f"[Phase 2 – {task.phase.name}] Exception for chunk {task.chunk_id}: {e}")
+                    with lock:
+                        c = counters[task.phase.name]
+                        c["done"] += 1
+                        c["errors"] += 1
+
+    # Print phase 2 summaries
+    for phase_def in DOWNSTREAM_PHASES:
+        c = counters[phase_def.name]
+        if c["total"] > 0:
+            print(f"[Phase 2 – {phase_def.name}] Complete: {c['done']}/{c['total']} "
+                  f"| success: {c['success']} | errors: {c['errors']}")
+
+    # Build final annotation records
+    annotations: List[Dict[str, Any]] = []
+    for cid, rec in phase1_records.items():
+        chunk = rec["chunk"]
+        mention_types = rec.get("mention_types", [])
+        mention_confidences = rec.get("mention_confidences", {})
+
+        if not mention_types:
+            mention_types = ["none"]
+
+        ds = downstream_results.get(cid, {})
+
+        # Adoption fields
+        adoption_fields = ds.get("Adoption", {})
+        adoption_confidences = adoption_fields.get("adoption_confidences", {})
+        adoption_types = tags_from_confidences(adoption_confidences, downstream_threshold)
+        if adoption_confidences and not adoption_types:
+            adoption_types = ["none"]
+        adoption_confidence = adoption_fields.get("adoption_confidence")
+
+        # Risk fields
+        risk_fields = ds.get("Risk", {})
+        risk_taxonomy = risk_fields.get("risk_taxonomy", [])
+        risk_confidences = risk_fields.get("risk_confidences", {})
+
+        record = {
+            "annotation_id": f"llm-{run_id}-{cid}",
+            "run_id": run_id,
+            "chunk_id": cid,
+            "document_id": chunk.get("document_id"),
+            "company_id": chunk.get("company_id"),
+            "company_name": chunk.get("company_name"),
+            "report_year": chunk.get("report_year"),
+            "report_sections": chunk.get("report_sections"),
+            "chunk_text": chunk.get("chunk_text"),
+            "matched_keywords": chunk.get("matched_keywords"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "mention_types": mention_types,
+            "adoption_types": adoption_types,
+            "adoption_confidence": adoption_confidence,
+            "risk_taxonomy": risk_taxonomy,
+            "risk_substantiveness": None,
+            "vendor_tags": ["vendor"] if "vendor" in mention_types else [],
+            "vendor_other": None,
+            "llm_details": {
+                "model": model_name,
+                "mention_confidences": mention_confidences,
+                "adoption_confidences": adoption_confidences,
+                "risk_confidences": risk_confidences,
+                "vendor_confidences": {},
+            },
+        }
+        annotations.append(record)
+
+    return annotations
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> None:
     args = parse_args()
     chunks_path = args.chunks
     run_id = args.run_id or infer_run_id(chunks_path)
-    output_dir = args.output_dir
+    output_dir: Path = args.output_dir
+    phase1_path = output_dir / "phase1_mentions.jsonl"
     annotations_path = output_dir / "annotations.jsonl"
-    progress_path = output_dir / "progress.json"
 
     downstream_threshold = (
         args.downstream_threshold
@@ -455,255 +483,44 @@ def main() -> None:
     if not chunks_path.exists():
         raise FileNotFoundError(f"Missing chunks file at {chunks_path}")
 
-    processed_ids = load_processed_chunk_ids(annotations_path) if args.append else set()
+    # Load all chunks
+    all_chunks = load_chunks(chunks_path)
+    all_chunks = [c for c in all_chunks if c.get("chunk_id") and (c.get("chunk_text") or "").strip()]
+    if args.max_chunks:
+        all_chunks = all_chunks[:args.max_chunks]
 
-    if not args.openrouter:
-        raise RuntimeError("Batch mode requires --openrouter.")
-
-    model_name = args.model or settings.gemini_model
-
-    mention_classifier = GoldenMentionTypeClassifier(
-        run_id=run_id,
-        model_name=model_name,
-        use_openrouter=args.openrouter,
-    )
-    adoption_classifier = GoldenAdoptionTypeClassifier(
-        run_id=run_id,
-        model_name=model_name,
-        use_openrouter=args.openrouter,
-    )
-    risk_classifier = GoldenRiskClassifier(
-        run_id=run_id,
-        model_name=model_name,
-        use_openrouter=args.openrouter,
-    )
-    vendor_classifier = GoldenVendorClassifier(
-        run_id=run_id,
-        model_name=model_name,
-        use_openrouter=args.openrouter,
-    )
-
-    chunks = []
-    for chunk in load_chunks(chunks_path):
-        chunk_id = chunk.get("chunk_id")
-        if not chunk_id:
-            continue
-        if chunk_id in processed_ids:
-            continue
-        text = chunk.get("chunk_text") or ""
-        if not text.strip():
-            continue
-        chunks.append(chunk)
-        if args.max_chunks and len(chunks) >= args.max_chunks:
-            break
-
-    if not chunks:
+    if not all_chunks:
         print("No chunks to process.")
         return
 
-    def batch_iter(items: List[Dict[str, Any]], size: int) -> Iterable[List[Dict[str, Any]]]:
-        for i in range(0, len(items), size):
-            yield items[i:i + size]
-
-    mention_results: Dict[str, Dict[str, Any]] = {}
-    adoption_results: Dict[str, Dict[str, Any]] = {}
-    risk_results: Dict[str, Dict[str, Any]] = {}
-    vendor_results: Dict[str, Dict[str, Any]] = {}
-
-    # Stage 1: mention types (batched + parallel)
-    mention_payloads = run_batches_parallel(
-        key="mention_type_batch",
-        classifier_type="mention_type",
-        chunks=chunks,
-        model=model_name,
-        max_attempts=args.max_attempts,
-        batch_size=args.batch_size,
-        max_concurrent=args.max_concurrent,
-        max_chars=args.max_chars,
-    )
-    for chunk in chunks:
-        chunk_id = str(chunk.get("chunk_id"))
-        payload = mention_payloads.get(chunk_id)
-        if payload:
-            ok, _ = validate_classification_response(payload, "mention_type")
-            if ok:
-                mention_results[chunk_id] = payload
-                continue
-        metadata = {
-            "firm_id": chunk.get("company_id") or "unknown",
-            "firm_name": chunk.get("company_name") or "unknown",
-            "report_year": chunk.get("report_year") or 0,
-            "sector": chunk.get("sector") or "Unknown",
-            "report_section": ", ".join(chunk.get("report_sections") or []),
-        }
-        mention_payload, _ = classify_with_validation(
-            mention_classifier,
-            trim_text(chunk.get("chunk_text") or "", args.max_chars),
-            metadata,
-            str(chunks_path),
-            args.max_attempts,
-        )
-        mention_results[chunk_id] = mention_payload
-
-    # Stage 2: route chunks
-    adoption_chunks = []
-    risk_chunks = []
-    vendor_chunks = []
-    for chunk in chunks:
-        chunk_id = str(chunk.get("chunk_id"))
-        mention_payload = mention_results.get(chunk_id, {})
-        mention_confidences = mention_payload.get("confidence_scores", {}) or {}
-        mention_types = mention_payload.get("mention_types", [])
-        if not isinstance(mention_types, list):
-            mention_types = []
-        if not mention_types:
-            mention_types = [
-                tag for tag, score in mention_confidences.items()
-                if isinstance(score, (int, float)) and score >= args.mention_threshold
-            ]
-        if "adoption" in mention_types and mention_confidences.get("adoption", 0.0) >= downstream_threshold:
-            adoption_chunks.append(chunk)
-        if "risk" in mention_types and mention_confidences.get("risk", 0.0) >= downstream_threshold:
-            risk_chunks.append(chunk)
-        if "vendor" in mention_types and mention_confidences.get("vendor", 0.0) >= downstream_threshold:
-            vendor_chunks.append(chunk)
-
-    # Stage 3: adoption batch (batched + parallel)
-    if adoption_chunks:
-        adoption_payloads = run_batches_parallel(
-            key="adoption_type_batch",
-            classifier_type="adoption",
-            chunks=adoption_chunks,
-            model=model_name,
-            max_attempts=args.max_attempts,
-            batch_size=args.batch_size,
-            max_concurrent=args.max_concurrent,
-            max_chars=args.max_chars,
-        )
-        for chunk in adoption_chunks:
-            chunk_id = str(chunk.get("chunk_id"))
-            payload = adoption_payloads.get(chunk_id)
-            if payload:
-                ok, _ = validate_classification_response(payload, "adoption")
-                if ok:
-                    adoption_results[chunk_id] = payload
-                    continue
-            metadata = {
-                "firm_id": chunk.get("company_id") or "unknown",
-                "firm_name": chunk.get("company_name") or "unknown",
-                "report_year": chunk.get("report_year") or 0,
-                "sector": chunk.get("sector") or "Unknown",
-            }
-            adoption_payload, _ = classify_with_validation(
-                adoption_classifier,
-                trim_text(chunk.get("chunk_text") or "", args.max_chars),
-                metadata,
-                str(chunks_path),
-                args.max_attempts,
-            )
-            adoption_results[chunk_id] = adoption_payload
-
-    # Stage 4: risk batch (batched + parallel)
-    if risk_chunks:
-        risk_payloads = run_batches_parallel(
-            key="risk_batch",
-            classifier_type="risk",
-            chunks=risk_chunks,
-            model=model_name,
-            max_attempts=args.max_attempts,
-            batch_size=args.batch_size,
-            max_concurrent=args.max_concurrent,
-            max_chars=args.max_chars,
-        )
-        for chunk in risk_chunks:
-            chunk_id = str(chunk.get("chunk_id"))
-            payload = risk_payloads.get(chunk_id)
-            if payload:
-                ok, _ = validate_classification_response(payload, "risk")
-                if ok:
-                    risk_results[chunk_id] = payload
-                    continue
-            metadata = {
-                "firm_id": chunk.get("company_id") or "unknown",
-                "firm_name": chunk.get("company_name") or "unknown",
-                "report_year": chunk.get("report_year") or 0,
-                "sector": chunk.get("sector") or "Unknown",
-            }
-            risk_payload, _ = classify_with_validation(
-                risk_classifier,
-                trim_text(chunk.get("chunk_text") or "", args.max_chars),
-                metadata,
-                str(chunks_path),
-                args.max_attempts,
-            )
-            risk_results[chunk_id] = risk_payload
-
-    # Stage 5: vendor batch (batched + parallel)
-    if vendor_chunks:
-        vendor_payloads = run_batches_parallel(
-            key="vendor_batch",
-            classifier_type="vendor",
-            chunks=vendor_chunks,
-            model=model_name,
-            max_attempts=args.max_attempts,
-            batch_size=args.batch_size,
-            max_concurrent=args.max_concurrent,
-            max_chars=args.max_chars,
-        )
-        for chunk in vendor_chunks:
-            chunk_id = str(chunk.get("chunk_id"))
-            payload = vendor_payloads.get(chunk_id)
-            if payload:
-                ok, _ = validate_classification_response(payload, "vendor")
-                if ok:
-                    vendor_results[chunk_id] = payload
-                    continue
-            metadata = {
-                "firm_id": chunk.get("company_id") or "unknown",
-                "firm_name": chunk.get("company_name") or "unknown",
-                "report_year": chunk.get("report_year") or 0,
-                "sector": chunk.get("sector") or "Unknown",
-            }
-            vendor_payload, _ = classify_with_validation(
-                vendor_classifier,
-                trim_text(chunk.get("chunk_text") or "", args.max_chars),
-                metadata,
-                str(chunks_path),
-                args.max_attempts,
-            )
-            vendor_results[chunk_id] = vendor_payload
-
+    print(f"Loaded {len(all_chunks)} chunks from {chunks_path}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    with annotations_path.open("a", encoding="utf-8") as f:
-        for chunk in chunks:
-            chunk_id = str(chunk.get("chunk_id"))
-            record = build_record(
-                chunk=chunk,
-                run_id=run_id,
-                mention_payload=mention_results.get(chunk_id, {}),
-                adoption_payload=adoption_results.get(chunk_id),
-                risk_payload=risk_results.get(chunk_id),
-                vendor_payload=vendor_results.get(chunk_id),
-                mention_threshold=args.mention_threshold,
-                downstream_threshold=downstream_threshold,
-            )
+
+    # Phase 1
+    phase1_records = run_phase1(
+        chunks=all_chunks,
+        checkpoint_path=phase1_path,
+        args=args,
+        run_id=run_id,
+        model_name=args.model or settings.gemini_model,
+    )
+
+    # Phase 2
+    model_name = args.model or settings.gemini_model
+    annotations = run_phase2(
+        phase1_records=phase1_records,
+        args=args,
+        run_id=run_id,
+        model_name=model_name,
+        downstream_threshold=downstream_threshold,
+    )
+
+    # Write final annotations
+    with annotations_path.open("w", encoding="utf-8") as f:
+        for record in annotations:
             f.write(json.dumps(record) + "\n")
-            processed_ids.add(chunk_id)
 
-    progress = {
-        "run_id": run_id,
-        "last_chunk_id": chunks[-1].get("chunk_id"),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "counts": {
-            "total": len(chunks),
-            "adoption": len(adoption_chunks),
-            "risk": len(risk_chunks),
-            "vendor": len(vendor_chunks),
-        },
-    }
-    progress_path.write_text(json.dumps(progress, indent=2))
-
-    print(f"Finished. Annotated {len(chunks)} chunks.")
+    print(f"\nDone. Wrote {len(annotations)} annotations to {annotations_path}")
 
 
 if __name__ == "__main__":

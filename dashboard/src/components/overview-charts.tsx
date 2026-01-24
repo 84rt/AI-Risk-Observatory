@@ -120,10 +120,10 @@ export function GenericHeatmap({
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-      <div 
-        className="grid gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden"
-        style={{ 
-          gridTemplateColumns: `150px repeat(${xLabels.length}, minmax(100px, 1fr))` 
+      <div
+        className="inline-grid gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden"
+        style={{
+          gridTemplateColumns: `180px repeat(${xLabels.length}, 90px)`
         }}
       >
         {/* Header Row */}
@@ -131,7 +131,7 @@ export function GenericHeatmap({
           {/* Top-Left Corner */}
         </div>
         {xLabels.map(x => (
-          <div key={x} className="bg-slate-50 p-3 text-sm font-semibold text-slate-700 text-center flex items-center justify-center h-12">
+          <div key={x} className="bg-slate-50 px-1 py-2 text-[10px] font-semibold text-slate-700 text-center flex items-center justify-center min-h-[60px] leading-tight">
             {xLabelFormatter(x)}
           </div>
         ))}
@@ -139,7 +139,7 @@ export function GenericHeatmap({
         {/* Rows */}
         {yLabels.map(y => (
           <div key={`row-${y}`} className="contents">
-            <div className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-16 border-r border-slate-100">
+            <div className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-[44px] border-r border-slate-100 leading-tight">
               {yLabelFormatter(y)}
             </div>
 
@@ -147,27 +147,29 @@ export function GenericHeatmap({
             {xLabels.map(x => {
               const val = dataMap.get(`${x}-${y}`) || 0;
               const intensity = maxValue > 0 ? val / maxValue : 0;
-              
+
               // Color scale: White to Blue (or custom)
               // Using Slate/Blue mix for professional look
               const opacity = Math.max(0.05, intensity * 0.95);
-              
+
               return (
-                <div 
-                  key={`${x}-${y}`} 
-                  className="bg-white h-16 relative group flex items-center justify-center"
-                  title={`${y} in ${x}: ${val}`}
+                <div
+                  key={`${x}-${y}`}
+                  className="bg-white h-[44px] relative group flex items-center justify-center"
+                  title={`${yLabelFormatter(y)} in ${x}: ${val}`}
                 >
-                  <div 
+                  <div
                     className="absolute inset-0 transition-all duration-300"
-                    style={{ 
+                    style={{
                       backgroundColor: baseColor,
-                      opacity: val === 0 ? 0 : opacity 
+                      opacity: val === 0 ? 0 : opacity
                     }}
                   />
-                  <span className={`relative z-10 text-sm font-bold ${intensity > 0.5 ? 'text-white' : 'text-slate-700'}`}>
-                    {val > 0 ? valueFormatter(val) : '-'}
-                  </span>
+                  {val > 0 && (
+                    <span className={`relative z-10 text-sm font-bold ${intensity > 0.5 ? 'text-white' : 'text-slate-700'}`}>
+                      {valueFormatter(val)}
+                    </span>
+                  )}
                 </div>
               );
             })}

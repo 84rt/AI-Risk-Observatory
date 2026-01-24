@@ -17,6 +17,7 @@ Pipeline reads/writes under the repo-level `data/` tree:
 - AI-mention chunks: `data/processed/<run_id>/chunks/chunks.jsonl`
 - Results and annotations: `data/results/`, `data/annotations/`
 - Database: `data/db/airo.db`
+Note: classifier API calls log prompt/response char counts and token estimates at DEBUG in `data/logs/pipeline/classifier_runs/*.log`.
 
 ## Golden Set Pipeline
 
