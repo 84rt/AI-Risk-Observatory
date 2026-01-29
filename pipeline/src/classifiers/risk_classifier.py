@@ -1,17 +1,23 @@
 """Risk classifier for AIRO pipeline.
 
-Classifies AI-related risks in company reports using the 9-category taxonomy.
-Refactored from llm_classifier.py to use the base classifier pattern.
+Classifies AI-related risks in company reports using the 10-category taxonomy.
 """
 
 from typing import Any, Dict, List, Tuple
 
+from pydantic import BaseModel
+
 from .base_classifier import BaseClassifier
-from ..utils.prompt_loader import get_prompt_template
+from .schemas import RiskResponse, RiskType
+from ..utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 
-# Risk categories taxonomy
+# Risk categories taxonomy (for reference and validation)
 RISK_CATEGORIES = {
+    "strategic_market": {
+        "name": "Strategic & Market Risk",
+        "description": "Failure to adopt, market displacement, competitive disadvantage",
+    },
     "operational_technical": {
         "name": "Operational & Technical Risk",
         "description": "Model failures, bias, reliability, system errors, hallucinations",
@@ -52,64 +58,74 @@ RISK_CATEGORIES = {
 
 
 class RiskClassifier(BaseClassifier):
-    """9-category risk classifier for AI-related disclosures.
-
-    Categories:
-    - operational_technical
-    - cybersecurity
-    - workforce_impacts
-    - regulatory_compliance
-    - information_integrity
-    - reputational_ethical
-    - third_party_supply_chain
-    - environmental_impact
-    - national_security
-
-    Output:
-    - risk_types: List of detected risk categories
-    - ai_mentioned: Whether AI is mentioned at all
-    - confidence_scores: Per-category confidence
-    - evidence: Quotes for each category
-    - key_snippets: Key quote per category
-    """
+    """10-category risk classifier for AI-related disclosures."""
 
     CLASSIFIER_TYPE = "risk"
+    RESPONSE_MODEL = RiskResponse
 
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        """Generate the classification prompt for risk detection."""
+    def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
+        """Generate the classification prompts for risk detection."""
         firm_name = metadata.get("firm_name", "Unknown Company")
         report_year = metadata.get("report_year", "Unknown")
         sector = metadata.get("sector", "Unknown")
+        report_section = metadata.get("report_section", "Unknown")
+        mention_types = metadata.get("mention_types", [])
 
-        # Build risk category descriptions
-        category_descriptions = "\n".join([
-            f"- **{key}**: {val['name']} - {val['description']}"
-            for key, val in RISK_CATEGORIES.items()
-        ])
-
-        # Truncate text if too long
         max_chars = 30000
         if len(text) > max_chars:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
-        template = get_prompt_template("risk")
-        return template.format(
+        return render_prompt_messages(
+            "risk",
+            reasoning_policy=self.reasoning_policy,
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,
+            report_section=report_section,
+            mention_types=", ".join(mention_types) if mention_types else "unknown",
             text=text,
-            risk_categories=category_descriptions,
-            risk_keys=list(RISK_CATEGORIES.keys()),
         )
 
-    def parse_result(
+    def extract_result(
+        self, parsed: BaseModel, metadata: Dict[str, Any]
+    ) -> Tuple[str, float, List[str], str]:
+        """Extract classification result from RiskResponse."""
+        response: RiskResponse = parsed  # type: ignore
+
+        # Convert enum values to strings
+        risk_types = [rt.value for rt in response.risk_types]
+        # Convert confidence scores object to dict
+        confidence_scores = response.confidence_scores.model_dump(exclude_none=True)
+        reasoning = response.reasoning or ""
+
+        # Validate risk types against known categories
+        valid_risk_types = [
+            rt for rt in risk_types
+            if rt in RISK_CATEGORIES or rt == "none"
+        ]
+
+        # Primary label is the list of risk types
+        if valid_risk_types and valid_risk_types != ["none"]:
+            primary_label = ",".join(sorted([rt for rt in valid_risk_types if rt != "none"]))
+        else:
+            primary_label = "none"
+
+        # Calculate average confidence for valid categories
+        if confidence_scores:
+            valid_scores = [
+                score for rt, score in confidence_scores.items()
+                if (rt in RISK_CATEGORIES or rt == "none") and isinstance(score, (int, float))
+            ]
+            avg_confidence = sum(valid_scores) / len(valid_scores) if valid_scores else 0.5
+        else:
+            avg_confidence = 0.5
+
+        return primary_label, avg_confidence, [], reasoning
+
+    def _legacy_parse_result(
         self, response: Dict[str, Any], metadata: Dict[str, Any]
     ) -> Tuple[str, float, List[str], str]:
-        """Parse the risk classification response.
-
-        Returns:
-            Tuple of (primary_label, confidence, evidence_list, reasoning)
-        """
+        """Fallback parser for backward compatibility."""
         risk_types = response.get("risk_types", [])
         evidence_dict = response.get("evidence", {})
         key_snippets = response.get("key_snippets", {})
@@ -161,8 +177,3 @@ class RiskClassifier(BaseClassifier):
             reasoning = f"{reasoning} | Key snippets: {snippet_summary}"
 
         return primary_label, avg_confidence, evidence, reasoning
-
-
-
-
-

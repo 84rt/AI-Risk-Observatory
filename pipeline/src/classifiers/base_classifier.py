@@ -6,7 +6,8 @@ Provides common functionality for:
 - Evidence extraction
 - Database storage
 - Retry logic
-- Batch processing
+- Batch processing with tqdm progress bars
+- Pydantic schema validation for LLM responses
 """
 
 import hashlib
@@ -17,11 +18,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
-import google.generativeai as genai
 import requests
+from pydantic import BaseModel, ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tqdm import tqdm
 
 from ..config import get_settings
 from ..utils.logging_config import (
@@ -31,10 +33,110 @@ from ..utils.logging_config import (
     log_classification_result,
     log_classification_start,
     log_error,
+    log_llm_request_response,
+    save_debug_log,
 )
 from ..utils.validation import parse_json_response, validate_classification_response
 
 settings = get_settings()
+
+# Type variable for Pydantic response models
+T = TypeVar("T", bound=BaseModel)
+
+
+def _clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert Pydantic JSON schema to Gemini-compatible format.
+
+    Gemini's response_schema supports a subset of JSON Schema:
+    - type, format, description, nullable, enum, items, properties, required
+
+    Does NOT support:
+    - $defs/$ref (references), additionalProperties, anyOf/oneOf/allOf,
+      title, default, examples
+    """
+    # Store definitions for inlining $ref
+    defs = schema.get("$defs", schema.get("definitions", {}))
+
+    def resolve_ref(ref: str) -> Dict[str, Any]:
+        """Resolve a $ref to its definition."""
+        if ref.startswith("#/$defs/"):
+            def_name = ref.split("/")[-1]
+            if def_name in defs:
+                return clean_recursive(defs[def_name])
+        elif ref.startswith("#/definitions/"):
+            def_name = ref.split("/")[-1]
+            if def_name in defs:
+                return clean_recursive(defs[def_name])
+        return {}
+
+    def clean_recursive(obj: Any) -> Any:
+        if not isinstance(obj, dict):
+            if isinstance(obj, list):
+                return [clean_recursive(item) for item in obj]
+            return obj
+
+        # Handle $ref - inline the definition
+        if "$ref" in obj:
+            resolved = resolve_ref(obj["$ref"])
+            # Merge with any other properties in obj (except $ref)
+            for k, v in obj.items():
+                if k != "$ref" and k not in resolved:
+                    resolved[k] = clean_recursive(v)
+            return resolved
+
+        # Handle anyOf for nullable types
+        if "anyOf" in obj:
+            any_of = obj["anyOf"]
+            non_null = [item for item in any_of if item.get("type") != "null"]
+            if len(non_null) == 1:
+                # It's a nullable type
+                result = clean_recursive(non_null[0])
+                result["nullable"] = True
+                # Preserve description if present
+                if "description" in obj:
+                    result["description"] = obj["description"]
+                return result
+            # Multiple non-null types - take the first one
+            if non_null:
+                return clean_recursive(non_null[0])
+            return {"type": "STRING", "nullable": True}
+
+        # Fields to keep
+        supported_keys = {
+            "type", "format", "description", "nullable", "enum",
+            "items", "properties", "required"
+        }
+
+        cleaned = {}
+
+        for k, v in obj.items():
+            if k not in supported_keys:
+                continue
+
+            if k == "type":
+                # Convert JSON Schema types to Gemini types (uppercase)
+                type_map = {
+                    "string": "STRING",
+                    "number": "NUMBER",
+                    "integer": "INTEGER",
+                    "boolean": "BOOLEAN",
+                    "array": "ARRAY",
+                    "object": "OBJECT",
+                    "null": "STRING",  # Gemini doesn't have null type
+                }
+                cleaned[k] = type_map.get(v, v.upper() if isinstance(v, str) else v)
+            elif k == "items":
+                cleaned[k] = clean_recursive(v)
+            elif k == "properties":
+                cleaned[k] = {pk: clean_recursive(pv) for pk, pv in v.items()}
+            elif k == "enum":
+                cleaned[k] = v  # Keep enum values as-is
+            else:
+                cleaned[k] = v
+
+        return cleaned
+
+    return clean_recursive(schema)
 
 
 @dataclass
@@ -130,16 +232,18 @@ class BaseClassifier(ABC):
     """Abstract base class for all classifiers.
 
     Provides common functionality for LLM-based classification:
-    - Gemini API integration
+    - Gemini API integration with native structured output
+    - OpenRouter fallback with schema injection
+    - Pydantic validation for responses
     - Structured logging
-    - Result validation
-    - Evidence extraction
     - Retry logic
+    - tqdm progress bars for batch processing
     """
 
     # Class-level constants - override in subclasses
     CLASSIFIER_TYPE: str = "base"
     LOW_CONFIDENCE_THRESHOLD: float = 0.7
+    RESPONSE_MODEL: Optional[Type[BaseModel]] = None  # Pydantic model for response
 
     def __init__(
         self,
@@ -148,6 +252,7 @@ class BaseClassifier(ABC):
         model_name: Optional[str] = None,
         temperature: float = 0.0,
         use_openrouter: Optional[bool] = None,
+        reasoning_policy: str = "short",
     ):
         """Initialize the classifier.
 
@@ -156,11 +261,13 @@ class BaseClassifier(ABC):
             api_key: Gemini API key (defaults to settings)
             model_name: Model to use (defaults to settings)
             temperature: LLM temperature (0.0 for deterministic)
+            reasoning_policy: One of {none, short, limited}
         """
         self.run_id = run_id
         self.api_key = api_key or settings.gemini_api_key
         self.model_name = model_name or settings.gemini_model
         self.temperature = temperature
+        self.reasoning_policy = reasoning_policy
         self.use_openrouter = (
             use_openrouter
             if use_openrouter is not None
@@ -169,19 +276,28 @@ class BaseClassifier(ABC):
 
         self.model = None
         if not self.use_openrouter:
+            import google.generativeai as genai
+
             # Configure Gemini
             genai.configure(api_key=self.api_key)
 
-            # Initialize model with JSON response mode
-            generation_config = {
+            # Build generation config with optional response schema
+            generation_config_dict: Dict[str, Any] = {
                 "temperature": self.temperature,
                 "max_output_tokens": settings.max_tokens,
                 "response_mime_type": "application/json",
             }
 
+            # Add response_schema if RESPONSE_MODEL is defined
+            if self.RESPONSE_MODEL is not None:
+                # Convert Pydantic schema to Gemini-compatible format
+                raw_schema = self.RESPONSE_MODEL.model_json_schema()
+                clean_schema = _clean_schema_for_gemini(raw_schema)
+                generation_config_dict["response_schema"] = clean_schema
+
             self.model = genai.GenerativeModel(
                 model_name=self.model_name,
-                generation_config=generation_config,
+                generation_config=generation_config_dict,
             )
 
         # Set up logging
@@ -192,26 +308,47 @@ class BaseClassifier(ABC):
         )
 
     @abstractmethod
-    def get_prompt(self, text: str, metadata: Dict[str, Any]) -> str:
-        """Generate the classification prompt.
+    def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
+        """Generate the classification prompts.
 
         Args:
             text: The text to classify
             metadata: Additional context (firm_name, year, sector, etc.)
 
         Returns:
-            The prompt string to send to the LLM
+            Tuple of (system_prompt, user_prompt)
         """
         pass
 
-    @abstractmethod
-    def parse_result(
-        self, response: Dict[str, Any], metadata: Dict[str, Any]
-    ) -> Tuple[str, float, List[str], str]:
-        """Parse the LLM response into structured result.
+    def parse_response(self, response_text: str) -> BaseModel:
+        """Parse and validate LLM response using Pydantic model.
 
         Args:
-            response: Parsed JSON response from LLM
+            response_text: Raw JSON response from LLM
+
+        Returns:
+            Validated Pydantic model instance
+
+        Raises:
+            ValidationError: If response doesn't match schema
+            json.JSONDecodeError: If response isn't valid JSON
+        """
+        if self.RESPONSE_MODEL is None:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} must define RESPONSE_MODEL"
+            )
+
+        data = json.loads(response_text)
+        return self.RESPONSE_MODEL.model_validate(data)
+
+    @abstractmethod
+    def extract_result(
+        self, parsed: BaseModel, metadata: Dict[str, Any]
+    ) -> Tuple[str, float, List[str], str]:
+        """Extract classification result from validated Pydantic model.
+
+        Args:
+            parsed: Validated Pydantic response model
             metadata: Original metadata
 
         Returns:
@@ -245,17 +382,22 @@ class BaseClassifier(ABC):
         # Generate result ID
         result_id = f"{self.run_id}_{self.CLASSIFIER_TYPE}_{firm_id}_{report_year}_{uuid.uuid4().hex[:8]}"
 
-        # Build prompt
-        prompt = self.get_prompt(text, metadata)
-        prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
+        # Build prompts
+        system_prompt, user_prompt = self.get_prompt_messages(text, metadata)
+        combined_prompt = (
+            f"SYSTEM:\\n{system_prompt}\\n\\nUSER:\\n{user_prompt}"
+            if system_prompt
+            else user_prompt
+        )
+        prompt_hash = hashlib.sha256(combined_prompt.encode()).hexdigest()[:16]
 
         # Call LLM with retry
         start_time = time.time()
         try:
-            response_text, tokens = self._call_llm(prompt)
+            response_text, tokens = self._call_llm(system_prompt, user_prompt)
             latency_ms = int((time.time() - start_time) * 1000)
 
-            prompt_chars = len(prompt)
+            prompt_chars = len(combined_prompt)
             response_chars = len(response_text)
             log_api_call(
                 self.logger,
@@ -267,9 +409,53 @@ class BaseClassifier(ABC):
                 response_chars=response_chars,
             )
 
+            # Log full request/response for debugging
+            log_llm_request_response(
+                self.logger,
+                firm_id,
+                self.model_name,
+                system_prompt,
+                user_prompt,
+                response_text,
+                latency_ms,
+                success=True,
+            )
+
+            # Save detailed debug log to file
+            save_debug_log(
+                run_id=self.run_id,
+                classifier_type=self.CLASSIFIER_TYPE,
+                firm_id=firm_id,
+                request_data={
+                    "model": self.model_name,
+                    "system_prompt": system_prompt,
+                    "user_prompt": user_prompt,
+                    "prompt_hash": prompt_hash,
+                    "metadata": metadata,
+                },
+                response_data={
+                    "response_text": response_text,
+                    "tokens": tokens,
+                    "latency_ms": latency_ms,
+                },
+            )
+
         except Exception as e:
             latency_ms = int((time.time() - start_time) * 1000)
             log_error(self.logger, firm_id, type(e).__name__, str(e))
+
+            # Log failed request for debugging
+            log_llm_request_response(
+                self.logger,
+                firm_id,
+                self.model_name,
+                system_prompt,
+                user_prompt,
+                "",
+                latency_ms,
+                success=False,
+                error_message=str(e),
+            )
 
             return ClassificationResult(
                 result_id=result_id,
@@ -288,42 +474,54 @@ class BaseClassifier(ABC):
                 error_message=str(e),
             )
 
-        # Parse response
-        parsed, error = parse_json_response(response_text)
-        if error or parsed is None:
-            log_error(self.logger, firm_id, "ParseError", error or "Empty response")
+        # Parse and validate response using Pydantic
+        try:
+            parsed_model = self.parse_response(response_text)
+            parsed = parsed_model.model_dump()
+        except (json.JSONDecodeError, ValidationError) as e:
+            # Fall back to raw JSON parsing for backward compatibility
+            parsed, error = parse_json_response(response_text)
+            if error or parsed is None:
+                log_error(self.logger, firm_id, "ParseError", error or "Empty response")
+                return ClassificationResult(
+                    result_id=result_id,
+                    run_id=self.run_id,
+                    firm_id=firm_id,
+                    firm_name=firm_name,
+                    report_year=report_year,
+                    classifier_type=self.CLASSIFIER_TYPE,
+                    classification={},
+                    primary_label="parse_error",
+                    confidence_score=0.0,
+                    source_file=source_file,
+                    prompt_hash=prompt_hash,
+                    response_raw=response_text,
+                    api_latency_ms=latency_ms,
+                    tokens_used=tokens,
+                    success=False,
+                    error_message=str(e),
+                )
+            # Use fallback parsed dict
+            parsed_model = None
 
-            return ClassificationResult(
-                result_id=result_id,
-                run_id=self.run_id,
-                firm_id=firm_id,
-                firm_name=firm_name,
-                report_year=report_year,
-                classifier_type=self.CLASSIFIER_TYPE,
-                classification={},
-                primary_label="parse_error",
-                confidence_score=0.0,
-                source_file=source_file,
-                prompt_hash=prompt_hash,
-                response_raw=response_text,
-                api_latency_ms=latency_ms,
-                tokens_used=tokens,
-                success=False,
-                error_message=error,
-            )
-
-        # Validate response
+        # Validate response structure (legacy validation)
         is_valid, messages = validate_classification_response(
             parsed, self.CLASSIFIER_TYPE
         )
         if not is_valid:
             self.logger.warning(f"Validation warnings: {messages}")
 
-        # Parse into structured result
+        # Extract structured result
         try:
-            primary_label, confidence, evidence, reasoning = self.parse_result(
-                parsed, metadata
-            )
+            if parsed_model is not None:
+                primary_label, confidence, evidence, reasoning = self.extract_result(
+                    parsed_model, metadata
+                )
+            else:
+                # Fallback to legacy parse_result for backward compatibility
+                primary_label, confidence, evidence, reasoning = self._legacy_parse_result(
+                    parsed, metadata
+                )
         except Exception as e:
             log_error(self.logger, firm_id, "ParseResultError", str(e))
             primary_label = "error"
@@ -365,23 +563,39 @@ class BaseClassifier(ABC):
             success=True,
         )
 
+    def _legacy_parse_result(
+        self, response: Dict[str, Any], metadata: Dict[str, Any]
+    ) -> Tuple[str, float, List[str], str]:
+        """Fallback to legacy parse_result if Pydantic parsing fails.
+
+        Override in subclasses for backward compatibility.
+        """
+        # Default implementation returns empty result
+        return "unknown", 0.0, [], ""
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=30),
     )
-    def _call_llm(self, prompt: str) -> Tuple[str, int]:
+    def _call_llm(self, system_prompt: str, user_prompt: str) -> Tuple[str, int]:
         """Call the LLM with retry logic.
 
         Args:
-            prompt: The prompt to send
+            system_prompt: System prompt content
+            user_prompt: User prompt content
 
         Returns:
             Tuple of (response_text, token_count)
         """
         if self.use_openrouter:
-            text = self._call_openrouter(prompt)
+            text = self._call_openrouter(system_prompt, user_prompt)
         else:
-            response = self.model.generate_content(prompt)
+            combined_prompt = (
+                f"SYSTEM:\\n{system_prompt}\\n\\nUSER:\\n{user_prompt}"
+                if system_prompt
+                else user_prompt
+            )
+            response = self.model.generate_content(combined_prompt)
             text = response.text
 
         # Estimate tokens from response
@@ -389,21 +603,42 @@ class BaseClassifier(ABC):
 
         return text, tokens
 
-    def _call_openrouter(self, prompt: str) -> str:
+    def _call_openrouter(self, system_prompt: str, user_prompt: str) -> str:
+        """Call OpenRouter API with schema injection.
+
+        Since OpenRouter doesn't support native response_schema,
+        we inject the schema into the system prompt.
+        """
         if not settings.openrouter_api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not set.")
+
+        # Inject schema instruction for OpenRouter
+        enhanced_system = system_prompt
+        if self.RESPONSE_MODEL is not None:
+            schema_json = json.dumps(
+                self.RESPONSE_MODEL.model_json_schema(), indent=2
+            )
+            schema_instruction = f"""
+
+## OUTPUT FORMAT
+Return JSON matching this schema:
+{schema_json}
+
+Return ONLY valid JSON."""
+            enhanced_system = system_prompt + schema_instruction
 
         url = f"{settings.openrouter_base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.openrouter_api_key}",
             "Content-Type": "application/json",
         }
+        messages = []
+        if enhanced_system:
+            messages.append({"role": "system", "content": enhanced_system})
+        messages.append({"role": "user", "content": user_prompt})
         payload = {
             "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": "Return ONLY valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
+            "messages": messages,
             "temperature": self.temperature,
             "max_tokens": settings.max_tokens,
         }
@@ -421,13 +656,15 @@ class BaseClassifier(ABC):
         items: List[Dict[str, Any]],
         text_key: str = "text",
         rate_limit_delay: float = 0.5,
+        show_progress: bool = True,
     ) -> BatchResult:
-        """Process multiple items with logging and storage.
+        """Process multiple items with tqdm progress bar.
 
         Args:
             items: List of dicts with text and metadata
             text_key: Key in item dict containing the text to classify
             rate_limit_delay: Delay between API calls in seconds
+            show_progress: Whether to show tqdm progress bar
 
         Returns:
             BatchResult with all classification results
@@ -440,7 +677,14 @@ class BaseClassifier(ABC):
 
         self.logger.info(f"Starting batch classification of {len(items)} items")
 
-        for i, item in enumerate(items, 1):
+        # Create tqdm progress bar
+        iterator = (
+            tqdm(items, desc=self.CLASSIFIER_TYPE, unit="item")
+            if show_progress
+            else items
+        )
+
+        for item in iterator:
             text = item.get(text_key, "")
             metadata = {k: v for k, v in item.items() if k != text_key}
             source_file = item.get("source_file", "")
@@ -454,12 +698,17 @@ class BaseClassifier(ABC):
             else:
                 error_count += 1
 
-            # Progress logging
-            if i % 5 == 0 or i == len(items):
-                self.logger.info(f"Progress: {i}/{len(items)} classified")
+            # Update progress bar postfix with stats
+            if show_progress and hasattr(iterator, "set_postfix"):
+                avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+                iterator.set_postfix(
+                    success=success_count,
+                    errors=error_count,
+                    avg_conf=f"{avg_conf:.2f}",
+                )
 
             # Rate limiting
-            if i < len(items):
+            if rate_limit_delay > 0:
                 time.sleep(rate_limit_delay)
 
         duration = time.time() - start_time
@@ -516,7 +765,3 @@ class BaseClassifier(ABC):
         }
 
         return self.classify(text, metadata, str(report_path))
-
-
-
-

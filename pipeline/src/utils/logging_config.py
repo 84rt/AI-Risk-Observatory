@@ -337,3 +337,84 @@ def log_run_summary(
         f"errors={error_count}, "
         f"duration={duration_seconds:.1f}s"
     )
+
+
+def log_llm_request_response(
+    logger: ClassifierLogAdapter,
+    firm_id: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    response_text: str,
+    latency_ms: int,
+    success: bool = True,
+    error_message: Optional[str] = None,
+) -> None:
+    """Log full LLM request and response for debugging.
+
+    This logs the complete prompts sent to the LLM and the full response received.
+    Useful for debugging classification issues and verifying prompt construction.
+    """
+    logger.set_firm(firm_id)
+
+    # Truncate very long texts for log readability (keep full in extra_data)
+    def truncate(text: str, max_len: int = 500) -> str:
+        if len(text) <= max_len:
+            return text
+        return text[:max_len] + f"... [truncated, {len(text)} chars total]"
+
+    status = "SUCCESS" if success else "FAILED"
+    logger.debug(
+        f"LLM {status}: model={model}, latency={latency_ms}ms, "
+        f"system_prompt={len(system_prompt)} chars, user_prompt={len(user_prompt)} chars, "
+        f"response={len(response_text)} chars",
+        extra={
+            "extra_data": {
+                "model": model,
+                "latency_ms": latency_ms,
+                "success": success,
+                "error_message": error_message,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "response_text": response_text,
+                "system_prompt_preview": truncate(system_prompt),
+                "user_prompt_preview": truncate(user_prompt),
+                "response_preview": truncate(response_text),
+            }
+        },
+    )
+
+
+# Debug log directory for detailed request/response logs
+DEBUG_LOGS_DIR = LOGS_DIR / "debug"
+DEBUG_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def save_debug_log(
+    run_id: str,
+    classifier_type: str,
+    firm_id: str,
+    request_data: dict,
+    response_data: dict,
+) -> Path:
+    """Save a detailed debug log for a single classification to a JSON file.
+
+    Returns the path to the saved file.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"{run_id}_{classifier_type}_{firm_id}_{timestamp}.json"
+    filepath = DEBUG_LOGS_DIR / filename
+
+    log_entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "run_id": run_id,
+        "classifier_type": classifier_type,
+        "firm_id": firm_id,
+        "request": request_data,
+        "response": response_data,
+    }
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(log_entry, f, indent=2, ensure_ascii=False)
+
+    return filepath

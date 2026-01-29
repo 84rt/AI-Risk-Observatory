@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
 
 import yaml
 
@@ -21,7 +21,7 @@ def _load_prompt_yaml() -> Dict[str, str]:
 
 
 def get_prompt_template(key: str) -> str:
-    """Return the prompt template string for the given key."""
+    """Return the system prompt template for the given key."""
     prompts = _load_prompt_yaml()
     if key not in prompts:
         raise KeyError(f"Prompt key not found: {key}")
@@ -29,3 +29,49 @@ def get_prompt_template(key: str) -> str:
     if not isinstance(template, str):
         raise ValueError(f"Prompt template for {key} must be a string")
     return template
+
+
+_DEFAULT_USER_TEMPLATE = """## EXCERPT
+\"\"\"
+{text}
+\"\"\"
+"""
+
+_REASONING_POLICIES = {
+    "none": {
+        "reasoning_instruction": "Do NOT include a reasoning field in the JSON.",
+        "reasoning_field": "",
+    },
+    "short": {
+        "reasoning_instruction": "Include a \"reasoning\" field with a brief explanation.",
+        "reasoning_field": ", \"reasoning\": \"Brief explanation\"",
+    },
+    "limited": {
+        "reasoning_instruction": "Include a \"reasoning\" field (<= 200 words).",
+        "reasoning_field": ", \"reasoning\": \"Up to a few sentences (<= 200 words).\"",
+    },
+}
+
+
+def get_prompt_messages(
+    key: str,
+    *,
+    reasoning_policy: str = "short",
+    user_template: str = _DEFAULT_USER_TEMPLATE,
+    **kwargs: str,
+) -> Tuple[str, str]:
+    """Render prompt templates and return (system, user) strings."""
+    template = get_prompt_template(key)
+    policy = _REASONING_POLICIES.get(reasoning_policy)
+    if policy is None:
+        raise ValueError(
+            f"Unknown reasoning_policy: {reasoning_policy}. "
+            f"Valid: {sorted(_REASONING_POLICIES.keys())}"
+        )
+    system = template.format(
+        reasoning_instruction=policy["reasoning_instruction"],
+        reasoning_field=policy["reasoning_field"],
+        **kwargs,
+    )
+    user = user_template.format(**kwargs)
+    return system, user

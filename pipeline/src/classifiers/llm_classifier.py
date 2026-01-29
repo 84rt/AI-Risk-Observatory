@@ -10,7 +10,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .config import get_settings
 from .chunker import CandidateSpan
-from .utils.prompt_loader import get_prompt_template
+from .utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -128,14 +128,17 @@ class LLMClassifier:
         Returns:
             Prompt string
         """
-        template = get_prompt_template("legacy_mention_classifier")
-        return template.format(
+        system_prompt, user_prompt = render_prompt_messages(
+            "legacy_mention_classifier",
             firm_name=candidate.firm_name,
             sector=candidate.sector,
             report_year=candidate.report_year,
             report_section=candidate.report_section or "Unknown",
             text=candidate.text,
         )
+        if system_prompt:
+            return f"SYSTEM:\\n{system_prompt}\\n\\nUSER:\\n{user_prompt}"
+        return user_prompt
 
     @staticmethod
     def _parse_response(response_text: str) -> dict:

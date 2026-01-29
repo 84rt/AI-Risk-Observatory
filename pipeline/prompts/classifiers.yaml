@@ -1,5 +1,5 @@
 mention_type: |
-  You are a senior analyst for the UK AI Safety Institute, labeling AI-related mentions in annual report excerpts.
+  You are an expert analyst labelling AI mentions from company annual reports.
 
   ## CONTEXT
   Company: {firm_name}
@@ -9,85 +9,19 @@ mention_type: |
 
   ## TASK
   Classify the excerpt into zero or more mention types. Mention types are NOT mutually exclusive.
-  Only use evidence from the text. Do not infer. If the keyword hit is a false positive or the
-  passage is about generic automation with no AI/ML signal, return no tags and all 0.0 scores.
+  If excerpt is a false positive (no AI mention), return the "none" tag.
+  Add confidence scores only for the tags in mention_types.
 
-  Mention types (definitions):
-  - adoption: Concrete deployment, use, rollout, pilot, or implementation of AI by the company
-    or its clients. Includes internal tooling and customer-facing systems.
-  - risk: AI described as a risk, downside, uncertainty, or material concern (including legal,
-    security, operational, reputational, or regulatory risk).
-  - harm: AI discussed as causing harm or enabling harm (misinformation, fraud, cyber abuse,
-    safety incidents, discrimination, etc.).
-  - vendor: Explicit mention of an AI vendor or platform (Microsoft, Google, OpenAI, AWS, etc.)
-    or a named third-party provider of AI capabilities.
-  - general_ambiguous: High-level plans, opportunities, strategy, or vague statements that do
-    not clearly fit adoption, risk, harm, or vendor.
-
-  Confidence guidance (0.0-1.0):
-  - 0.0: no evidence
-  - 0.2: weak or implied
-  - 0.5: plausible but not explicit
-  - 0.8: clear, explicit
-  - 0.95: direct, unambiguous
-
-  Examples:
-  - "We deployed an AI chatbot for customer support." -> adoption ~0.9, others ~0.0
-  - "AI could increase misinformation risks." -> risk ~0.8, harm ~0.5 if harm is described
+  ## EXAMPLES
+  - "We deployed an AI chatbot for customer support." -> adoption ~0.9
+  - "AI could increase misinformation risks. Deepfakes have significantly impaired our value proposition" -> risk ~0.8, harm ~0.8
   - "We are exploring AI opportunities." -> general_ambiguous ~0.7
-  - "Automation improved throughput." -> no tags (not AI-specific)
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "mention_types": ["adoption", "risk"],
-    "confidence_scores": {{
-      "adoption": 0.83,
-      "risk": 0.12,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.05
-    }},
-    "reasoning": "Short explanation of tag choices"
-  }}
-
-  If no mention types apply, return:
-  {{
-    "mention_types": [],
-    "confidence_scores": {{
-      "adoption": 0.0,
-      "risk": 0.0,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.0
-    }},
-    "reasoning": "No AI-relevant mention detected"
-  }}
-
-  Return ONLY valid JSON.
-
-mention_type_no_reasoning: |
-  You are a senior analyst for the UK AI Safety Institute, labeling AI-related mentions in annual report excerpts.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-  Report Section: {report_section}
-
-  ## TASK
-  Classify the excerpt into zero or more mention types. Mention types are NOT mutually exclusive.
-  Only use evidence from the text. Do not infer. If the keyword hit is a false positive or the
-  passage is about generic automation with no AI/ML signal, return no tags and all 0.0 scores.
-
-  Mention types (definitions):
-  - adoption: Concrete deployment, use, rollout, pilot, or implementation of AI by the company
-    or its clients. Includes internal tooling and customer-facing systems.
+  - "Automation of customer service tasks improved our..." -> general_ambiguous ~0.2
+  - "Our office in Shangh'ai' has opp..." -> none ~0.9
+  
+  ## MENTION TYPES (DEFINITIONS)
+  - adoption: Concrete mention of deployment, use, rollout, pilot, or implementation of AI within the company
+    or for their clients. Mentions of internal AI tooling or customer-facing systems. Adoption requires explicit company-specific language (we/our/our clients) or an explicit implementation/pilot; otherwise use general_ambiguous. If the mention is vague assign it very low confidence.
   - risk: AI described as a risk, downside, uncertainty, or material concern (including legal,
     security, operational, reputational, or regulatory risk).
   - harm: AI discussed as causing harm or enabling harm (misinformation, fraud, cyber abuse,
@@ -97,111 +31,12 @@ mention_type_no_reasoning: |
   - general_ambiguous: High-level plans, opportunities, strategy, or vague statements that do
     not clearly fit adoption, risk, harm, or vendor.
 
-  Confidence guidance (0.0-1.0):
-  - 0.0: no evidence
-  - 0.2: weak or implied
-  - 0.5: plausible but not explicit
-  - 0.8: clear, explicit
-  - 0.95: direct, unambiguous
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only (NO reasoning field):
-  {{
-    "mention_types": ["adoption", "risk"],
-    "confidence_scores": {{
-      "adoption": 0.83,
-      "risk": 0.12,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.05
-    }}
-  }}
-
-  If no mention types apply, return:
-  {{
-    "mention_types": [],
-    "confidence_scores": {{
-      "adoption": 0.0,
-      "risk": 0.0,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.0
-    }}
-  }}
-
-  Return ONLY valid JSON.
-
-mention_type_limited_reasoning: |
-  You are a senior analyst for the UK AI Safety Institute, labeling AI-related mentions in annual report excerpts.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-  Report Section: {report_section}
-
-  ## TASK
-  Classify the excerpt into zero or more mention types. Mention types are NOT mutually exclusive.
-  Only use evidence from the text. Do not infer. If the keyword hit is a false positive or the
-  passage is about generic automation with no AI/ML signal, return no tags and all 0.0 scores.
-
-  Mention types (definitions):
-  - adoption: Concrete deployment, use, rollout, pilot, or implementation of AI by the company
-    or its clients. Includes internal tooling and customer-facing systems.
-  - risk: AI described as a risk, downside, uncertainty, or material concern (including legal,
-    security, operational, reputational, or regulatory risk).
-  - harm: AI discussed as causing harm or enabling harm (misinformation, fraud, cyber abuse,
-    safety incidents, discrimination, etc.).
-  - vendor: Explicit mention of an AI vendor or platform (Microsoft, Google, OpenAI, AWS, etc.)
-    or a named third-party provider of AI capabilities.
-  - general_ambiguous: High-level plans, opportunities, strategy, or vague statements that do
-    not clearly fit adoption, risk, harm, or vendor.
-
-  Confidence guidance (0.0-1.0):
-  - 0.0: no evidence
-  - 0.2: weak or implied
-  - 0.5: plausible but not explicit
-  - 0.8: clear, explicit
-  - 0.95: direct, unambiguous
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only. Reasoning must be <= 200 words.
-  {{
-    "mention_types": ["adoption", "risk"],
-    "confidence_scores": {{
-      "adoption": 0.83,
-      "risk": 0.12,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.05
-    }},
-    "reasoning": "Up to a few sentences (<= 200 words)."
-  }}
-
-  If no mention types apply, return:
-  {{
-    "mention_types": [],
-    "confidence_scores": {{
-      "adoption": 0.0,
-      "risk": 0.0,
-      "harm": 0.0,
-      "vendor": 0.0,
-      "general_ambiguous": 0.0
-    }},
-    "reasoning": "No AI-relevant mention detected (<= 200 words)."
-  }}
-
-  Return ONLY valid JSON.
+  ## CONFIDENCE GUIDANCE (0.0-1.0)
+  - 0.0: confident NO — clear absence of this mention type
+  - 0.2: faint/implicit signal; could be this type but hard to tell
+  - 0.5: highly uncertain — no strong evidence either way
+  - 0.8: likely YES — strong signal, but not fully explicit
+  - 1.0: confident YES — explicit, unambiguous mention
 
 adoption_type: |
   You are an expert analyst classifying the type of AI adoption in company annual reports.
@@ -212,310 +47,40 @@ adoption_type: |
   Report Year: {report_year}
 
   ## TASK
-  Identify the AI adoption type(s) present in the excerpt. Categories are NOT mutually exclusive.
-  If the excerpt is vague, assign low confidences instead of inventing a new category.
+  The excerpt has been classified to have the following mention types: {mention_types}.
+  Identify the AI adoption type(s) present. Categories are NOT mutually exclusive.
+  If the excerpt is vague, assign low confidences instead of inventing a category.
+  Include all adoption_confidences keys with numeric values (0.0-1.0).
 
-  Categories (use these exact keys):
-  - non_llm: Traditional ML/AI such as forecasting, scoring, computer vision, anomaly detection,
-    recommendation engines, or rule-based automation.
-  - llm: Large language models or generative text systems (LLM, GPT, ChatGPT, Gemini, Claude,
-    copilots, chatbots, text generation, summarization).
-  - agentic: Autonomous or agent-like systems that plan, take actions, or orchestrate tools
-    with limited human intervention.
-
-  Confidence guidance:
-  - 0.8+ if explicit (e.g., "LLM chatbot", "autonomous agent")
-  - 0.3-0.6 if implied (e.g., "AI assistant" without more detail)
-  - 0.0-0.2 if unclear or only a generic AI statement
-
-  Examples:
-  - "We deployed a GPT-based chatbot for HR." -> llm ~0.9, non_llm ~0.1, agentic ~0.0
+  ## EXAMPLES
+  - "We deployed a GPT-based chatbot for HR." -> llm ~0.9
   - "We use predictive analytics to detect fraud." -> non_llm ~0.9
   - "We are rolling out AI agents to automate workflows." -> agentic ~0.9, llm ~0.4
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "adoption_confidences": {{
-      "non_llm": 0.10,
-      "llm": 0.85,
-      "agentic": 0.05
-    }},
-    "evidence": {{
-      "non_llm": ["quote if applicable"],
-      "llm": ["quote if applicable"],
-      "agentic": ["quote if applicable"]
-    }},
-    "reasoning": "Short explanation"
-  }}
-
-  Return ONLY valid JSON.
-
-adoption_type_no_reasoning: |
-  You are an expert analyst classifying the type of AI adoption in company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify the AI adoption type(s) present in the excerpt. Categories are NOT mutually exclusive.
-  If the excerpt is vague, assign low confidences instead of inventing a new category.
-
-  Categories (use these exact keys):
-  - non_llm: Traditional ML/AI such as forecasting, scoring, computer vision, anomaly detection,
-    recommendation engines, or rule-based automation.
-  - llm: Large language models or generative text systems (LLM, GPT, ChatGPT, Gemini, Claude,
-    copilots, chatbots, text generation, summarization).
-  - agentic: Autonomous or agent-like systems that plan, take actions, or orchestrate tools
-    with limited human intervention.
-
-  Confidence guidance:
-  - 0.8+ if explicit (e.g., "LLM chatbot", "autonomous agent")
-  - 0.3-0.6 if implied (e.g., "AI assistant" without more detail)
-  - 0.0-0.2 if unclear or only a generic AI statement
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only (NO evidence or reasoning fields):
-  {{
-    "adoption_confidences": {{
-      "non_llm": 0.10,
-      "llm": 0.85,
-      "agentic": 0.05
-    }}
-  }}
-
-  Return ONLY valid JSON.
-
-adoption_type_limited_reasoning: |
-  You are an expert analyst classifying the type of AI adoption in company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify the AI adoption type(s) present in the excerpt. Categories are NOT mutually exclusive.
-  If the excerpt is vague, assign low confidences instead of inventing a new category.
-
-  Categories (use these exact keys):
-  - non_llm: Traditional ML/AI such as forecasting, scoring, computer vision, anomaly detection,
-    recommendation engines, or rule-based automation.
-  - llm: Large language models or generative text systems (LLM, GPT, ChatGPT, Gemini, Claude,
-    copilots, chatbots, text generation, summarization).
-  - agentic: Autonomous or agent-like systems that plan, take actions, or orchestrate tools
-    with limited human intervention.
-
-  Confidence guidance:
-  - 0.8+ if explicit (e.g., "LLM chatbot", "autonomous agent")
-  - 0.3-0.6 if implied (e.g., "AI assistant" without more detail)
-  - 0.0-0.2 if unclear or only a generic AI statement
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only. Reasoning must be <= 200 words.
-  {{
-    "adoption_confidences": {{
-      "non_llm": 0.10,
-      "llm": 0.85,
-      "agentic": 0.05
-    }},
-    "reasoning": "Up to a few sentences (<= 200 words)."
-  }}
-
-  Return ONLY valid JSON.
+  - "In 2024, our AI platform fully automated customer service tasks." -> non_llm ~0.3, llm ~0.6, agentic ~0.8
 
 risk: |
-  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related risk disclosures.
+  You are an expert analyst classifying the type of AI risks in company annual reports.
 
   ## CONTEXT
   Company: {firm_name}
   Sector: {sector}
   Report Year: {report_year}
+  Report Section: {report_section}
 
   ## TASK
+  The excerpt has been classified to have the following mention types: {mention_types}.
   Identify ALL applicable AI risk categories. Categories are NOT mutually exclusive.
-  Assign a confidence score (0.0-1.0) for each risk category you select.
-  Also provide a substantiveness_score between 0.0 (boilerplate) and 1.0 (highly substantive).
+  If a risk spans multiple categories, include all that apply.
+  If the excerpt is too vague, use "none".
 
-  Substantiveness guidance:
-  - 0.0-0.2: generic boilerplate that could apply to any company
-  - 0.3-0.6: contextual to the firm or sector but not specific
-  - 0.7-1.0: specific systems, incidents, metrics, named programs, or concrete controls
-
-  ## RISK CATEGORIES (Use these exact keys)
-  {risk_categories}
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "risk_types": ["operational_technical", "cybersecurity"],
-    "confidence_scores": {{
-      "operational_technical": 0.82,
-      "cybersecurity": 0.10
-    }},
-    "evidence": {{
-      "operational_technical": ["quote1", "quote2"],
-      "cybersecurity": ["quote1"]
-    }},
-    "key_snippets": {{
-      "operational_technical": "most important quote",
-      "cybersecurity": "most important quote"
-    }},
-    "substantiveness_score": 0.35,
-    "reasoning": "Brief summary of AI risk profile"
-  }}
-
-  If no AI risks are mentioned:
-  {{
-    "risk_types": [],
-    "confidence_scores": {{}},
-    "evidence": {{}},
-    "key_snippets": {{}},
-    "substantiveness_score": 0.0,
-    "reasoning": "No AI-related risks identified"
-  }}
-
-  **CRITICAL**: Only use these risk category keys: {risk_keys}
-
-  Return ONLY valid JSON.
-
-risk_no_reasoning: |
-  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related risk disclosures.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify ALL applicable AI risk categories. Categories are NOT mutually exclusive.
-  Assign a confidence score (0.0-1.0) for each risk category you select.
-  Also provide a substantiveness_score between 0.0 (boilerplate) and 1.0 (highly substantive).
-
-  ## RISK CATEGORIES (Use these exact keys)
-  {risk_categories}
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only (NO reasoning, evidence, or key snippets):
-  {{
-    "risk_types": ["operational_technical", "cybersecurity"],
-    "confidence_scores": {{
-      "operational_technical": 0.82,
-      "cybersecurity": 0.10
-    }},
-    "substantiveness_score": 0.35
-  }}
-
-  If no AI risks are mentioned:
-  {{
-    "risk_types": [],
-    "confidence_scores": {{}},
-    "substantiveness_score": 0.0
-  }}
-
-  **CRITICAL**: Only use these risk category keys: {risk_keys}
-
-  Return ONLY valid JSON.
-
-risk_limited_reasoning: |
-  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for AI-related risk disclosures.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify ALL applicable AI risk categories. Categories are NOT mutually exclusive.
-  Assign a confidence score (0.0-1.0) for each risk category you select.
-  Also provide a substantiveness_score between 0.0 (boilerplate) and 1.0 (highly substantive).
-
-  ## RISK CATEGORIES (Use these exact keys)
-  {risk_categories}
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only. Reasoning must be <= 200 words.
-  {{
-    "risk_types": ["operational_technical", "cybersecurity"],
-    "confidence_scores": {{
-      "operational_technical": 0.82,
-      "cybersecurity": 0.10
-    }},
-    "substantiveness_score": 0.35,
-    "reasoning": "Up to a few sentences (<= 200 words)."
-  }}
-
-  If no AI risks are mentioned:
-  {{
-    "risk_types": [],
-    "confidence_scores": {{}},
-    "substantiveness_score": 0.0,
-    "reasoning": "No AI-related risks identified (<= 200 words)."
-  }}
-
-  **CRITICAL**: Only use these risk category keys: {risk_keys}
-
-  Return ONLY valid JSON.
-
-harms: |
-  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related HARMS.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Determine if the excerpt mentions AI-related harms or negative consequences.
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "harms_mentioned": true,
-    "confidence": 0.0-1.0,
-    "evidence": ["quote1", "quote2"],
-    "reasoning": "Brief explanation"
-  }}
-
-  If no harms are mentioned, set harms_mentioned to false with empty evidence.
-  Return ONLY valid JSON.
+  ## EXAMPLES
+  - "Increasing risk from new technologies such as Artificial Intelligence (AI) is a major concern." -> none ~0.8
+  - "Artificial Intelligence (AI) is posing increasing cyberse∫curity concerns." -> cybersecurity ~0.9
+  - "[In the Risk Section] Digital threats and cybersecurity risks are evolving rapidly." -> none ~0.8 (no AI mention)
+  - "We might fail to adopt AI technologies in a timely manner." -> strategic_market ~0.9
+  - "[In the Risk Section] The increasing regulation, especially the AI Act, are difficult to comply with and might result in legal liability." -> regulatory_compliance ~0.9
+  - "Deepfakes and GenAI can cause misinformation and damage to our reputation." -> reputational_ethical ~0.9, information_integrity ~0.9
+  - "Continued geopolitical tensions require extra focus on reputational risks associated with our global operations. Rapid advances in AI bring stakeholder scrutiny on topics like data ethics, reskilling and supply chain risks." -> workforce_impacts ~0.8, reputational_ethical ~0.9, third_party_supply_chain ~0.2
 
 vendor: |
   You are an expert analyst extracting AI vendor mentions from company annual reports.
@@ -527,135 +92,17 @@ vendor: |
 
   ## TASK
   Identify AI vendors or providers explicitly mentioned in the excerpt.
-  Use only the vendor tags listed below. Tags are NOT mutually exclusive.
-  Provide a confidence score for each vendor tag, even if 0.0.
+  Use only the vendor tags listed in the schema.
+  If a named vendor is not in the list, use "other" and set other_vendor.
 
-  Vendor tags:
-  - google
-  - microsoft
-  - openai
-  - internal (in-house or proprietary AI)
-  - undisclosed (vendor mentioned but not named)
-  - other (use only when a named vendor is not in the list; set other_vendor)
-
-  Examples:
+  ## EXAMPLES
   - "We partner with Microsoft for AI tooling." -> microsoft ~0.9
   - "We use a third-party AI provider." -> undisclosed ~0.7
   - "Our in-house AI models..." -> internal ~0.8
   - "We use Anthropic models." -> other ~0.8, other_vendor: "Anthropic"
 
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "vendor_confidences": {{
-      "google": 0.0,
-      "microsoft": 0.7,
-      "openai": 0.0,
-      "internal": 0.1,
-      "undisclosed": 0.0,
-      "other": 0.0
-    }},
-    "other_vendor": "",
-    "evidence": {{
-      "microsoft": ["quote mentioning Microsoft"]
-    }},
-    "reasoning": "Brief explanation"
-  }}
-
-  Return ONLY valid JSON.
-
-vendor_no_reasoning: |
-  You are an expert analyst extracting AI vendor mentions from company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify AI vendors or providers explicitly mentioned in the excerpt.
-  Use only the vendor tags listed below. Tags are NOT mutually exclusive.
-  Provide a confidence score for each vendor tag, even if 0.0.
-
-  Vendor tags:
-  - google
-  - microsoft
-  - openai
-  - internal (in-house or proprietary AI)
-  - undisclosed (vendor mentioned but not named)
-  - other (use only when a named vendor is not in the list; set other_vendor)
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only (NO evidence or reasoning fields):
-  {{
-    "vendor_confidences": {{
-      "google": 0.0,
-      "microsoft": 0.7,
-      "openai": 0.0,
-      "internal": 0.1,
-      "undisclosed": 0.0,
-      "other": 0.0
-    }},
-    "other_vendor": ""
-  }}
-
-  Return ONLY valid JSON.
-
-vendor_limited_reasoning: |
-  You are an expert analyst extracting AI vendor mentions from company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify AI vendors or providers explicitly mentioned in the excerpt.
-  Use only the vendor tags listed below. Tags are NOT mutually exclusive.
-  Provide a confidence score for each vendor tag, even if 0.0.
-
-  Vendor tags:
-  - google
-  - microsoft
-  - openai
-  - internal (in-house or proprietary AI)
-  - undisclosed (vendor mentioned but not named)
-  - other (use only when a named vendor is not in the list; set other_vendor)
-
-  ## EXCERPT
-  """
-  {text}
-  """
-
-  ## OUTPUT FORMAT
-  Return JSON only. Reasoning must be <= 200 words.
-  {{
-    "vendor_confidences": {{
-      "google": 0.0,
-      "microsoft": 0.7,
-      "openai": 0.0,
-      "internal": 0.1,
-      "undisclosed": 0.0,
-      "other": 0.0
-    }},
-    "other_vendor": "",
-    "reasoning": "Up to a few sentences (<= 200 words)."
-  }}
-
-  Return ONLY valid JSON.
-
 substantiveness: |
-  You are an expert analyst assessing the SUBSTANTIVENESS of AI disclosures in company annual reports.
+  You are an expert analyst assessing the substantiveness of AI disclosures in company annual reports.
 
   ## CONTEXT
   Company: {firm_name}
@@ -663,163 +110,27 @@ substantiveness: |
   Report Year: {report_year}
 
   ## TASK
+  The excerpt has been classified to have the following mention types: {mention_types}.
   Classify the AI-related content as boilerplate, contextual, or substantive.
 
-  ## EXCERPT
-  """
-  {text}
-  """
+  ## EXAMPLES
+  - "We use AI to improve our customer service." -> substantive ~0.9
+  - "We are exploring AI opportunities." -> boilerplate ~0.8
+  - "AI may pose risks to our industry." -> contextual ~0.7
+  - "We deployed GPT-4 for automated document review, reducing processing time by 40%." -> substantive ~0.95
 
-  ## OUTPUT FORMAT
-  Return JSON only:
-  {{
-    "substantiveness": "boilerplate" | "contextual" | "substantive",
-    "confidence": 0.0-1.0,
-    "evidence": {{
-      "boilerplate_examples": ["quote"],
-      "contextual_examples": ["quote"],
-      "substantive_examples": ["quote"]
-    }},
-    "substantive_ratio": 0.0-1.0,
-    "indicators": ["indicator1", "indicator2"],
-    "reasoning": "Brief explanation"
-  }}
+harms: |
+  You are an expert analyst detecting AI-related harms in company annual reports.
 
-  Return ONLY valid JSON.
-
-legacy_mention_classifier: |
-  You are an expert analyst for the UK AI Safety Institute, analyzing company annual reports for mentions of AI-related risks and adoption.
-
-  ## INPUT
+  ## CONTEXT
   Company: {firm_name}
   Sector: {sector}
   Report Year: {report_year}
-  Report Section: {report_section}
-
-  Excerpt:
-  """
-  {text}
-  """
 
   ## TASK
-  Analyze this excerpt and provide a structured classification.
+  Determine whether the excerpt mentions AI-related harms (misinformation, fraud, cyber abuse, safety incidents, discrimination, etc.).
 
-  ### Step 1: Is this AI-relevant?
-  Is this excerpt about AI, machine learning, algorithms, or automated decision-making in a context of risk, adoption, governance, or incidents?
-
-  Answer: [Yes/No]
-  If No, stop here.
-
-  ### Step 2: Mention Type
-  What is this excerpt primarily about?
-  - risk_statement: Explicit discussion of AI-related risk or downside
-  - adoption_use_case: Description of AI deployment or planned use
-  - governance_mitigation: Controls, policies, or risk management for AI
-  - incident_event: Concrete failure, breach, or regulatory action
-  - regulatory_environment: Discussion of AI regulation or compliance
-  - strategy_opportunity: Strategic AI discussion with implicit risk context
-
-  Answer: [mention_type]
-
-  ### Step 3: AI Specificity
-  - ai_specific: Explicit AI/ML terms (AI, machine learning, LLM, neural network, etc.)
-  - automation_general: Generic automation without clear AI reference
-
-  Answer: [ai_specificity]
-
-  ### Step 4: Frontier Technology
-  Does this mention frontier AI technologies (large language models, generative AI, foundation models, GPT, Claude, Gemini, etc.)?
-
-  Answer: [true/false]
-
-  ### Step 5: Risk Classification (if risk-related)
-  Tier 1 Category (select one, or null if not risk-related):
-  - operational_reliability: System failures, model errors, outages
-  - security_malicious_use: Cyber attacks, deepfakes, fraud
-  - legal_regulatory_compliance: AI Act, GDPR, IP, liability
-  - workforce_human_capital: Job displacement, skills, talent
-  - societal_ethical_reputational: Bias, misinformation, trust
-  - frontier_systemic: Loss of control, systemic risk
-
-  Answer: [tier_1_category or null]
-
-  Tier 2 Driver (select one if applicable, or null):
-  - third_party_dependence (parent: operational_reliability)
-  - hallucination_accuracy (parent: operational_reliability)
-  - model_drift_degradation (parent: operational_reliability)
-  - cyber_enablement (parent: security_malicious_use)
-  - adversarial_attacks (parent: security_malicious_use)
-  - deepfakes_synthetic_media (parent: security_malicious_use)
-  - data_privacy_leakage (parent: legal_regulatory_compliance)
-  - ip_copyright (parent: legal_regulatory_compliance)
-  - regulatory_uncertainty (parent: legal_regulatory_compliance)
-  - job_displacement (parent: workforce_human_capital)
-  - skill_obsolescence (parent: workforce_human_capital)
-  - shadow_ai (parent: workforce_human_capital)
-  - bias_discrimination (parent: societal_ethical_reputational)
-  - misinformation_content (parent: societal_ethical_reputational)
-  - trust_reputation (parent: societal_ethical_reputational)
-  - concentration_risk (parent: frontier_systemic)
-  - loss_of_control (parent: frontier_systemic)
-
-  Answer: [tier_2_driver or null]
-
-  ### Step 6: Specificity Level
-  - boilerplate: Generic language applicable to any firm
-  - contextual: Sector/company-relevant but not specific
-  - concrete: Named systems, quantified, or detailed
-
-  Answer: [specificity_level]
-
-  ### Step 7: Materiality Signal
-  Based on language cues ("material", "significant", "principal", etc.):
-  - low / medium / high / unspecified
-
-  Answer: [materiality_signal]
-
-  ### Step 8: Governance & Mitigation
-  Is mitigation or governance discussed?
-  Answer: [true/false]
-
-  If yes, what level of governance maturity is indicated?
-  - none / basic / intermediate / advanced
-
-  Answer: [governance_maturity]
-
-  ### Step 9: Confidence
-  How confident are you in this classification? (0.0 - 1.0)
-  - 0.9-1.0: Very clear, unambiguous
-  - 0.7-0.89: Clear, minor ambiguity
-  - 0.5-0.69: Moderate uncertainty
-  - Below 0.5: High uncertainty, needs human review
-
-  Answer: [confidence_score]
-
-  ### Step 10: Reasoning
-  Provide a 1-2 sentence explanation of your classification.
-
-  Answer: [reasoning_summary]
-
-  ## OUTPUT FORMAT
-  Return your response as JSON ONLY (no other text).
-
-  If the excerpt IS AI-relevant, return:
-  {{
-    "is_relevant": true,
-    "mention_type": "risk_statement",
-    "ai_specificity": "ai_specific",
-    "frontier_tech_flag": false,
-    "tier_1_category": "operational_reliability",
-    "tier_2_driver": "hallucination_accuracy",
-    "specificity_level": "contextual",
-    "materiality_signal": "medium",
-    "mitigation_mentioned": true,
-    "governance_maturity": "basic",
-    "confidence_score": 0.85,
-    "reasoning_summary": "Clear mention of AI model accuracy risks in customer-facing context, with generic policy reference but no specific controls."
-  }}
-
-  If the excerpt is NOT AI-relevant, return:
-  {{
-    "is_relevant": false
-  }}
+  ## EXAMPLES
+  - "Deepfakes have been used to defraud our customers." -> harms_mentioned: true, confidence ~0.95
+  - "We are monitoring AI-related risks." -> harms_mentioned: false, confidence ~0.8
+  - "AI-generated misinformation has damaged our brand reputation." -> harms_mentioned: true, confidence ~0.9

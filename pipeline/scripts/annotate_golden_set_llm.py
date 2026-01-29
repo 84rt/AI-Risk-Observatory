@@ -3,20 +3,22 @@
 
 Phase 1: Run MentionTypeClassifier on all chunks (checkpoint to disk).
 Phase 2: Run downstream classifiers (risk, adoption) based on phase 1 results.
+
+Uses tqdm for progress tracking instead of manual counters.
 """
 
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import json
-import threading
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-import sys
+from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PIPELINE_ROOT = SCRIPT_DIR.parent
@@ -95,12 +97,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("data/golden_set/llm"), help="Output directory.")
     parser.add_argument("--append", action="store_true", help="Resume from existing checkpoints.")
     parser.add_argument("--max-chunks", type=int, default=0, help="Limit chunks to process (0 = no limit).")
-    parser.add_argument("--mention-threshold", type=float, default=0.1, help="Confidence threshold for mention tags.")
+    parser.add_argument("--mention-threshold", type=float, default=0.2, help="Confidence threshold for mention tags.")
     parser.add_argument("--downstream-threshold", type=float, default=None, help="Confidence threshold for downstream routing.")
     parser.add_argument("--max-attempts", type=int, default=2, help="Retry attempts per classifier call.")
     parser.add_argument("--max-concurrent", type=int, default=30, help="Max concurrent requests per phase.")
     parser.add_argument("--model", type=str, default=None, help="Override model name.")
     parser.add_argument("--openrouter", action="store_true", help="Route calls through OpenRouter.")
+    parser.add_argument(
+        "--reasoning-policy",
+        type=str,
+        choices=("none", "short", "limited"),
+        default="short",
+        help="Control inclusion/length of reasoning fields in classifier outputs.",
+    )
     return parser.parse_args()
 
 
@@ -212,10 +221,8 @@ def run_phase1(
         run_id=run_id,
         model_name=model_name,
         use_openrouter=args.openrouter,
+        reasoning_policy=args.reasoning_policy,
     )
-
-    lock = threading.Lock()
-    counters = {"done": 0, "success": 0, "errors": 0}
 
     def classify_one(chunk: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         chunk_id = chunk["chunk_id"]
@@ -229,50 +236,38 @@ def run_phase1(
         mention_confidences = payload.get("confidence_scores", {}) or {}
         mention_types = tags_from_confidences(mention_confidences, args.mention_threshold)
 
-        record = {
+        return {
             "chunk_id": chunk_id,
             "mention_types": mention_types,
             "mention_confidences": mention_confidences,
             "chunk": chunk,
+            "errors": errors,
         }
 
-        with lock:
-            counters["done"] += 1
-            if errors:
-                counters["errors"] += 1
-            else:
-                counters["success"] += 1
-            if counters["done"] % 10 == 0 or counters["done"] == total:
-                print(
-                    f"[Phase 1 – Mention Type] {counters['done']}/{total} "
-                    f"| success: {counters['success']} | errors: {counters['errors']}"
-                )
+    # Use thread_map for concurrent processing with tqdm progress bar
+    results = thread_map(
+        classify_one,
+        to_process,
+        max_workers=args.max_concurrent,
+        desc="Phase 1: Mention Types",
+        unit="chunk",
+    )
 
-        return record
-
-    results: List[Dict[str, Any]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_concurrent) as executor:
-        futures = {executor.submit(classify_one, c): c for c in to_process}
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                record = future.result()
-                if record:
-                    results.append(record)
-            except Exception as e:
-                chunk = futures[future]
-                print(f"[Phase 1 – Mention Type] Exception for chunk {chunk.get('chunk_id')}: {e}")
-                with lock:
-                    counters["done"] += 1
-                    counters["errors"] += 1
+    # Filter out None results and count stats
+    valid_results = [r for r in results if r is not None]
+    success_count = sum(1 for r in valid_results if not r.get("errors"))
+    error_count = sum(1 for r in valid_results if r.get("errors"))
 
     # Write results to checkpoint (append mode for resumability)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     with checkpoint_path.open("a", encoding="utf-8") as f:
-        for record in results:
-            f.write(json.dumps(record) + "\n")
+        for record in valid_results:
+            # Remove errors field before saving
+            save_record = {k: v for k, v in record.items() if k != "errors"}
+            f.write(json.dumps(save_record) + "\n")
 
     # Merge with existing
-    for r in results:
+    for r in valid_results:
         existing[r["chunk_id"]] = r
 
     # Summary
@@ -282,8 +277,8 @@ def run_phase1(
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
     summary = ", ".join(f"{k}={v}" for k, v in sorted(tag_counts.items()))
-    print(f"[Phase 1 – Mention Type] Complete: {counters['done']}/{total} "
-          f"| success: {counters['success']} | errors: {counters['errors']}")
+    print(f"[Phase 1 – Mention Type] Complete: {len(valid_results)}/{total} "
+          f"| success: {success_count} | errors: {error_count}")
     print(f"[Phase 1 – Mention Type] Results: {summary}")
 
     return existing
@@ -311,7 +306,7 @@ def run_phase2(
         text: str
         metadata: Dict[str, Any]
 
-    tasks: List[DownstreamTask] = []
+    tasks_by_phase: Dict[str, List[DownstreamTask]] = {}
     for cid, rec in phase1_records.items():
         chunk = rec["chunk"]
         mention_confidences = rec.get("mention_confidences", {})
@@ -321,21 +316,19 @@ def run_phase2(
         for phase_def in DOWNSTREAM_PHASES:
             conf = mention_confidences.get(phase_def.mention_tag, 0.0)
             if isinstance(conf, (int, float)) and conf >= downstream_threshold:
-                tasks.append(DownstreamTask(
+                # Add mention_types to metadata for downstream classifiers
+                enriched_metadata = {
+                    **metadata,
+                    "mention_types": rec.get("mention_types", []),
+                }
+                task = DownstreamTask(
                     chunk_id=cid,
                     phase=phase_def,
                     chunk=chunk,
                     text=text,
-                    metadata=metadata,
-                ))
-
-    # Group tasks by phase name for reporting
-    tasks_by_phase: Dict[str, List[DownstreamTask]] = {}
-    for t in tasks:
-        tasks_by_phase.setdefault(t.phase.name, []).append(t)
-
-    for name, phase_tasks in tasks_by_phase.items():
-        print(f"[Phase 2 – {name}] Queued: {len(phase_tasks)} chunks")
+                    metadata=enriched_metadata,
+                )
+                tasks_by_phase.setdefault(phase_def.name, []).append(task)
 
     # Instantiate classifiers
     classifiers: Dict[str, Any] = {}
@@ -344,70 +337,51 @@ def run_phase2(
             run_id=run_id,
             model_name=model_name,
             use_openrouter=args.openrouter,
+            reasoning_policy=args.reasoning_policy,
         )
 
-    # Run all downstream tasks in a shared pool
-    lock = threading.Lock()
-    counters: Dict[str, Dict[str, int]] = {
-        p.name: {"done": 0, "success": 0, "errors": 0, "total": len(tasks_by_phase.get(p.name, []))}
-        for p in DOWNSTREAM_PHASES
-    }
     # Store downstream results: {chunk_id: {phase_name: fields_dict}}
     downstream_results: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-    def run_downstream_task(task: DownstreamTask) -> None:
-        classifier = classifiers[task.phase.name]
-        payload, errors = classify_with_validation(
-            classifier, task.text, task.metadata, str(args.chunks), args.max_attempts
+    # Process each phase with tqdm
+    for phase_def in DOWNSTREAM_PHASES:
+        phase_tasks = tasks_by_phase.get(phase_def.name, [])
+        if not phase_tasks:
+            continue
+
+        print(f"[Phase 2 – {phase_def.name}] Queued: {len(phase_tasks)} chunks")
+        classifier = classifiers[phase_def.name]
+
+        def run_task(task: DownstreamTask) -> Tuple[str, str, Dict[str, Any]]:
+            payload, errors = classify_with_validation(
+                classifier, task.text, task.metadata, str(args.chunks), args.max_attempts
+            )
+
+            if task.phase.build_record:
+                fields = task.phase.build_record(task.chunk, payload)
+            else:
+                fields = {"payload": payload}
+
+            return task.chunk_id, task.phase.name, fields
+
+        # Use thread_map for concurrent processing with tqdm
+        results = thread_map(
+            run_task,
+            phase_tasks,
+            max_workers=args.max_concurrent,
+            desc=f"Phase 2: {phase_def.name}",
+            unit="chunk",
         )
 
-        fields = {}
-        if task.phase.build_record:
-            fields = task.phase.build_record(task.chunk, payload)
-        else:
-            fields = {"payload": payload}
-
-        with lock:
-            if task.chunk_id not in downstream_results:
-                downstream_results[task.chunk_id] = {}
-            downstream_results[task.chunk_id][task.phase.name] = fields
-
-            c = counters[task.phase.name]
-            c["done"] += 1
-            if errors:
-                c["errors"] += 1
-            else:
-                c["success"] += 1
-            if c["done"] % 10 == 0 or c["done"] == c["total"]:
-                print(
-                    f"[Phase 2 – {task.phase.name}] {c['done']}/{c['total']} "
-                    f"| success: {c['success']} | errors: {c['errors']}"
-                )
-
-    if tasks:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_concurrent) as executor:
-            futures = {executor.submit(run_downstream_task, t): t for t in tasks}
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    task = futures[future]
-                    print(f"[Phase 2 – {task.phase.name}] Exception for chunk {task.chunk_id}: {e}")
-                    with lock:
-                        c = counters[task.phase.name]
-                        c["done"] += 1
-                        c["errors"] += 1
-
-    # Print phase 2 summaries
-    for phase_def in DOWNSTREAM_PHASES:
-        c = counters[phase_def.name]
-        if c["total"] > 0:
-            print(f"[Phase 2 – {phase_def.name}] Complete: {c['done']}/{c['total']} "
-                  f"| success: {c['success']} | errors: {c['errors']}")
+        # Collect results
+        for chunk_id, phase_name, fields in results:
+            if chunk_id not in downstream_results:
+                downstream_results[chunk_id] = {}
+            downstream_results[chunk_id][phase_name] = fields
 
     # Build final annotation records
     annotations: List[Dict[str, Any]] = []
-    for cid, rec in phase1_records.items():
+    for cid, rec in tqdm(phase1_records.items(), desc="Building annotations", unit="record"):
         chunk = rec["chunk"]
         mention_types = rec.get("mention_types", [])
         mention_confidences = rec.get("mention_confidences", {})
