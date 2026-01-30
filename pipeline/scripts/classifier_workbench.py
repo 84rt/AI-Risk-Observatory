@@ -24,11 +24,17 @@ from helper import (
     inspect_chunk,
 )
 from visualize_helper import visualize_all, visualize_summary_table, visualize_report_summary
-from tests_helper import run_best_of_n, best_of_n_batch, run_model_family, model_family_batch, validate_models
+from tests_helper import (
+    run_best_of_n,
+    best_of_n_batch_detailed,
+    run_model_family,
+    model_family_batch,
+    validate_models,
+)
 
 ## %% CONFIG - (Edit these as needed)
 RUN_ID = "workbench"
-MAX_CHUNKS = 20  # Number of chunks to process (set to 20 for model family test)
+MAX_CHUNKS = 10  # Number of chunks to process (set to 20 for model family test)
 SAVE_RESULTS = False
 
 # Model configuration (None = use default from settings)
@@ -234,10 +240,10 @@ consistency_result = run_best_of_n(
 #%% BEST-OF-N BATCH TEST
 # Run consistency test across multiple chunks
 
-batch_results = best_of_n_batch(
+batch_results = best_of_n_batch_detailed(
     MentionTypeClassifier,
-    chunks[:20],
-    n=5,
+    chunks[:10],
+    n=10,
     temperature=0.7,  # the only time we want to use non-0.0 temperature
     model_name=MODEL_NAME,  # Use the configured model
     tqdm_func=tqdm,

@@ -505,6 +505,92 @@ def best_of_n_batch(
     return results
 
 
+def best_of_n_batch_detailed(
+    classifier_cls,
+    chunks: list[dict],
+    n: int = 5,
+    temperature: float = 0.0,
+    run_id: str = "best-of-n-batch",
+    model_name: str | None = None,
+    tqdm_func=None,
+    verbose: bool = True,
+    show_text: bool = False,
+    max_text_len: int = 140,
+) -> list[dict[str, Any]]:
+    """Run best-of-n test across multiple chunks with detailed per-chunk breakdowns."""
+    progress = tqdm_func or (lambda x, **_: x)
+    results = []
+
+    if verbose:
+        print(f"\n{'='*80}")
+        print(f"BEST-OF-{n} BATCH (detailed)")
+        print(f"{'='*80}")
+        print(f"Chunks: {len(chunks)} | Temperature: {temperature}")
+        print()
+
+    for i, chunk in enumerate(progress(chunks, desc=f"Best-of-{n} batch")):
+        result = best_of_n_test(
+            classifier_cls,
+            chunk["chunk_text"],
+            _chunk_to_metadata(chunk),
+            n=n,
+            temperature=temperature,
+            run_id=f"{run_id}-{i}",
+            model_name=model_name,
+            tqdm_func=None,
+            verbose=False,
+        )
+
+        classifications = [tuple(sorted(c)) for c in result["classifications"]]
+        counter = Counter(classifications)
+        most_common_tuple, most_common_count = counter.most_common(1)[0]
+        unique_count = len(counter)
+        schema_echo_count = sum(1 for r in result.get("runs", []) if r.get("schema_echo"))
+
+        if verbose:
+            company = chunk.get("company_name", "Unknown")
+            year = chunk.get("report_year", "?")
+            human = list(set(chunk.get("mention_types", [])))
+            print(f"\n[{i+1}/{len(chunks)}] {company} ({year}) | Human: {human}")
+            print(
+                f"  Agreement: {most_common_count}/{n} | "
+                f"Most common: {list(most_common_tuple)} | Variants: {unique_count}"
+            )
+            if schema_echo_count:
+                print(f"  WARNING: schema-echo runs: {schema_echo_count}/{n}")
+            if unique_count > 1:
+                print("  Variants:")
+                for variant, count in counter.most_common():
+                    print(f"    {list(variant)}: {count}")
+            if show_text:
+                preview = chunk.get("chunk_text", "").strip().replace("\n", " ")
+                print(f"  Text: {preview[:max_text_len]}...")
+
+        result["chunk_id"] = chunk.get("chunk_id", f"chunk-{i}")
+        result["company_name"] = chunk.get("company_name", "Unknown")
+        result["report_year"] = chunk.get("report_year", "?")
+        result["human_labels"] = list(set(chunk.get("mention_types", [])))
+        result["agreement_count"] = most_common_count
+        result["agreement_labels"] = list(most_common_tuple)
+        result["variant_counts"] = [{"labels": list(k), "count": v} for k, v in counter.items()]
+        result["schema_echo_count"] = schema_echo_count
+        results.append(result)
+
+    if verbose and results:
+        avg_consistency = sum(r["consistency_score"] for r in results) / len(results)
+        perfect = sum(1 for r in results if r["consistency_score"] == 1.0)
+        any_schema = sum(1 for r in results if r.get("schema_echo_count", 0) > 0)
+        print(f"\n{'='*80}")
+        print("BATCH SUMMARY")
+        print(f"{'='*80}")
+        print(f"Average consistency: {avg_consistency:.2%}")
+        print(f"Perfectly consistent: {perfect}/{len(results)} ({perfect/len(results):.0%})")
+        if any_schema:
+            print(f"Chunks with schema-echo: {any_schema}/{len(results)}")
+
+    return results
+
+
 def model_family_batch(
     classifier_cls,
     chunks: list[dict],
