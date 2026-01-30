@@ -43,6 +43,7 @@ SAVE_RESULTS = False
 # Models with native thinking: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview
 MODEL_NAME = "gemini-2.5-flash"  # e.g., "gemini-2.5-flash", "google/gemini-3-flash-preview", "openai/gpt-4o-mini"
 TEMPERATURE = 0.0  # we want the classifier to be deterministic
+THINKING_BUDGET = 0  # 0=disabled, low=1024, higher=4096/8192 (native-thinking models only)
 
 # Paths
 GOLDEN_SET_DIR = PIPELINE_DIR.parent / "data" / "golden_set"
@@ -74,7 +75,12 @@ print("PHASE 1: MENTION TYPE CLASSIFICATION")
 print("="*80)
 
 # Initialize classifiers with config
-clf_kwargs = {"run_id": RUN_ID, "model_name": MODEL_NAME, "temperature": TEMPERATURE}
+clf_kwargs = {
+    "run_id": RUN_ID,
+    "model_name": MODEL_NAME,
+    "temperature": TEMPERATURE,
+    "thinking_budget": THINKING_BUDGET,
+}
 mention_clf = MentionTypeClassifier(**clf_kwargs)
 adoption_clf = AdoptionTypeClassifier(**clf_kwargs) if RUN_DOWNSTREAM else None
 risk_clf = RiskClassifier(**clf_kwargs) if RUN_DOWNSTREAM else None

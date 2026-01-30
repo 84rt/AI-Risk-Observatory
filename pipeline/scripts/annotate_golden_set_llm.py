@@ -103,13 +103,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-concurrent", type=int, default=30, help="Max concurrent requests per phase.")
     parser.add_argument("--model", type=str, default=None, help="Override model name.")
     parser.add_argument("--openrouter", action="store_true", help="Route calls through OpenRouter.")
-    parser.add_argument(
-        "--reasoning-policy",
-        type=str,
-        choices=("none", "short", "limited"),
-        default="short",
-        help="Control inclusion/length of reasoning fields in classifier outputs.",
-    )
     return parser.parse_args()
 
 
@@ -221,7 +214,6 @@ def run_phase1(
         run_id=run_id,
         model_name=model_name,
         use_openrouter=args.openrouter,
-        reasoning_policy=args.reasoning_policy,
     )
 
     def classify_one(chunk: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -337,7 +329,6 @@ def run_phase2(
             run_id=run_id,
             model_name=model_name,
             use_openrouter=args.openrouter,
-            reasoning_policy=args.reasoning_policy,
         )
 
     # Store downstream results: {chunk_id: {phase_name: fields_dict}}

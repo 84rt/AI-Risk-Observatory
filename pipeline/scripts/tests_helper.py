@@ -903,7 +903,10 @@ def thinking_levels_batch(
         print()
 
     chunk_results = []
-    budget_stats = {b: {"exact": 0, "partial": 0, "diff": 0, "total_latency": 0} for b in budgets}
+    budget_stats = {
+        b: {"exact": 0, "partial": 0, "diff": 0, "total_latency": 0, "total_tokens": 0}
+        for b in budgets
+    }
 
     for i, chunk in enumerate(progress(chunks, desc="Processing chunks")):
         human_labels = set(chunk.get("mention_types", []))
@@ -933,7 +936,8 @@ def thinking_levels_batch(
             for budget in budgets:
                 r = result["results"].get(budget, {})
                 match = r.get("match_status", "N/A")
-                latency = r.get("latency_ms", 0)
+                latency = r.get("latency_ms", 0) or 0
+                tokens = r.get("tokens_used", 0) or 0
 
                 if "EXACT" in match:
                     budget_stats[budget]["exact"] += 1
@@ -942,6 +946,7 @@ def thinking_levels_batch(
                 else:
                     budget_stats[budget]["diff"] += 1
                 budget_stats[budget]["total_latency"] += latency
+                budget_stats[budget]["total_tokens"] += tokens
 
                 symbol = "✅" if "EXACT" in match else ("🟡" if "PARTIAL" in match else "❌")
                 row += f"  {budget}: {symbol}"
@@ -957,20 +962,22 @@ def thinking_levels_batch(
             "exact_match": exact / total if total > 0 else 0,
             "partial_or_better": (exact + partial) / total if total > 0 else 0,
             "avg_latency_ms": budget_stats[budget]["total_latency"] / total if total > 0 else 0,
+            "avg_tokens": budget_stats[budget]["total_tokens"] / total if total > 0 else 0,
         }
 
     if verbose:
         print(f"\n{'='*80}")
         print("BATCH SUMMARY")
         print(f"{'='*80}")
-        print(f"{'Budget':<12} {'Exact':<15} {'Partial+':<15} {'Avg Latency':<15}")
+        print(f"{'Budget':<12} {'Exact':<10} {'Partial+':<10} {'Avg Latency':<15} {'Avg Tokens':<12}")
         print("-" * 60)
         for budget in budgets:
             acc = budget_accuracy[budget]
             exact_pct = f"{acc['exact_match']:.0%}"
             partial_pct = f"{acc['partial_or_better']:.0%}"
             latency = f"{acc['avg_latency_ms']:.0f}ms"
-            print(f"{budget:<12} {exact_pct:<15} {partial_pct:<15} {latency:<15}")
+            tokens = f"{acc['avg_tokens']:.0f}"
+            print(f"{budget:<12} {exact_pct:<10} {partial_pct:<10} {latency:<15} {tokens:<12}")
 
         # Highlight best
         best_budget = max(budgets, key=lambda b: budget_accuracy[b]["exact_match"])
