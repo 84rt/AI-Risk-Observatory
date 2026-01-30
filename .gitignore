@@ -24,6 +24,8 @@ data/annotations/
 *.jsonl
 *.pdf
 *.xhtml
+!data/golden_set/**/*.jsonl
+
 
 # testing
 /coverage
