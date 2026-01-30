@@ -31,7 +31,7 @@ class SubstantivenessClassifier(BaseClassifier):
 
         return render_prompt_messages(
             "substantiveness",
-            reasoning_policy=self.reasoning_policy,
+            reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,

@@ -331,7 +331,7 @@ class BaseClassifier(ABC):
         model_name: Optional[str] = None,
         temperature: float = 0.0,
         use_openrouter: Optional[bool] = None,
-        reasoning_policy: str = "short",
+        thinking_budget: int = 0,
     ):
         """Initialize the classifier.
 
@@ -340,44 +340,27 @@ class BaseClassifier(ABC):
             api_key: Gemini API key (defaults to settings)
             model_name: Model to use (defaults to settings)
             temperature: LLM temperature (0.0 for deterministic)
-            reasoning_policy: One of {none, short, limited}
+            thinking_budget: Token budget for model thinking/reasoning.
+                0 = disabled, >0 = token budget (e.g., 1024, 4096, 8192).
+                Only supported by models with native thinking (Gemini 2.0+).
         """
         self.run_id = run_id
         self.api_key = api_key or settings.gemini_api_key
         self.model_name = model_name or settings.gemini_model
         self.temperature = temperature
-        self.reasoning_policy = reasoning_policy
+        self.thinking_budget = thinking_budget
         self.use_openrouter = (
             use_openrouter
             if use_openrouter is not None
             else bool(settings.openrouter_api_key and "/" in self.model_name)
         )
 
-        self.model = None
+        self.gemini_client = None
         if not self.use_openrouter:
-            import google.generativeai as genai
+            from google import genai
 
-            # Configure Gemini
-            genai.configure(api_key=self.api_key)
-
-            # Build generation config with optional response schema
-            generation_config_dict: Dict[str, Any] = {
-                "temperature": self.temperature,
-                "max_output_tokens": settings.max_tokens,
-                "response_mime_type": "application/json",
-            }
-
-            # Add response_schema if RESPONSE_MODEL is defined
-            if self.RESPONSE_MODEL is not None:
-                # Convert Pydantic schema to Gemini-compatible format
-                raw_schema = self.RESPONSE_MODEL.model_json_schema()
-                clean_schema = _clean_schema_for_gemini(raw_schema)
-                generation_config_dict["response_schema"] = clean_schema
-
-            self.model = genai.GenerativeModel(
-                model_name=self.model_name,
-                generation_config=generation_config_dict,
-            )
+            # Create Gemini client with new API
+            self.gemini_client = genai.Client(api_key=self.api_key)
 
         # Set up logging
         self.logger = get_classifier_logger(
@@ -669,18 +652,61 @@ class BaseClassifier(ABC):
         if self.use_openrouter:
             text = self._call_openrouter(system_prompt, user_prompt)
         else:
-            combined_prompt = (
-                f"SYSTEM:\\n{system_prompt}\\n\\nUSER:\\n{user_prompt}"
-                if system_prompt
-                else user_prompt
-            )
-            response = self.model.generate_content(combined_prompt)
-            text = response.text
+            text = self._call_gemini(system_prompt, user_prompt)
 
         # Estimate tokens from response
         tokens = len(text) // 4
 
         return text, tokens
+
+    def _call_gemini(self, system_prompt: str, user_prompt: str) -> str:
+        """Call Gemini API using the new google.genai SDK.
+
+        Supports native thinking for compatible models (gemini-2.5+, gemini-3).
+        """
+        from google.genai import types
+
+        # Build generation config
+        config_kwargs: Dict[str, Any] = {
+            "temperature": self.temperature,
+            "max_output_tokens": settings.max_tokens,
+            "response_mime_type": "application/json",
+        }
+
+        # Add response_schema if RESPONSE_MODEL is defined
+        if self.RESPONSE_MODEL is not None:
+            raw_schema = self.RESPONSE_MODEL.model_json_schema()
+            clean_schema = _clean_schema_for_gemini(raw_schema)
+            config_kwargs["response_schema"] = clean_schema
+
+        # Add thinking config if budget > 0
+        if self.thinking_budget > 0:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=self.thinking_budget
+            )
+
+        config = types.GenerateContentConfig(**config_kwargs)
+
+        # Build contents with system instruction
+        contents = []
+        if system_prompt:
+            contents.append(types.Content(
+                role="user",
+                parts=[types.Part(text=f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}")]
+            ))
+        else:
+            contents.append(types.Content(
+                role="user",
+                parts=[types.Part(text=user_prompt)]
+            ))
+
+        response = self.gemini_client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+            config=config,
+        )
+
+        return response.text
 
     def _call_openrouter(self, system_prompt: str, user_prompt: str) -> str:
         """Call OpenRouter API with schema injection.

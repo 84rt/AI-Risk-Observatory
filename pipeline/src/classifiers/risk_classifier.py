@@ -77,7 +77,7 @@ class RiskClassifier(BaseClassifier):
 
         return render_prompt_messages(
             "risk",
-            reasoning_policy=self.reasoning_policy,
+            reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,

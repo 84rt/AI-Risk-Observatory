@@ -734,6 +734,258 @@ def model_family_batch(
     }
 
 
+def run_thinking_levels(
+    classifier_cls,
+    chunk: dict,
+    budgets: list[int] | None = None,
+    model_name: str = "gemini-2.0-flash",
+    temperature: float = 0.0,
+    tqdm_func=None,
+    verbose: bool = True,
+) -> dict[str, Any]:
+    """Test different thinking budgets on a single chunk.
+
+    Args:
+        classifier_cls: Classifier class (e.g., MentionTypeClassifier)
+        chunk: Chunk dict with 'chunk_text' and metadata fields
+        budgets: List of thinking budgets to test (default: [0, 1024, 4096, 8192])
+        model_name: Model to use (must support native thinking)
+        temperature: Model temperature
+        tqdm_func: Optional progress bar function
+        verbose: Print results
+
+    Returns:
+        Dict with per-budget results and comparison metrics
+    """
+    if budgets is None:
+        budgets = [0, 1024, 4096, 8192]
+
+    progress = tqdm_func or (lambda x, **_: x)
+    results = {}
+    classifications = {}
+    human_labels = set(chunk.get("mention_types", []))
+
+    if verbose:
+        print(f"\n{'='*80}")
+        print("THINKING LEVELS TEST")
+        print(f"{'='*80}")
+        print(f"Model: {model_name}")
+        print(f"Budgets: {budgets}")
+        print(f"Human labels: {list(human_labels)}")
+        print(f"Text preview: {chunk.get('chunk_text', '')[:100].strip()}...")
+        print()
+
+    metadata = _chunk_to_metadata(chunk)
+
+    for budget in progress(budgets, desc="Testing thinking levels"):
+        if verbose:
+            budget_label = "disabled" if budget == 0 else f"{budget} tokens"
+            print(f"\n  Testing thinking_budget={budget} ({budget_label})")
+
+        clf = classifier_cls(
+            run_id=f"thinking-{budget}",
+            model_name=model_name,
+            temperature=temperature,
+            thinking_budget=budget,
+        )
+
+        try:
+            result = clf.classify(chunk["chunk_text"], metadata)
+            classification = result.classification
+            schema_echo = _looks_like_schema(classification)
+            if schema_echo:
+                if verbose:
+                    print(f"    WARNING: Schema echo detected")
+                classification = None
+            primary_set = _extract_primary_set(classification)
+
+            # Compare to human labels
+            if primary_set == human_labels:
+                match = "✅ EXACT"
+            elif primary_set & human_labels:
+                match = "🟡 PARTIAL"
+            else:
+                match = "❌ DIFF"
+
+            results[budget] = {
+                "primary_label": result.primary_label,
+                "confidence": result.confidence_score,
+                "reasoning": result.reasoning,
+                "classification": classification,
+                "primary_set": primary_set,
+                "latency_ms": result.api_latency_ms,
+                "tokens_used": result.tokens_used,
+                "success": result.success,
+                "error": result.error_message,
+                "match_status": match,
+            }
+            classifications[budget] = tuple(sorted(primary_set))
+
+            if verbose:
+                print(f"    Result: {list(primary_set)} {match}")
+                print(f"    Confidence: {result.confidence_score:.2f}")
+                print(f"    Latency: {result.api_latency_ms}ms")
+                if result.reasoning:
+                    reasoning_preview = result.reasoning[:150]
+                    if len(result.reasoning) > 150:
+                        reasoning_preview += "..."
+                    print(f"    Reasoning: {reasoning_preview}")
+
+        except Exception as e:
+            results[budget] = {
+                "primary_set": set(),
+                "error": str(e),
+                "success": False,
+                "match_status": "❌ ERROR",
+            }
+            classifications[budget] = ()
+            if verbose:
+                print(f"    ERROR: {e}")
+
+    # Summary
+    if verbose:
+        print(f"\n{'='*80}")
+        print("THINKING LEVELS SUMMARY")
+        print(f"{'='*80}")
+        print(f"{'Budget':<12} {'Result':<30} {'Match':<12} {'Latency':<10}")
+        print("-" * 70)
+        for budget in budgets:
+            r = results.get(budget, {})
+            labels = list(r.get("primary_set", []))
+            match = r.get("match_status", "N/A")
+            latency = r.get("latency_ms", 0)
+            print(f"{budget:<12} {str(labels):<30} {match:<12} {latency}ms")
+
+    return {
+        "results": results,
+        "classifications": {b: list(c) for b, c in classifications.items()},
+        "human_labels": list(human_labels),
+        "budgets_tested": budgets,
+        "model": model_name,
+    }
+
+
+def thinking_levels_batch(
+    classifier_cls,
+    chunks: list[dict],
+    budgets: list[int] | None = None,
+    model_name: str = "gemini-2.0-flash",
+    temperature: float = 0.0,
+    tqdm_func=None,
+    verbose: bool = True,
+) -> dict[str, Any]:
+    """Test thinking levels across multiple chunks.
+
+    Args:
+        classifier_cls: Classifier class
+        chunks: List of chunk dicts
+        budgets: List of thinking budgets (default: [0, 1024, 4096, 8192])
+        model_name: Model to use
+        temperature: Model temperature
+        tqdm_func: Optional progress bar function
+        verbose: Print results
+
+    Returns:
+        Dict with per-chunk results and aggregate statistics
+    """
+    if budgets is None:
+        budgets = [0, 1024, 4096, 8192]
+
+    progress = tqdm_func or (lambda x, **_: x)
+
+    if verbose:
+        print(f"\n{'='*80}")
+        print(f"THINKING LEVELS BATCH TEST ({len(chunks)} chunks, {len(budgets)} budgets)")
+        print(f"{'='*80}")
+        print(f"Model: {model_name}")
+        print(f"Budgets: {budgets}")
+        print(f"Total API calls: {len(chunks) * len(budgets)}")
+        print()
+
+    chunk_results = []
+    budget_stats = {b: {"exact": 0, "partial": 0, "diff": 0, "total_latency": 0} for b in budgets}
+
+    for i, chunk in enumerate(progress(chunks, desc="Processing chunks")):
+        human_labels = set(chunk.get("mention_types", []))
+
+        if verbose:
+            company = chunk.get("company_name", "Unknown")
+            year = chunk.get("report_year", "?")
+            print(f"\n[{i+1}/{len(chunks)}] {company} ({year}) | Human: {list(human_labels)}")
+
+        result = run_thinking_levels(
+            classifier_cls,
+            chunk,
+            budgets=budgets,
+            model_name=model_name,
+            temperature=temperature,
+            tqdm_func=None,
+            verbose=False,
+        )
+
+        result["chunk_id"] = chunk.get("chunk_id", f"chunk-{i}")
+        result["company_name"] = chunk.get("company_name", "Unknown")
+        chunk_results.append(result)
+
+        # Update stats and print row
+        if verbose:
+            row = f"  "
+            for budget in budgets:
+                r = result["results"].get(budget, {})
+                match = r.get("match_status", "N/A")
+                latency = r.get("latency_ms", 0)
+
+                if "EXACT" in match:
+                    budget_stats[budget]["exact"] += 1
+                elif "PARTIAL" in match:
+                    budget_stats[budget]["partial"] += 1
+                else:
+                    budget_stats[budget]["diff"] += 1
+                budget_stats[budget]["total_latency"] += latency
+
+                symbol = "✅" if "EXACT" in match else ("🟡" if "PARTIAL" in match else "❌")
+                row += f"  {budget}: {symbol}"
+            print(row)
+
+    # Compute accuracy per budget
+    total = len(chunks)
+    budget_accuracy = {}
+    for budget in budgets:
+        exact = budget_stats[budget]["exact"]
+        partial = budget_stats[budget]["partial"]
+        budget_accuracy[budget] = {
+            "exact_match": exact / total if total > 0 else 0,
+            "partial_or_better": (exact + partial) / total if total > 0 else 0,
+            "avg_latency_ms": budget_stats[budget]["total_latency"] / total if total > 0 else 0,
+        }
+
+    if verbose:
+        print(f"\n{'='*80}")
+        print("BATCH SUMMARY")
+        print(f"{'='*80}")
+        print(f"{'Budget':<12} {'Exact':<15} {'Partial+':<15} {'Avg Latency':<15}")
+        print("-" * 60)
+        for budget in budgets:
+            acc = budget_accuracy[budget]
+            exact_pct = f"{acc['exact_match']:.0%}"
+            partial_pct = f"{acc['partial_or_better']:.0%}"
+            latency = f"{acc['avg_latency_ms']:.0f}ms"
+            print(f"{budget:<12} {exact_pct:<15} {partial_pct:<15} {latency:<15}")
+
+        # Highlight best
+        best_budget = max(budgets, key=lambda b: budget_accuracy[b]["exact_match"])
+        print(f"\nBest accuracy: thinking_budget={best_budget} ({budget_accuracy[best_budget]['exact_match']:.0%} exact)")
+
+    return {
+        "chunk_results": chunk_results,
+        "budget_accuracy": budget_accuracy,
+        "budget_stats": budget_stats,
+        "budgets_tested": budgets,
+        "model": model_name,
+        "total_chunks": total,
+    }
+
+
 def _extract_primary_set(classification: Any) -> set[str]:
     """Extract the primary classification as a set of strings for comparison."""
     if classification is None:

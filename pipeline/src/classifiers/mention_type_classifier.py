@@ -37,7 +37,7 @@ class MentionTypeClassifier(BaseClassifier):
 
         return render_prompt_messages(
             "mention_type",
-            reasoning_policy=self.reasoning_policy,
+            reasoning_policy="short",  # Always include brief reasoning in output
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,

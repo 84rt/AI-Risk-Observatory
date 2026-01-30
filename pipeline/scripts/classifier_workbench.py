@@ -30,6 +30,8 @@ from tests_helper import (
     run_model_family,
     model_family_batch,
     validate_models,
+    run_thinking_levels,
+    thinking_levels_batch,
 )
 
 ## %% CONFIG - (Edit these as needed)
@@ -38,7 +40,8 @@ MAX_CHUNKS = 10  # Number of chunks to process (set to 20 for model family test)
 SAVE_RESULTS = False
 
 # Model configuration (None = use default from settings)
-MODEL_NAME = "google/gemini-3-flash-preview"  # e.g., "gemini-2.0-flash", "google/gemini-3-flash-preview", "openai/gpt-4o-mini"
+# Models with native thinking: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview
+MODEL_NAME = "gemini-2.5-flash"  # e.g., "gemini-2.5-flash", "google/gemini-3-flash-preview", "openai/gpt-4o-mini"
 TEMPERATURE = 0.0  # we want the classifier to be deterministic
 
 # Paths
@@ -280,6 +283,33 @@ batch_model_results = model_family_batch(
     MentionTypeClassifier,
     chunks,  # Run on all loaded chunks
     models=MODELS_TO_TEST,
+    temperature=0.0,
+    tqdm_func=tqdm,
+)
+
+#%% THINKING LEVELS TEST (single chunk)
+# Test different thinking budgets on a single chunk
+# Models with thinking support: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview
+
+THINKING_MODEL = "gemini-2.5-flash"  # Must support native thinking
+THINKING_BUDGETS = [0, 1024, 4096, 8192]  # 0=disabled, then increasing budgets
+
+thinking_result = run_thinking_levels(
+    MentionTypeClassifier,
+    chunks[3],
+    budgets=THINKING_BUDGETS,
+    model_name=THINKING_MODEL,
+    tqdm_func=tqdm,
+)
+
+#%% THINKING LEVELS BATCH TEST
+# Compare thinking budgets across ALL chunks
+
+thinking_batch_results = thinking_levels_batch(
+    MentionTypeClassifier,
+    chunks,  # Run on all loaded chunks
+    budgets=THINKING_BUDGETS,
+    model_name=THINKING_MODEL,
     temperature=0.0,
     tqdm_func=tqdm,
 )
