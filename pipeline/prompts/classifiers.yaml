@@ -10,7 +10,8 @@ mention_type: |
   ## TASK
   Classify the excerpt into zero or more mention types. Mention types are NOT mutually exclusive.
   If excerpt is a false positive (no AI mention), return the "none" tag.
-  Add confidence scores only for the tags in mention_types.
+  Add confidence scores only for the tags in mention_types. 
+  The excerpts often contain multiple unrelated sentences. Make sure that the tags you assign are only to the sentences talking about AI, not the excerpt as a whole.
 
   ## EXAMPLES
   - "We deployed an AI chatbot for customer support." -> adoption ~0.9
@@ -22,7 +23,7 @@ mention_type: |
   ## MENTION TYPES (DEFINITIONS)
   - adoption: Concrete mention of deployment, use, rollout, pilot, or implementation of AI within the company
     or for their clients. Mentions of internal AI tooling or customer-facing systems. Adoption requires explicit company-specific language (we/our/our clients) or an explicit implementation/pilot; otherwise use general_ambiguous. If the mention is vague assign it very low confidence.
-  - risk: AI described as a risk, downside, uncertainty, or material concern (including legal,
+  - risk: AI described as a risk, or a material concern to the company (i.e. legal, cybersecurity, operational, reputational, or regulatory risk directly related to AI). Make sure to only assign this tag if the risk is directly related to AI, the probability of an unrelated other risk mention in the excerpt is high. 
     security, operational, reputational, or regulatory risk).
   - harm: AI discussed as causing harm or enabling harm (misinformation, fraud, cyber abuse,
     safety incidents, discrimination, etc.).
@@ -72,6 +73,7 @@ risk: |
   Identify ALL applicable AI risk categories. Categories are NOT mutually exclusive.
   If a risk spans multiple categories, include all that apply.
   If the excerpt is too vague, use "none".
+  Remember that if a vague statments on risk that is not directly related to AI, should be classified as none and when you are uncertian assign lower confidence.
 
   ## EXAMPLES
   - "Increasing risk from new technologies such as Artificial Intelligence (AI) is a major concern." -> none ~0.8
@@ -128,7 +130,7 @@ harms: |
   Report Year: {report_year}
 
   ## TASK
-  Determine whether the excerpt mentions AI-related harms (misinformation, fraud, cyber abuse, safety incidents, discrimination, etc.).
+  Determine whether the excerpt mentions AI-related harms - past events that had negative consequences for the company (misinformation, fraud, cyber abuse, safety incidents, discrimination, etc.). 
 
   ## EXAMPLES
   - "Deepfakes have been used to defraud our customers." -> harms_mentioned: true, confidence ~0.95

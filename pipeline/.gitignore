@@ -27,6 +27,10 @@ output/
 logs/
 *.log
 
+# Recovery / comparison (do not commit)
+*.from_b55a169
+*.from_history
+
 # IDE
 .vscode/
 .idea/

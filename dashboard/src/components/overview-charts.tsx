@@ -1,8 +1,9 @@
 'use client';
 
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell
 } from 'recharts';
+import type { LabelMetric } from '@/lib/golden-set';
 
 // --- Shared Colors ---
 export const COLORS: Record<string, string> = {
@@ -176,6 +177,114 @@ export function GenericHeatmap({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// --- Component: Metrics Bar Chart (Precision/Recall/F1) ---
+interface MetricsBarChartProps {
+  data: LabelMetric[];
+  title: string;
+}
+
+const metricsColors = {
+  precision: '#0ea5e9',
+  recall: '#14b8a6',
+  f1: '#f97316',
+};
+
+export function MetricsBarChart({ data, title }: MetricsBarChartProps) {
+  const chartData = data.map(d => ({
+    label: formatLabel(d.label),
+    Precision: Math.round(d.precision * 100),
+    Recall: Math.round(d.recall * 100),
+    F1: Math.round(d.f1 * 100),
+  }));
+
+  return (
+    <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {title}
+      </h3>
+      <div className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#64748b', fontSize: 11 }}
+              tickFormatter={(v) => `${v}%`}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#64748b', fontSize: 11 }}
+              width={95}
+            />
+            <Tooltip
+              cursor={{ fill: '#f8fafc' }}
+              contentStyle={{
+                backgroundColor: '#fff',
+                borderRadius: '6px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                color: '#1e293b'
+              }}
+              formatter={(value: number) => [`${value}%`, '']}
+            />
+            <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" />
+            <Bar dataKey="Precision" fill={metricsColors.precision} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="Recall" fill={metricsColors.recall} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="F1" fill={metricsColors.f1} radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// --- Component: Agreement Score Card ---
+interface AgreementCardProps {
+  title: string;
+  jaccard: number;
+  bestLabel?: string;
+  bestF1?: number;
+}
+
+export function AgreementCard({ title, jaccard, bestLabel, bestF1 }: AgreementCardProps) {
+  const jaccardPercent = Math.round(jaccard * 100);
+  const getScoreColor = (score: number) => {
+    if (score >= 70) return 'text-emerald-600';
+    if (score >= 40) return 'text-amber-600';
+    return 'text-red-500';
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {title}
+      </h3>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className={`text-3xl font-semibold ${getScoreColor(jaccardPercent)}`}>
+          {jaccardPercent}%
+        </span>
+        <span className="text-sm text-slate-500">Jaccard</span>
+      </div>
+      {bestLabel && bestF1 !== undefined && (
+        <p className="mt-2 text-sm text-slate-600">
+          Best: <span className="font-medium">{formatLabel(bestLabel)}</span>{' '}
+          <span className="text-slate-400">(F1: {Math.round(bestF1 * 100)}%)</span>
+        </p>
+      )}
     </div>
   );
 }

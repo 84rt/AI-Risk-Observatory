@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { GenericHeatmap, StackedBarChart } from '@/components/overview-charts';
+import { GenericHeatmap, StackedBarChart, MetricsBarChart, AgreementCard } from '@/components/overview-charts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
 type View = {
@@ -30,6 +30,11 @@ const VIEWS: View[] = [
     id: 4,
     title: 'Quality Signals',
     description: 'Confidence and substantiveness bands for the annotated risk/adoption mentions.',
+  },
+  {
+    id: 5,
+    title: 'Model Evaluation',
+    description: 'LLM vs Human annotation agreement metrics. Measures classifier reliability.',
   },
 ];
 
@@ -117,6 +122,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500">
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">Golden Set</span>
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">Human Annotations</span>
+                {activeView === 5 && (
+                  <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">LLM Comparison</span>
+                )}
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
                   {data.years[0]}-{data.years[data.years.length - 1]}
                 </span>
@@ -151,7 +159,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             </div>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {VIEWS.map(item => (
               <button
                 key={item.id}
@@ -304,6 +312,79 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 Confidence bands reflect the average confidence score across adoption and risk
                 labels in each report. Substantiveness is averaged across chunks to separate
                 boilerplate-heavy reports from those with more concrete disclosures.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeView === 5 && (
+          <div className="space-y-8">
+            {/* Summary Cards */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Coverage
+                </h3>
+                <p className="mt-3 text-3xl font-semibold text-slate-900">
+                  {formatNumber(data.comparison.coverage.commonChunks)}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Common chunks compared
+                </p>
+              </div>
+              <AgreementCard
+                title="Mention Types"
+                jaccard={data.comparison.mentionTypes.avgJaccard}
+                bestLabel={data.comparison.mentionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
+                bestF1={data.comparison.mentionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
+              />
+              <AgreementCard
+                title="Adoption Types"
+                jaccard={data.comparison.adoptionTypes.avgJaccard}
+                bestLabel={data.comparison.adoptionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
+                bestF1={data.comparison.adoptionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
+              />
+              <AgreementCard
+                title="Vendor Tags"
+                jaccard={data.comparison.vendorTags.avgJaccard}
+                bestLabel={data.comparison.vendorTags.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
+                bestF1={data.comparison.vendorTags.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
+              />
+            </div>
+
+            {/* Metrics Charts */}
+            <div className="grid gap-8 lg:grid-cols-2">
+              <MetricsBarChart
+                data={data.comparison.mentionTypes.metrics}
+                title="Mention Types - Precision / Recall / F1"
+              />
+              <MetricsBarChart
+                data={data.comparison.adoptionTypes.metrics}
+                title="Adoption Types - Precision / Recall / F1"
+              />
+              <MetricsBarChart
+                data={data.comparison.riskTaxonomy.metrics}
+                title="Risk Taxonomy - Precision / Recall / F1"
+              />
+              <MetricsBarChart
+                data={data.comparison.vendorTags.metrics}
+                title="Vendor Tags - Precision / Recall / F1"
+              />
+            </div>
+
+            {/* Interpretation */}
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
+              <p className="font-semibold text-slate-900">Interpretation</p>
+              <p className="mt-2 leading-relaxed">
+                <strong>Jaccard Index</strong> measures overall label set agreement (intersection / union).
+                Higher is better. <strong>Precision</strong> shows how often the LLM is correct when it predicts a label.
+                <strong> Recall</strong> shows how often the LLM catches labels that humans annotated.
+                <strong> F1</strong> is the harmonic mean of precision and recall.
+              </p>
+              <p className="mt-3 leading-relaxed">
+                <span className="font-medium text-emerald-600">Vendor tags (93%)</span> show strong agreement.
+                <span className="font-medium text-amber-600"> Adoption types (57%)</span> have moderate agreement with high recall but low precision (LLM over-predicts).
+                <span className="font-medium text-red-500"> Mention types (32%)</span> show the most disagreement, particularly on &ldquo;general/ambiguous&rdquo; classification.
               </p>
             </div>
           </div>

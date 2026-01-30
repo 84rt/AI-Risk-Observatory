@@ -139,6 +139,85 @@ def _clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     return clean_recursive(schema)
 
 
+def _clean_schema_for_openrouter(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert Pydantic JSON schema to OpenRouter-compatible format.
+
+    Simplifies the schema by:
+    - Inlining $defs/$ref references
+    - Converting anyOf nullable unions to simple types
+    - Removing unsupported fields (title, default, examples)
+
+    Keeps lowercase type names (standard JSON Schema format) unlike Gemini.
+    """
+    defs = schema.get("$defs", schema.get("definitions", {}))
+
+    def resolve_ref(ref: str) -> Dict[str, Any]:
+        """Resolve a $ref to its definition."""
+        if ref.startswith("#/$defs/"):
+            def_name = ref.split("/")[-1]
+            if def_name in defs:
+                return clean_recursive(defs[def_name])
+        elif ref.startswith("#/definitions/"):
+            def_name = ref.split("/")[-1]
+            if def_name in defs:
+                return clean_recursive(defs[def_name])
+        return {}
+
+    def clean_recursive(obj: Any) -> Any:
+        if not isinstance(obj, dict):
+            if isinstance(obj, list):
+                return [clean_recursive(item) for item in obj]
+            return obj
+
+        # Handle $ref - inline the definition
+        if "$ref" in obj:
+            resolved = resolve_ref(obj["$ref"])
+            for k, v in obj.items():
+                if k != "$ref" and k not in resolved:
+                    resolved[k] = clean_recursive(v)
+            return resolved
+
+        # Handle anyOf for nullable types (common in Pydantic Optional fields)
+        if "anyOf" in obj:
+            any_of = obj["anyOf"]
+            non_null = [item for item in any_of if item.get("type") != "null"]
+            if len(non_null) == 1:
+                result = clean_recursive(non_null[0])
+                # Preserve description if present
+                if "description" in obj:
+                    result["description"] = obj["description"]
+                return result
+            if non_null:
+                return clean_recursive(non_null[0])
+            return {"type": "string"}
+
+        # Fields to keep (standard JSON Schema)
+        supported_keys = {
+            "type", "format", "description", "enum",
+            "items", "properties", "required"
+        }
+
+        cleaned = {}
+        for k, v in obj.items():
+            if k not in supported_keys:
+                continue
+
+            if k == "type":
+                cleaned[k] = v  # Keep lowercase
+            elif k == "items":
+                cleaned[k] = clean_recursive(v)
+            elif k == "properties":
+                cleaned[k] = {pk: clean_recursive(pv) for pk, pv in v.items()}
+            elif k == "enum":
+                cleaned[k] = v
+            else:
+                cleaned[k] = v
+
+        return cleaned
+
+    return clean_recursive(schema)
+
+
 @dataclass
 class ClassificationResult:
     """Result from a single classification."""
@@ -607,7 +686,7 @@ class BaseClassifier(ABC):
         """Call OpenRouter API with schema injection.
 
         Since OpenRouter doesn't support native response_schema,
-        we inject the schema into the system prompt.
+        we inject a cleaned/simplified schema into the system prompt.
         """
         if not settings.openrouter_api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not set.")
@@ -615,9 +694,10 @@ class BaseClassifier(ABC):
         # Inject schema instruction for OpenRouter
         enhanced_system = system_prompt
         if self.RESPONSE_MODEL is not None:
-            schema_json = json.dumps(
-                self.RESPONSE_MODEL.model_json_schema(), indent=2
-            )
+            # Clean the schema to remove $defs, $ref, anyOf for better compatibility
+            raw_schema = self.RESPONSE_MODEL.model_json_schema()
+            clean_schema = _clean_schema_for_openrouter(raw_schema)
+            schema_json = json.dumps(clean_schema, indent=2)
             schema_instruction = f"""
 
 ## OUTPUT FORMAT
@@ -641,6 +721,7 @@ Return ONLY valid JSON."""
             "messages": messages,
             "temperature": self.temperature,
             "max_tokens": settings.max_tokens,
+            "response_format": {"type": "json_object"},
         }
 
         response = requests.post(url, headers=headers, json=payload, timeout=60)

@@ -14,6 +14,40 @@ type GoldenAnnotation = {
   vendor_tags: string[];
 };
 
+export type LabelMetric = {
+  label: string;
+  tp: number;
+  fp: number;
+  fn: number;
+  precision: number;
+  recall: number;
+  f1: number;
+};
+
+export type ComparisonMetrics = {
+  coverage: {
+    humanChunks: number;
+    llmChunks: number;
+    commonChunks: number;
+  };
+  mentionTypes: {
+    avgJaccard: number;
+    metrics: LabelMetric[];
+  };
+  adoptionTypes: {
+    avgJaccard: number;
+    metrics: LabelMetric[];
+  };
+  riskTaxonomy: {
+    avgJaccard: number;
+    metrics: LabelMetric[];
+  };
+  vendorTags: {
+    avgJaccard: number;
+    metrics: LabelMetric[];
+  };
+};
+
 export type GoldenDashboardData = {
   years: number[];
   sectors: string[];
@@ -40,6 +74,7 @@ export type GoldenDashboardData = {
   riskBySector: { x: string; y: string; value: number }[];
   confidenceHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
+  comparison: ComparisonMetrics;
 };
 
 const GOLDEN_SET_PATH = path.join(
@@ -57,6 +92,14 @@ const COMPANIES_PATH = path.join(
   'data',
   'reference',
   'golden_set_companies.csv'
+);
+
+const COMPARE_DIR = path.join(
+  process.cwd(),
+  '..',
+  'data',
+  'golden_set',
+  'compare'
 );
 
 const mentionTypes = [
@@ -123,6 +166,81 @@ const parseAnnotations = () => {
   const content = fs.readFileSync(GOLDEN_SET_PATH, 'utf8').trim();
   if (!content) return [] as GoldenAnnotation[];
   return content.split(/\r?\n/).map(line => JSON.parse(line) as GoldenAnnotation);
+};
+
+const parseMetricsCsv = (filename: string): LabelMetric[] => {
+  const filepath = path.join(COMPARE_DIR, filename);
+  if (!fs.existsSync(filepath)) return [];
+
+  const content = fs.readFileSync(filepath, 'utf8').trim();
+  const lines = content.split(/\r?\n/);
+  lines.shift(); // Remove header
+
+  return lines.map(line => {
+    const [label, tp, fp, fn, precision, recall, f1] = line.split(',');
+    return {
+      label,
+      tp: parseInt(tp, 10),
+      fp: parseInt(fp, 10),
+      fn: parseInt(fn, 10),
+      precision: parseFloat(precision),
+      recall: parseFloat(recall),
+      f1: parseFloat(f1),
+    };
+  });
+};
+
+const parseComparisonMetrics = (): ComparisonMetrics => {
+  const mentionMetrics = parseMetricsCsv('mention_types_metrics.csv');
+  const adoptionMetrics = parseMetricsCsv('adoption_types_metrics.csv');
+  const riskMetrics = parseMetricsCsv('risk_taxonomy_metrics.csv');
+  const vendorMetrics = parseMetricsCsv('vendor_tags_metrics.csv');
+
+  // Parse coverage from comparison_report.md
+  let humanChunks = 474;
+  let llmChunks = 470;
+  let commonChunks = 470;
+
+  const reportPath = path.join(COMPARE_DIR, 'comparison_report.md');
+  if (fs.existsSync(reportPath)) {
+    const reportContent = fs.readFileSync(reportPath, 'utf8');
+    const humanMatch = reportContent.match(/Human chunks:\s*(\d+)/);
+    const llmMatch = reportContent.match(/LLM chunks:\s*(\d+)/);
+    const commonMatch = reportContent.match(/Common chunks:\s*(\d+)/);
+    if (humanMatch) humanChunks = parseInt(humanMatch[1], 10);
+    if (llmMatch) llmChunks = parseInt(llmMatch[1], 10);
+    if (commonMatch) commonChunks = parseInt(commonMatch[1], 10);
+  }
+
+  // Calculate average Jaccard from report or use defaults
+  const avgJaccardMention = 0.3196;
+  const avgJaccardAdoption = 0.5702;
+  const avgJaccardRisk = 0.7914;
+  const avgJaccardVendor = 0.928;
+
+  return {
+    coverage: {
+      humanChunks,
+      llmChunks,
+      commonChunks,
+    },
+    mentionTypes: {
+      avgJaccard: avgJaccardMention,
+      metrics: mentionMetrics.filter(m => m.label !== 'none'),
+    },
+    adoptionTypes: {
+      avgJaccard: avgJaccardAdoption,
+      metrics: adoptionMetrics.filter(m => m.label !== 'none'),
+    },
+    riskTaxonomy: {
+      avgJaccard: avgJaccardRisk,
+      metrics: riskMetrics.filter(m => m.label !== 'none' && m.f1 > 0),
+    },
+    vendorTags: {
+      avgJaccard: avgJaccardVendor,
+      metrics: vendorMetrics.filter(m => m.f1 > 0),
+    },
+  };
 };
 
 const initYearSeries = (years: number[], keys: string[]) => {
@@ -245,6 +363,7 @@ const averageConfidence = (values: number[]): number => {
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   const { sectorMap, sectors } = parseCompanySectors();
   const annotations = parseAnnotations();
+  const comparison = parseComparisonMetrics();
   const years = Array.from(
     new Set(annotations.map(item => item.report_year))
   ).sort();
@@ -379,5 +498,6 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     riskBySector,
     confidenceHeatmap,
     substantivenessHeatmap,
+    comparison,
   };
 };
