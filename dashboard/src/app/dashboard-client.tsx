@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { GenericHeatmap, StackedBarChart, MetricsBarChart, AgreementCard } from '@/components/overview-charts';
+import { GenericHeatmap, StackedBarChart } from '@/components/overview-charts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
 type View = {
@@ -31,11 +31,11 @@ const VIEWS: View[] = [
     title: 'Quality Signals',
     description: 'Confidence and substantiveness bands for the annotated risk/adoption mentions.',
   },
-  {
-    id: 5,
-    title: 'Model Evaluation',
-    description: 'LLM vs Human annotation agreement metrics. Measures classifier reliability.',
-  },
+  // {
+  //   id: 5,
+  //   title: 'Model Evaluation',
+  //   description: 'LLM vs Human annotation agreement metrics. Measures classifier reliability.',
+  // },
 ];
 
 const mentionColors: Record<string, string> = {
@@ -98,10 +98,19 @@ const formatLabel = (val: string | number) => {
     .join(' ');
 };
 
+type DatasetKey = 'human' | 'llm';
+
+const datasetLabels: Record<DatasetKey, string> = {
+  human: 'Human Annotations',
+  llm: 'LLM Annotations',
+};
+
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
+  const [datasetKey, setDatasetKey] = useState<DatasetKey>('human');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
+  const activeData = data.datasets[datasetKey];
 
   const mentionStackKeys = useMemo(() => data.labels.mentionTypes, [data.labels.mentionTypes]);
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
@@ -110,6 +119,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
+      <div className="border-b border-amber-300/60 bg-amber-100/80 px-6 py-4 text-center text-sm font-semibold uppercase tracking-[0.2em] text-amber-900">
+        WIP — Data and labels are in active iteration. Do not treat as final.
+      </div>
       <header className="relative overflow-hidden border-b border-slate-200/70">
         <div className="absolute inset-0">
           <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-amber-200/70 blur-3xl" />
@@ -121,10 +133,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <div className="animate-rise">
               <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500">
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">Golden Set</span>
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">Human Annotations</span>
-                {activeView === 5 && (
+                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
+                  {datasetLabels[datasetKey]}
+                </span>
+                {/* {activeView === 5 && (
                   <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">LLM Comparison</span>
-                )}
+                )} */}
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
                   {data.years[0]}-{data.years[data.years.length - 1]}
                 </span>
@@ -137,26 +151,54 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 Charts display per-report aggregated labels across the priority CNI sample.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="dataset-select" className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Display Dataset
+                </label>
+                <select
+                  id="dataset-select"
+                  value={datasetKey}
+                  onChange={event => setDatasetKey(event.target.value as DatasetKey)}
+                  className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
+                >
+                  <option value="human">Human Annotations</option>
+                  <option value="llm">LLM Annotations</option>
+                </select>
+              </div>
               <div className="animate-rise animate-rise-delay-1 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Reports</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.totalReports)}
+                  {formatNumber(activeData.summary.totalReports)}
                 </p>
               </div>
               <div className="animate-rise animate-rise-delay-2 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Companies</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.totalCompanies)}
+                  {formatNumber(activeData.summary.totalCompanies)}
                 </p>
               </div>
               <div className="animate-rise animate-rise-delay-3 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Signal Reports</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.aiSignalReports)}
+                  {formatNumber(activeData.summary.aiSignalReports)}
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+            <p>
+              Switch between human and LLM outputs to audit model drift and over-tagging.
+            </p>
+            {/*
+            <Link
+              href="/compare"
+              className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400"
+            >
+              Comparison Page
+            </Link>
+            */}
           </div>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -164,7 +206,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <button
                 key={item.id}
                 onClick={() => setActiveView(item.id)}
-                className={`animate-rise rounded-2xl border px-5 py-4 text-left transition-all ${
+                className={`animate-rise rounded-2xl border px-5 py-[18px] text-left transition-all ${
                   activeView === item.id
                     ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
                     : 'border-slate-200 bg-white/80 text-slate-700 hover:-translate-y-0.5 hover:border-slate-400'
@@ -188,7 +230,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 1 && (
           <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
             <StackedBarChart
-              data={data.mentionTrend}
+              data={activeData.mentionTrend}
               xAxisKey="year"
               stackKeys={mentionStackKeys}
               colors={mentionColors}
@@ -199,7 +241,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   Signal Coverage
                 </h3>
                 <p className="mt-3 text-3xl font-semibold text-slate-900">
-                  {formatNumber(data.summary.adoptionReports + data.summary.riskReports)}
+                  {formatNumber(activeData.summary.adoptionReports + activeData.summary.riskReports)}
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
                   Reports with adoption or risk signals in the golden set.
@@ -208,19 +250,19 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   <div className="flex items-center justify-between">
                     <span>Adoption reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.adoptionReports)}
+                      {formatNumber(activeData.summary.adoptionReports)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Risk reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.riskReports)}
+                      {formatNumber(activeData.summary.riskReports)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Vendor reports</span>
                     <span className="font-semibold text-slate-900">
-                      {formatNumber(data.summary.vendorReports)}
+                      {formatNumber(activeData.summary.vendorReports)}
                     </span>
                   </div>
                 </div>
@@ -240,13 +282,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 2 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={data.adoptionTrend}
+              data={activeData.adoptionTrend}
               xAxisKey="year"
               stackKeys={adoptionStackKeys}
               colors={adoptionColors}
             />
             <StackedBarChart
-              data={data.vendorTrend}
+              data={activeData.vendorTrend}
               xAxisKey="year"
               stackKeys={vendorStackKeys}
               colors={vendorColors}
@@ -265,13 +307,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 3 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={data.riskTrend}
+              data={activeData.riskTrend}
               xAxisKey="year"
               stackKeys={riskStackKeys}
               colors={riskColors}
             />
             <GenericHeatmap
-              data={data.riskBySector}
+              data={activeData.riskBySector}
               xLabels={data.labels.riskLabels.filter(l => l !== 'none')}
               yLabels={data.sectors}
               baseColor="#f97316"
@@ -291,7 +333,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 4 && (
           <div className="grid gap-8 lg:grid-cols-2">
             <GenericHeatmap
-              data={data.confidenceHeatmap}
+              data={activeData.confidenceHeatmap}
               xLabels={data.years}
               yLabels={data.labels.confidenceBands}
               baseColor="#0ea5e9"
@@ -299,7 +341,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelFormatter={formatLabel}
             />
             <GenericHeatmap
-              data={data.substantivenessHeatmap}
+              data={activeData.substantivenessHeatmap}
               xLabels={data.years}
               yLabels={data.labels.substantivenessBands}
               baseColor="#14b8a6"
@@ -317,78 +359,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           </div>
         )}
 
-        {activeView === 5 && (
-          <div className="space-y-8">
-            {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Coverage
-                </h3>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">
-                  {formatNumber(data.comparison.coverage.commonChunks)}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Common chunks compared
-                </p>
-              </div>
-              <AgreementCard
-                title="Mention Types"
-                jaccard={data.comparison.mentionTypes.avgJaccard}
-                bestLabel={data.comparison.mentionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
-                bestF1={data.comparison.mentionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
-              />
-              <AgreementCard
-                title="Adoption Types"
-                jaccard={data.comparison.adoptionTypes.avgJaccard}
-                bestLabel={data.comparison.adoptionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
-                bestF1={data.comparison.adoptionTypes.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
-              />
-              <AgreementCard
-                title="Vendor Tags"
-                jaccard={data.comparison.vendorTags.avgJaccard}
-                bestLabel={data.comparison.vendorTags.metrics.sort((a, b) => b.f1 - a.f1)[0]?.label}
-                bestF1={data.comparison.vendorTags.metrics.sort((a, b) => b.f1 - a.f1)[0]?.f1}
-              />
-            </div>
-
-            {/* Metrics Charts */}
-            <div className="grid gap-8 lg:grid-cols-2">
-              <MetricsBarChart
-                data={data.comparison.mentionTypes.metrics}
-                title="Mention Types - Precision / Recall / F1"
-              />
-              <MetricsBarChart
-                data={data.comparison.adoptionTypes.metrics}
-                title="Adoption Types - Precision / Recall / F1"
-              />
-              <MetricsBarChart
-                data={data.comparison.riskTaxonomy.metrics}
-                title="Risk Taxonomy - Precision / Recall / F1"
-              />
-              <MetricsBarChart
-                data={data.comparison.vendorTags.metrics}
-                title="Vendor Tags - Precision / Recall / F1"
-              />
-            </div>
-
-            {/* Interpretation */}
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-semibold text-slate-900">Interpretation</p>
-              <p className="mt-2 leading-relaxed">
-                <strong>Jaccard Index</strong> measures overall label set agreement (intersection / union).
-                Higher is better. <strong>Precision</strong> shows how often the LLM is correct when it predicts a label.
-                <strong> Recall</strong> shows how often the LLM catches labels that humans annotated.
-                <strong> F1</strong> is the harmonic mean of precision and recall.
-              </p>
-              <p className="mt-3 leading-relaxed">
-                <span className="font-medium text-emerald-600">Vendor tags (93%)</span> show strong agreement.
-                <span className="font-medium text-amber-600"> Adoption types (57%)</span> have moderate agreement with high recall but low precision (LLM over-predicts).
-                <span className="font-medium text-red-500"> Mention types (32%)</span> show the most disagreement, particularly on &ldquo;general/ambiguous&rdquo; classification.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* View 5 temporarily disabled */}
       </main>
     </div>
   );
