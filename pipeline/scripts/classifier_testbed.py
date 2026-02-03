@@ -7,7 +7,13 @@ Cell-based workflow:
 2. Run FUNCTIONS cell (collapse after)
 3. Use action cells as needed: LOAD DATA, RUN CLASSIFIER, COMPARE, etc.
 """
+# %%% CLEAR PROMPT CACHE (important when updating prompts)
+from src.utils.prompt_loader import _load_prompt_yaml
+_load_prompt_yaml.cache_clear() 
+print("Prompt cache cleared")
 
+from src.utils.prompt_loader import get_prompt_template
+print(get_prompt_template("mention_type_v2")[:10000])
 #%% SETUP & IMPORTS
 import json
 import os
@@ -192,16 +198,29 @@ def show_summary(results: list[dict], exclude_added_general_ambiguous: bool = Fa
     return counts
 
 
-def show_table(results: list[dict], diff_only: bool = False) -> None:
+def show_table(
+    results: list[dict],
+    diff_only: bool = False,
+    exclude_added_general_ambiguous: bool = False,
+) -> None:
     """Print comparison table."""
     print("\n" + "=" * 100)
-    print("COMPARISON TABLE" + (" (differences only)" if diff_only else ""))
+    header = "COMPARISON TABLE"
+    if diff_only:
+        header += " (differences only)"
+    if exclude_added_general_ambiguous:
+        header += " (excluding added general_ambiguous)"
+    print(header)
     print("=" * 100)
     print(f"{'#':<3} {'Company':<22} {'Year':<5} {'Match':<6} {'Human':<30} {'LLM':<30}")
     print("-" * 100)
 
     for i, r in enumerate(results):
-        match = compare_sets(r["human_mention_types"], r["llm_mention_types"])
+        match = compare_sets(
+            r["human_mention_types"],
+            r["llm_mention_types"],
+            exclude_added_general_ambiguous=exclude_added_general_ambiguous,
+        )
         if diff_only and match == "EXACT":
             continue
 
@@ -318,7 +337,7 @@ print(f"Loaded {len(chunks)} chunks from golden set.")
 
 
 #%% CONFIG: Set run parameters here
-RUN_ID = "gemini-3-flash-preview-v2-reconciled" # "gemini-flash-v1"
+RUN_ID = "gemini-3-flash-preview-v2-reconciled-new-prompt-v0.2-sanity-check-again" # "gemini-flash-v1"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 1024
@@ -367,13 +386,6 @@ if batch_results:
     save_run(BATCH_RUN_ID, batch_results, {"model_name": BATCH_MODEL, "batch_mode": True})
     results = batch_results  # Use batch results for analysis below
 
-
-#%% ============================================================
-#   ANALYSIS (works with either sync or batch results)
-#   ============================================================
-
-#%% SHOW SUMMARY
-
 #%% REFRESH HUMAN LABELS FROM BASELINE (no LLM rerun)
 def refresh_human_labels(results: list[dict], chunks: list[dict]) -> None:
     human_by_id = {
@@ -387,7 +399,7 @@ def refresh_human_labels(results: list[dict], chunks: list[dict]) -> None:
 
 refresh_human_labels(results, chunks)
 
-show_summary(results, exclude_added_general_ambiguous=True)
+show_summary(results)
 
 
 #%% SHOW FULL TABLE
@@ -395,7 +407,7 @@ show_table(results)
 
 
 #%% SHOW DIFFERENCES ONLY
-show_table(results, diff_only=True)
+show_table(results, diff_only=True, exclude_added_general_ambiguous=True)
 
 
 #%% SHOW DISAGREEMENT DETAILS
