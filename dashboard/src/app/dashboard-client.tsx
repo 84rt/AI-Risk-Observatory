@@ -14,28 +14,23 @@ const VIEWS: View[] = [
   {
     id: 1,
     title: 'Signal Mix',
-    description: 'How the golden set classifies AI-related mentions across the two-year sample.',
+    description: 'AI-related mention types extracted from annual reports in the golden set sample.',
   },
   {
     id: 2,
     title: 'Adoption & Vendors',
-    description: 'Adoption type coverage and the vendor footprint surfaced in reports.',
+    description: 'AI adoption maturity levels and vendor references identified in disclosures.',
   },
   {
     id: 3,
     title: 'Risk Taxonomy',
-    description: 'Risk labels by sector, highlighting where risks cluster in the calibration sample.',
+    description: 'Risk categories by sector, showing how AI-related risks cluster across CNI industries.',
   },
   {
     id: 4,
     title: 'Quality Signals',
-    description: 'Confidence and substantiveness bands for the annotated risk/adoption mentions.',
+    description: 'Confidence and substantiveness scores measuring annotation reliability and disclosure depth.',
   },
-  // {
-  //   id: 5,
-  //   title: 'Model Evaluation',
-  //   description: 'LLM vs Human annotation agreement metrics. Measures classifier reliability.',
-  // },
 ];
 
 const mentionColors: Record<string, string> = {
@@ -44,14 +39,12 @@ const mentionColors: Record<string, string> = {
   vendor: '#14b8a6',
   general_ambiguous: '#64748b',
   harm: '#ef4444',
-  none: '#e2e8f0',
 };
 
 const adoptionColors: Record<string, string> = {
   non_llm: '#0f766e',
   llm: '#38bdf8',
   agentic: '#f59e0b',
-  none: '#cbd5e1',
 };
 
 const vendorColors: Record<string, string> = {
@@ -73,7 +66,6 @@ const riskColors: Record<string, string> = {
   strategic_market: '#84cc16',
   workforce: '#0f766e',
   environmental: '#10b981',
-  none: '#cbd5e1',
 };
 
 const formatNumber = (value: number) =>
@@ -89,7 +81,6 @@ const formatLabel = (val: string | number) => {
     operational_technical: 'Operational / Technical',
     reputational_ethical: 'Reputational / Ethical',
     information_integrity: 'Information Integrity',
-    none: 'Unspecified',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -136,9 +127,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
                   {datasetLabels[datasetKey]}
                 </span>
-                {/* {activeView === 5 && (
-                  <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">LLM Comparison</span>
-                )} */}
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
                   {data.years[0]}-{data.years[data.years.length - 1]}
                 </span>
@@ -191,14 +179,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <p>
               Switch between human and LLM outputs to audit model drift and over-tagging.
             </p>
-            {/*
-            <Link
-              href="/compare"
-              className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400"
-            >
-              Comparison Page
-            </Link>
-            */}
           </div>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -268,11 +248,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-                <p className="font-semibold text-slate-900">Interpretation</p>
-                <p className="mt-2 leading-relaxed">
-                  Labels are aggregated per report: a report receives a tag if any chunk has
-                  confidence ≥0.2 for that label. This provides a company-year level view of
-                  AI disclosure patterns.
+                <p className="font-semibold text-slate-900">Category Definitions</p>
+                <ul className="mt-2 space-y-1 leading-relaxed">
+                  <li><span className="font-medium text-slate-800">Adoption:</span> Mentions of AI technology usage, deployment, or implementation.</li>
+                  <li><span className="font-medium text-slate-800">Risk:</span> Discussions of AI-related risks, threats, or concerns.</li>
+                  <li><span className="font-medium text-slate-800">Vendor:</span> References to specific AI vendors or providers.</li>
+                  <li><span className="font-medium text-slate-800">General/Ambiguous:</span> AI mentions lacking clear adoption or risk context.</li>
+                  <li><span className="font-medium text-slate-800">Harm:</span> Mentions of actual or potential AI-related harm incidents.</li>
+                </ul>
+                <p className="mt-3 leading-relaxed">
+                  <span className="font-medium text-slate-800">Data source:</span> Labels aggregated per report from human or LLM annotations.
+                  A report receives a tag if any text chunk has confidence ≥0.2.
                 </p>
               </div>
             </div>
@@ -294,11 +280,22 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={vendorColors}
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-semibold text-slate-900">Context</p>
-              <p className="mt-2 leading-relaxed">
-                Adoption is scoped to type-of-AI only (LLM, non-LLM, agentic), per the calibrated
-                taxonomy in the choices report. Vendor tags are captured without normalization,
-                preserving the requested early signal on concentration.
+              <p className="font-semibold text-slate-900">Category Definitions</p>
+              <p className="mt-2 font-medium text-slate-800">Adoption Types:</p>
+              <ul className="mt-1 space-y-1 leading-relaxed">
+                <li><span className="font-medium text-slate-800">Non-LLM:</span> Traditional AI/ML systems (computer vision, predictive analytics, RPA).</li>
+                <li><span className="font-medium text-slate-800">LLM:</span> Large language model applications (chatbots, content generation, summarization).</li>
+                <li><span className="font-medium text-slate-800">Agentic:</span> Autonomous AI systems with decision-making capabilities.</li>
+              </ul>
+              <p className="mt-3 font-medium text-slate-800">Vendor Tags:</p>
+              <ul className="mt-1 space-y-1 leading-relaxed">
+                <li><span className="font-medium text-slate-800">OpenAI, Microsoft, Google:</span> Named major AI providers.</li>
+                <li><span className="font-medium text-slate-800">Internal:</span> In-house developed AI solutions.</li>
+                <li><span className="font-medium text-slate-800">Other:</span> Other named vendors not in the major category.</li>
+                <li><span className="font-medium text-slate-800">Undisclosed:</span> Vendor not specified in disclosure.</li>
+              </ul>
+              <p className="mt-3 leading-relaxed">
+                <span className="font-medium text-slate-800">Data source:</span> Extracted from annual report text via NLP classification.
               </p>
             </div>
           </div>
@@ -314,17 +311,28 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             />
             <GenericHeatmap
               data={activeData.riskBySector}
-              xLabels={data.labels.riskLabels.filter(l => l !== 'none')}
+              xLabels={data.labels.riskLabels}
               yLabels={data.sectors}
               baseColor="#f97316"
               valueFormatter={value => `${value}`}
               xLabelFormatter={formatLabel}
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-semibold text-slate-900">Read the heatmap</p>
-              <p className="mt-2 leading-relaxed">
-                Rows show CNI sectors; columns show the risk taxonomy categories.
-                Cell values show the number of reports; darker cells indicate higher counts.
+              <p className="font-semibold text-slate-900">Risk Category Definitions</p>
+              <ul className="mt-2 space-y-1 leading-relaxed text-xs">
+                <li><span className="font-medium text-slate-800">Cybersecurity:</span> Data breaches, AI-enabled attacks, security vulnerabilities.</li>
+                <li><span className="font-medium text-slate-800">Operational/Technical:</span> System failures, integration issues, performance degradation.</li>
+                <li><span className="font-medium text-slate-800">Regulatory:</span> Compliance obligations, legal liability, regulatory uncertainty.</li>
+                <li><span className="font-medium text-slate-800">Reputational/Ethical:</span> Brand damage, bias concerns, ethical considerations.</li>
+                <li><span className="font-medium text-slate-800">Information Integrity:</span> Misinformation, hallucinations, data quality issues.</li>
+                <li><span className="font-medium text-slate-800">Third-Party Supply Chain:</span> Vendor dependencies, API reliance, supplier risks.</li>
+                <li><span className="font-medium text-slate-800">Strategic/Market:</span> Competitive displacement, market disruption, innovation pressure.</li>
+                <li><span className="font-medium text-slate-800">Workforce:</span> Job displacement, skills gaps, labor relations.</li>
+                <li><span className="font-medium text-slate-800">Environmental:</span> Energy consumption, carbon footprint, resource usage.</li>
+              </ul>
+              <p className="mt-3 leading-relaxed">
+                <span className="font-medium text-slate-800">Heatmap:</span> Rows are CNI sectors, columns are risk categories.
+                Darker cells indicate higher report counts.
               </p>
             </div>
           </div>
@@ -349,17 +357,40 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelFormatter={formatLabel}
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm lg:col-span-2">
-              <p className="font-semibold text-slate-900">Quality Lens</p>
-              <p className="mt-2 leading-relaxed">
-                Confidence bands reflect the average confidence score across adoption and risk
-                labels in each report. Substantiveness is averaged across chunks to separate
-                boilerplate-heavy reports from those with more concrete disclosures.
+              <p className="font-semibold text-slate-900">Quality Metric Definitions</p>
+              <div className="mt-2 grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="font-medium text-slate-800">Confidence (left heatmap):</p>
+                  <p className="mt-1 leading-relaxed">
+                    Average classifier confidence across adoption and risk labels per report.
+                    Higher confidence indicates stronger classifier certainty in label assignment.
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-xs">
+                    <li><span className="font-medium">High:</span> ≥67% average confidence</li>
+                    <li><span className="font-medium">Medium:</span> 34-66% average confidence</li>
+                    <li><span className="font-medium">Low:</span> &lt;34% average confidence</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-800">Substantiveness (right heatmap):</p>
+                  <p className="mt-1 leading-relaxed">
+                    Measures disclosure depth—distinguishing concrete AI disclosures from
+                    boilerplate or vague references.
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-xs">
+                    <li><span className="font-medium">High:</span> Specific, actionable AI details</li>
+                    <li><span className="font-medium">Medium:</span> Some concrete information</li>
+                    <li><span className="font-medium">Low:</span> Generic or boilerplate mentions</li>
+                  </ul>
+                </div>
+              </div>
+              <p className="mt-3 leading-relaxed">
+                <span className="font-medium text-slate-800">Data source:</span> Scores computed from annotation metadata averaged per report.
               </p>
             </div>
           </div>
         )}
 
-        {/* View 5 temporarily disabled */}
       </main>
     </div>
   );

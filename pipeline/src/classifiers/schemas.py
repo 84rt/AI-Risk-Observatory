@@ -11,7 +11,7 @@ nested objects with explicit properties for known keys.
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # =============================================================================
@@ -84,6 +84,57 @@ class MentionTypeResponse(BaseModel):
         default=None,
         description="Brief explanation of classification rationale.",
     )
+
+
+class MentionTypeResponseV2(BaseModel):
+    """Stricter response schema for mention type classification."""
+
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of classification rationale.",
+    )
+    mention_types: List[MentionType] = Field(
+        description=(
+            "Detected mention types (non-mutually exclusive). "
+            "'adoption': AI deployment/implementation by company or clients. "
+            "'risk': AI described as risk, downside, or material concern. "
+            "'harm': AI causing or enabling harm. "
+            "'vendor': Named AI vendor/platform mentioned. "
+            "'general_ambiguous': Vague AI reference, high-level plans. "
+            "'none': False positive, no AI mention."
+        )
+    )
+    confidence_scores: MentionConfidenceScores = Field(
+        description=(
+            "Confidence per detected type (0.0-1.0). "
+            "Only include scores for types listed in mention_types, "
+            "and include a score for every type in mention_types."
+        )
+    )
+
+    @model_validator(mode="after")
+    def validate_confidences(self) -> "MentionTypeResponseV2":
+        types = {mt.value for mt in self.mention_types}
+        if not types:
+            raise ValueError("mention_types must not be empty")
+        if "none" in types and len(types) > 1:
+            raise ValueError("mention_types cannot include 'none' with other labels")
+
+        scores = self.confidence_scores.model_dump()
+        for label, score in scores.items():
+            if score is not None and label not in types:
+                raise ValueError(
+                    f"confidence_scores contains '{label}' not listed in mention_types"
+                )
+            if score is not None and not (0.0 <= float(score) <= 1.0):
+                raise ValueError(f"confidence_scores['{label}'] must be 0.0-1.0")
+
+        missing = [label for label in types if scores.get(label) is None]
+        if missing:
+            raise ValueError(
+                f"confidence_scores missing required labels: {', '.join(sorted(missing))}"
+            )
+        return self
 
 
 # =============================================================================

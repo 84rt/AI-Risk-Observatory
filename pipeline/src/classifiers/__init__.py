@@ -11,10 +11,13 @@ from .mention_type_classifier import MentionTypeClassifier
 from .substantiveness_classifier import SubstantivenessClassifier
 from .vendor_classifier import VendorClassifier
 from .risk_classifier import RiskClassifier
+from .llm_classifier_v2 import LLMClassifierV2
 from .schemas import (
     MentionType,
     MentionConfidenceScores,
     MentionTypeResponse,
+    MentionTypeResponseV2,
+    MentionTypeResponseV2,
     AdoptionType,
     AdoptionConfidenceScores,
     AdoptionTypeResponse,
@@ -39,6 +42,7 @@ __all__ = [
     "HarmsClassifier",
     "AdoptionTypeClassifier",
     "MentionTypeClassifier",
+    "LLMClassifierV2",
     "SubstantivenessClassifier",
     "VendorClassifier",
     "RiskClassifier",
@@ -56,6 +60,7 @@ __all__ = [
     "SubstantivenessScores",
     # Schemas - Response models
     "MentionTypeResponse",
+    "MentionTypeResponseV2",
     "AdoptionTypeResponse",
     "RiskResponse",
     "VendorResponse",

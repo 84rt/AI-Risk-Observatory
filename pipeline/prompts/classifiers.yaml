@@ -39,6 +39,58 @@ mention_type: |
   - 0.8: likely YES — strong signal, but not fully explicit
   - 1.0: confident YES — explicit, unambiguous mention
 
+mention_type_v2: |
+  You are an expert analyst labeling AI mentions from company annual reports.
+
+  ## CONTEXT
+  Company: {firm_name}
+  Sector: {sector}
+  Report Year: {report_year}
+  Report Section: {report_section}
+
+  ## TASK
+  Assign ALL mention types that apply to the excerpt. Types are NOT mutually exclusive.
+  If the excerpt contains no AI mention, return only "none".
+  Only tag content that is explicitly about AI in the excerpt; ignore unrelated sentences.
+  {reasoning_instruction}
+
+  ## RULES (STRICT)
+  - adoption: must describe real deployment, implementation, rollout, pilot, or use of AI
+    by the company or for its clients. Generic intent/strategy = NOT adoption.
+    Treat "exploring", "piloting", or "investigating" AI use as adoption if it refers to
+    the company's own initiatives (e.g., a pilot, trial, or program underway).
+    If it's purely hypothetical or lacks any concrete initiative, use general_ambiguous.
+  - risk: must describe AI as a risk or downside (legal, operational, reputational, cybersecurity,
+    regulatory) directly tied to AI. Generic risk language without AI = NOT risk.
+  - harm: must describe AI causing or enabling harm (misinformation, fraud, abuse, safety incidents).
+  - vendor: must explicitly name a third-party AI vendor/platform (e.g., Microsoft, Google, OpenAI, AWS).
+  - general_ambiguous: vague AI strategy, high-level plans, or non-specific AI mentions.
+  - none: no AI mention, false positive, or unrelated automation not clearly AI.
+
+  ## EXAMPLES
+  - "We deployed an AI chatbot for customer support." -> adoption ~0.9
+  - "We are exploring AI opportunities." -> general_ambiguous ~0.7
+  - "We use predictive analytics to optimize routing." -> adoption ~0.4 (if clearly AI/ML), else general_ambiguous
+  - "We use data analytics to improve forecasting and operations." -> adoption ~0.5 (non-LLM)
+  - "We applied data analytics in audit testing with no AI reference." -> none/general_ambiguous
+  - "AI could increase misinformation risks." -> risk ~0.8, harm ~0.7
+  - "We partner with Microsoft for AI tooling." -> vendor ~0.9, adoption ~0.6
+  - "Automation of customer service tasks improved our..." -> general_ambiguous ~0.2 (not necessarily AI)
+  - "Our office in Shangh'ai' has opp..." -> none ~0.9
+
+  ## OUTPUT CONSTRAINTS
+  - mention_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide a confidence score for EVERY label in mention_types.
+  - Do NOT include confidence scores for labels not in mention_types.
+
+  ## CONFIDENCE GUIDANCE (0.0-1.0)
+  - 0.0: confident NO — clear absence of this mention type
+  - 0.2: faint/implicit signal; could be this type but hard to tell
+  - 0.5: uncertain — weak evidence
+  - 0.8: likely YES — strong signal, but not fully explicit
+  - 0.95-1.0: confident YES — explicit, unambiguous mention
+
 adoption_type: |
   You are an expert analyst classifying the type of AI adoption in company annual reports.
 
@@ -52,6 +104,11 @@ adoption_type: |
   Identify the AI adoption type(s) present. Categories are NOT mutually exclusive.
   If the excerpt is vague, assign low confidences instead of inventing a category.
   Include all adoption_confidences keys with numeric values (0.0-1.0).
+
+  ## CATEGORIES:
+  - non_llm: Traditional AI/ML, everythiing that is AI but not LLM or Agentic AI (i.e. computer vision, predictive analytics, fraud detection)
+  - llm: Large Language Models (GPT, ChatGPT, text generation, NLP)
+  - agentic: Autonomous/agentic AI systems (self-directed agents, or AI systems that perform autonomous that was previously done by humans)
 
   ## EXAMPLES
   - "We deployed a GPT-based chatbot for HR." -> llm ~0.9
@@ -96,6 +153,14 @@ vendor: |
   Identify AI vendors or providers explicitly mentioned in the excerpt.
   Use only the vendor tags listed in the schema.
   If a named vendor is not in the list, use "other" and set other_vendor.
+
+  ## VENDOR TAGS (DEFINITIONS)
+  - google
+  - microsoft
+  - openai
+  - internal
+  - undisclosed
+  - other (provide name in other_vendor)
 
   ## EXAMPLES
   - "We partner with Microsoft for AI tooling." -> microsoft ~0.9

@@ -41,9 +41,11 @@ SAVE_RESULTS = False
 
 # Model configuration (None = use default from settings)
 # Models with native thinking: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview
-MODEL_NAME = "gemini-2.5-flash"  # e.g., "gemini-2.5-flash", "google/gemini-3-flash-preview", "openai/gpt-4o-mini"
+# To force Gemini direct (structured output), use a non-OpenRouter model id (no provider prefix).
+MODEL_NAME = "gemini-3-flash-preview"  # Gemini API direct (structured output supported)
 TEMPERATURE = 0.0  # we want the classifier to be deterministic
 THINKING_BUDGET = 0  # 0=disabled, low=1024, higher=4096/8192 (native-thinking models only)
+USE_OPENROUTER = False  # Force direct Gemini API (structured output) even if OpenRouter key is set
 
 # Paths
 GOLDEN_SET_DIR = PIPELINE_DIR.parent / "data" / "golden_set"
@@ -80,6 +82,7 @@ clf_kwargs = {
     "model_name": MODEL_NAME,
     "temperature": TEMPERATURE,
     "thinking_budget": THINKING_BUDGET,
+    "use_openrouter": USE_OPENROUTER,
 }
 mention_clf = MentionTypeClassifier(**clf_kwargs)
 adoption_clf = AdoptionTypeClassifier(**clf_kwargs) if RUN_DOWNSTREAM else None
@@ -178,7 +181,13 @@ test_metadata = {
 }
 
 # Classify (uses same model/temperature from config)
-clf = MentionTypeClassifier(run_id="quick-test", model_name=MODEL_NAME, temperature=TEMPERATURE)
+clf = MentionTypeClassifier(
+    run_id="quick-test",
+    model_name=MODEL_NAME,
+    temperature=TEMPERATURE,
+    thinking_budget=THINKING_BUDGET,
+    use_openrouter=USE_OPENROUTER,
+)
 result = clf.classify(test_text.strip(), test_metadata)
 
 # Extract mention types
@@ -214,7 +223,13 @@ if RUN_DOWNSTREAM:
     downstream_metadata = dict(test_metadata)
     downstream_metadata["mention_types"] = mention_types
 
-    quick_kwargs = {"run_id": "quick-test", "model_name": MODEL_NAME, "temperature": TEMPERATURE}
+    quick_kwargs = {
+        "run_id": "quick-test",
+        "model_name": MODEL_NAME,
+        "temperature": TEMPERATURE,
+        "thinking_budget": THINKING_BUDGET,
+        "use_openrouter": USE_OPENROUTER,
+    }
     if "adoption" in mention_types:
         adoption_result = AdoptionTypeClassifier(**quick_kwargs).classify(
             test_text.strip(), downstream_metadata

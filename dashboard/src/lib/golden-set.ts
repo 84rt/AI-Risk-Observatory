@@ -7,11 +7,15 @@ type GoldenAnnotation = {
   report_year: number;
   mention_types: string[];
   adoption_types: string[];
-  adoption_confidence: Record<string, number>;
+  adoption_confidence: Record<string, number> | number | null;
   risk_taxonomy: string[];
-  risk_confidence: Record<string, number>;
+  risk_confidence: Record<string, number> | null;
   risk_substantiveness: number | null;
   vendor_tags: string[];
+  llm_details?: {
+    adoption_confidences?: Record<string, number>;
+    risk_confidences?: Record<string, number>;
+  };
 };
 
 export type LabelMetric = {
@@ -59,6 +63,15 @@ export type GoldenDashboardData = {
     confidenceBands: string[];
     substantivenessBands: string[];
   };
+  datasets: {
+    human: GoldenDataset;
+    llm: GoldenDataset;
+  };
+  comparison: ComparisonMetrics;
+};
+
+export type GoldenDataset = {
+  years: number[];
   summary: {
     totalReports: number;
     totalCompanies: number;
@@ -74,7 +87,6 @@ export type GoldenDashboardData = {
   riskBySector: { x: string; y: string; value: number }[];
   confidenceHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
-  comparison: ComparisonMetrics;
 };
 
 const GOLDEN_SET_PATH = path.join(
@@ -83,6 +95,15 @@ const GOLDEN_SET_PATH = path.join(
   'data',
   'golden_set',
   'human',
+  'annotations.jsonl'
+);
+
+const LLM_SET_PATH = path.join(
+  process.cwd(),
+  '..',
+  'data',
+  'golden_set',
+  'llm',
   'annotations.jsonl'
 );
 
@@ -108,10 +129,9 @@ const mentionTypes = [
   'vendor',
   'general_ambiguous',
   'harm',
-  'none',
 ];
 
-const adoptionTypes = ['non_llm', 'llm', 'agentic', 'none'];
+const adoptionTypes = ['non_llm', 'llm', 'agentic'];
 
 const riskLabels = [
   'cybersecurity',
@@ -123,7 +143,6 @@ const riskLabels = [
   'strategic_market',
   'workforce',
   'environmental',
-  'none',
 ];
 
 const vendorTags = ['openai', 'microsoft', 'google', 'internal', 'other', 'undisclosed'];
@@ -162,8 +181,9 @@ const parseCompanySectors = () => {
   return { sectorMap, sectors };
 };
 
-const parseAnnotations = () => {
-  const content = fs.readFileSync(GOLDEN_SET_PATH, 'utf8').trim();
+const parseAnnotations = (filepath: string) => {
+  if (!fs.existsSync(filepath)) return [] as GoldenAnnotation[];
+  const content = fs.readFileSync(filepath, 'utf8').trim();
   if (!content) return [] as GoldenAnnotation[];
   return content.split(/\r?\n/).map(line => JSON.parse(line) as GoldenAnnotation);
 };
@@ -271,6 +291,28 @@ const bucketize = (value: number) => {
 
 const CONFIDENCE_THRESHOLD = 0.2;
 
+const resolveConfidenceMap = (
+  item: GoldenAnnotation,
+  field: 'adoption' | 'risk'
+): Record<string, number> => {
+  if (field === 'adoption') {
+    if (item.adoption_confidence && typeof item.adoption_confidence === 'object') {
+      return item.adoption_confidence;
+    }
+    if (typeof item.adoption_confidence === 'number') {
+      return Object.fromEntries(
+        (item.adoption_types || []).map(label => [label, item.adoption_confidence as number])
+      );
+    }
+    return item.llm_details?.adoption_confidences ?? {};
+  }
+
+  if (item.risk_confidence && typeof item.risk_confidence === 'object') {
+    return item.risk_confidence;
+  }
+  return item.llm_details?.risk_confidences ?? {};
+};
+
 type ReportData = {
   company_name: string;
   report_year: number;
@@ -314,8 +356,9 @@ const aggregateToReports = (
     (item.mention_types || []).forEach(type => report.mentionTypes.add(type));
 
     // Adoption types - check confidence threshold
+    const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
     (item.adoption_types || []).forEach(type => {
-      const confidence = item.adoption_confidence?.[type] ?? 0;
+      const confidence = adoptionConfMap?.[type] ?? 0;
       if (confidence >= CONFIDENCE_THRESHOLD) {
         report.adoptionTypes.add(type);
       }
@@ -329,8 +372,9 @@ const aggregateToReports = (
     });
 
     // Risk labels - check confidence threshold
+    const riskConfMap = resolveConfidenceMap(item, 'risk');
     (item.risk_taxonomy || []).forEach(label => {
-      const confidence = item.risk_confidence?.[label] ?? 0;
+      const confidence = riskConfMap?.[label] ?? 0;
       if (confidence >= CONFIDENCE_THRESHOLD) {
         report.riskLabels.add(label);
       }
@@ -360,15 +404,11 @@ const averageConfidence = (values: number[]): number => {
   return values.reduce((sum, val) => sum + val, 0) / values.length;
 };
 
-export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { sectorMap, sectors } = parseCompanySectors();
-  const annotations = parseAnnotations();
-  const comparison = parseComparisonMetrics();
-  const years = Array.from(
-    new Set(annotations.map(item => item.report_year))
-  ).sort();
-
-  // Aggregate chunks to report level
+const buildDataset = (
+  annotations: GoldenAnnotation[],
+  sectorMap: Map<string, string>,
+  years: number[]
+): GoldenDataset => {
   const reports = aggregateToReports(annotations, sectorMap);
 
   const mentionTrend = initYearSeries(years, mentionTypes);
@@ -390,7 +430,6 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     companies.add(report.company_name);
     const year = report.report_year;
 
-    // Check if report has AI signal (any mention type other than just 'none')
     const hasSignal =
       report.mentionTypes.size > 0 &&
       !(report.mentionTypes.size === 1 && report.mentionTypes.has('none'));
@@ -400,25 +439,16 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     if (report.mentionTypes.has('risk')) riskReports += 1;
     if (report.mentionTypes.has('vendor')) vendorReports += 1;
 
-    // Count reports per mention type
     report.mentionTypes.forEach(type => addCount(mentionTrend, year, type));
-
-    // Count reports per adoption type (only those meeting threshold)
     report.adoptionTypes.forEach(type => addCount(adoptionTrend, year, type));
-
-    // Count reports per risk label (only those meeting threshold)
     report.riskLabels.forEach(label => addCount(riskTrend, year, label));
-
-    // Count reports per vendor tag
     report.vendorTags.forEach(tag => addCount(vendorTrend, year, tag));
 
-    // Risk by sector (x = risk label, y = sector)
     report.riskLabels.forEach(label => {
       const key = `${label}|||${report.sector}`;
       riskBySectorCounts.set(key, (riskBySectorCounts.get(key) || 0) + 1);
     });
 
-    // Confidence heatmap - use average confidence across all tags in the report
     const allConfidences: number[] = [];
     report.adoptionConfidences.forEach(values => {
       const avg = averageConfidence(values);
@@ -436,7 +466,6 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       confidenceCounts.set(key, (confidenceCounts.get(key) || 0) + 1);
     }
 
-    // Substantiveness heatmap - use average across chunks in the report
     if (report.substantivenessValues.length > 0) {
       const avgSubstantiveness = averageConfidence(report.substantivenessValues);
       const band = bucketize(avgSubstantiveness);
@@ -474,15 +503,6 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
 
   return {
     years,
-    sectors: sectors.length ? sectors : ['Unknown'],
-    labels: {
-      mentionTypes,
-      adoptionTypes,
-      riskLabels,
-      vendorTags,
-      confidenceBands,
-      substantivenessBands,
-    },
     summary: {
       totalReports: reports.length,
       totalCompanies: companies.size,
@@ -498,6 +518,37 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     riskBySector,
     confidenceHeatmap,
     substantivenessHeatmap,
+  };
+};
+
+export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
+  const { sectorMap, sectors } = parseCompanySectors();
+  const humanAnnotations = parseAnnotations(GOLDEN_SET_PATH);
+  const llmAnnotations = parseAnnotations(LLM_SET_PATH);
+  const comparison = parseComparisonMetrics();
+
+  const years = Array.from(
+    new Set([
+      ...humanAnnotations.map(item => item.report_year),
+      ...llmAnnotations.map(item => item.report_year),
+    ])
+  ).sort();
+
+  return {
+    years,
+    sectors: sectors.length ? sectors : ['Unknown'],
+    labels: {
+      mentionTypes,
+      adoptionTypes,
+      riskLabels,
+      vendorTags,
+      confidenceBands,
+      substantivenessBands,
+    },
+    datasets: {
+      human: buildDataset(humanAnnotations, sectorMap, years),
+      llm: buildDataset(llmAnnotations, sectorMap, years),
+    },
     comparison,
   };
 };
