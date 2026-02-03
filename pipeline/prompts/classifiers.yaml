@@ -52,29 +52,44 @@ mention_type_v2: |
   Assign ALL mention types that apply to the excerpt. Types are NOT mutually exclusive.
   If the excerpt contains no AI mention, return only "none".
   Only tag content that is explicitly about AI in the excerpt; ignore unrelated sentences.
+  You may be instructed to include or omit a brief "reasoning" field in the JSON output.
   {reasoning_instruction}
 
   ## RULES (STRICT)
+  - AI EXPLICITNESS GATE (HARD RULE): If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI
+    or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision),
+    return "none". Terms like "data analytics", "automation", "digital tools", or "advanced analytics"
+    alone are NOT AI.
   - adoption: must describe real deployment, implementation, rollout, pilot, or use of AI
-    by the company or for its clients. Generic intent/strategy = NOT adoption.
-    Treat "exploring", "piloting", or "investigating" AI use as adoption if it refers to
-    the company's own initiatives (e.g., a pilot, trial, or program underway).
-    If it's purely hypothetical or lacks any concrete initiative, use general_ambiguous.
+    by the company or for its clients. Generic intent/strategy/roadmaps = NOT adoption.
+    Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when
+    it refers to specific initiatives underway (e.g., a pilot, trial, or program).
+    If it's general interest or high-level consideration, use general_ambiguous.
+    Delivering AI systems for clients counts as adoption; pure consulting/advice without
+    deployment does NOT.
   - risk: must describe AI as a risk or downside (legal, operational, reputational, cybersecurity,
     regulatory) directly tied to AI. Generic risk language without AI = NOT risk.
   - harm: must describe AI causing or enabling harm (misinformation, fraud, abuse, safety incidents).
   - vendor: must explicitly name a third-party AI vendor/platform (e.g., Microsoft, Google, OpenAI, AWS).
   - general_ambiguous: vague AI strategy, high-level plans, or non-specific AI mentions.
+    If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_ambiguous.
+    general_ambiguous should NOT co-occur with other labels.
   - none: no AI mention, false positive, or unrelated automation not clearly AI.
+  - confidence scores always indicate how likely the label applies (including "none").
+  - include a label in mention_types only if confidence >= 0.2.
 
   ## EXAMPLES
   - "We deployed an AI chatbot for customer support." -> adoption ~0.9
   - "We are exploring AI opportunities." -> general_ambiguous ~0.7
-  - "We use predictive analytics to optimize routing." -> adoption ~0.4 (if clearly AI/ML), else general_ambiguous
-  - "We use data analytics to improve forecasting and operations." -> adoption ~0.5 (non-LLM)
-  - "We applied data analytics in audit testing with no AI reference." -> none/general_ambiguous
+  - "We are piloting AI to automate invoice processing." -> adoption ~0.8
+  - "We use predictive analytics to optimize routing." -> none (unless AI/ML explicitly stated)
+  - "We use data analytics to improve forecasting and operations." -> none
+  - "We applied data analytics in audit testing with no AI reference." -> none
   - "AI could increase misinformation risks." -> risk ~0.8, harm ~0.7
+  - "AI is a long-term megatrend; we are evaluating this risk." -> risk ~0.7 (not adoption)
   - "We partner with Microsoft for AI tooling." -> vendor ~0.9, adoption ~0.6
+  - "We deployed OpenAI models for customer support." -> vendor ~0.9, adoption ~0.9
+  - "We delivered AI systems for clients in 2024." -> adoption ~0.8
   - "Automation of customer service tasks improved our..." -> general_ambiguous ~0.2 (not necessarily AI)
   - "Our office in Shangh'ai' has opp..." -> none ~0.9
 
@@ -85,7 +100,6 @@ mention_type_v2: |
   - Do NOT include confidence scores for labels not in mention_types.
 
   ## CONFIDENCE GUIDANCE (0.0-1.0)
-  - 0.0: confident NO — clear absence of this mention type
   - 0.2: faint/implicit signal; could be this type but hard to tell
   - 0.5: uncertain — weak evidence
   - 0.8: likely YES — strong signal, but not fully explicit

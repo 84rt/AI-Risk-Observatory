@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Export classifier_testbed run output into LLM annotations format for reconciliation."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Convert testbed run JSONL to LLM annotations JSONL for reconciliation."
+    )
+    parser.add_argument(
+        "--testbed-run",
+        type=Path,
+        required=True,
+        help="Path to testbed run JSONL (data/testbed_runs/<run_id>.jsonl).",
+    )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default=None,
+        help="Override run_id for output records (defaults to testbed file stem).",
+    )
+    parser.add_argument(
+        "--human",
+        type=Path,
+        default=Path("data/golden_set/human/annotations.jsonl"),
+        help="Path to human annotations JSONL for metadata join.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/golden_set/llm"),
+        help="Output directory for LLM annotations JSONL.",
+    )
+    parser.add_argument(
+        "--max-chunks",
+        type=int,
+        default=0,
+        help="Limit exported chunks (0 = no limit).",
+    )
+    parser.add_argument(
+        "--include-missing",
+        action="store_true",
+        help="Include records even if chunk_id is missing from human file.",
+    )
+    parser.add_argument(
+        "--confidence-mode",
+        choices=["none", "uniform"],
+        default="none",
+        help=(
+            "How to build mention_confidences. "
+            "'none' leaves empty; 'uniform' assigns the testbed confidence to each label."
+        ),
+    )
+    return parser.parse_args()
+
+
+def load_jsonl(path: Path) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    if not path.exists():
+        return records
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return records
+
+
+def index_by_chunk_id(records: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    return {str(r.get("chunk_id")): r for r in records if r.get("chunk_id")}
+
+
+def load_meta(testbed_run_path: Path) -> Dict[str, Any]:
+    meta_path = testbed_run_path.with_suffix(".meta.json")
+    if not meta_path.exists():
+        return {}
+    try:
+        return json.loads(meta_path.read_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+def build_llm_record(
+    *,
+    run_id: str,
+    testbed: Dict[str, Any],
+    base: Optional[Dict[str, Any]],
+    model_name: Optional[str],
+    confidence_mode: str,
+) -> Dict[str, Any]:
+    chunk_id = testbed.get("chunk_id")
+    mention_types = testbed.get("llm_mention_types") or []
+    confidence = testbed.get("confidence", 0.0)
+
+    record: Dict[str, Any] = dict(base) if base else {}
+    record.update(
+        {
+            "annotation_id": f"llm-{run_id}-{chunk_id}",
+            "run_id": run_id,
+            "chunk_id": chunk_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "mention_types": mention_types,
+            "adoption_types": [],
+            "adoption_confidence": {},
+            "risk_taxonomy": [],
+            "risk_confidence": {},
+            "risk_substantiveness": None,
+            "vendor_tags": [],
+            "vendor_other": None,
+            "source": "llm",
+            "classifier_id": "llm_testbed",
+            "classifier_version": "v2",
+            "model_name": model_name,
+        }
+    )
+
+    llm_details: Dict[str, Any] = {
+        "mention_reasoning": testbed.get("reasoning", ""),
+    }
+    if confidence_mode == "uniform" and mention_types:
+        llm_details["mention_confidences"] = {
+            str(label): float(confidence) for label in mention_types
+        }
+    record["llm_details"] = llm_details
+
+    return record
+
+
+def main() -> None:
+    args = parse_args()
+
+    testbed_records = load_jsonl(args.testbed_run)
+    if not testbed_records:
+        raise SystemExit(f"No records found: {args.testbed_run}")
+
+    human_records = load_jsonl(args.human)
+    human_by_id = index_by_chunk_id(human_records)
+
+    meta = load_meta(args.testbed_run)
+    run_id = args.run_id or meta.get("run_id") or args.testbed_run.stem
+    model_name = (meta.get("config") or {}).get("model_name")
+
+    output_dir = args.output_dir
+    output_path = output_dir / "annotations.jsonl"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    exported = 0
+    with output_path.open("w") as f:
+        for record in testbed_records:
+            if args.max_chunks and exported >= args.max_chunks:
+                break
+            chunk_id = record.get("chunk_id")
+            if not chunk_id:
+                continue
+            base = human_by_id.get(chunk_id)
+            if base is None and not args.include_missing:
+                continue
+            llm_record = build_llm_record(
+                run_id=run_id,
+                testbed=record,
+                base=base,
+                model_name=model_name,
+                confidence_mode=args.confidence_mode,
+            )
+            f.write(json.dumps(llm_record) + "\n")
+            exported += 1
+
+    print(f"Exported {exported} records to {output_path}")
+
+
+if __name__ == "__main__":
+    main()
