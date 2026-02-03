@@ -86,10 +86,10 @@ export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS }: 
 }
 
 // --- Component: Generic Heatmap ---
-// Re-implementing as a CSS Grid for better control than Recharts Scatter/Heatmap
+// CSS Grid heatmap with blind spot indicators and row/column totals
 interface GenericHeatmapProps {
   data: {
-    x: string | number; // e.g. Year
+    x: string | number; // e.g. Year or risk label
     y: string | number; // e.g. Sector
     value: number;
   }[];
@@ -99,6 +99,9 @@ interface GenericHeatmapProps {
   baseColor?: string;
   xLabelFormatter?: (val: string | number) => string;
   yLabelFormatter?: (val: string | number) => string;
+  showTotals?: boolean;
+  showBlindSpots?: boolean;
+  title?: string;
 }
 
 export function GenericHeatmap({
@@ -109,23 +112,44 @@ export function GenericHeatmap({
   baseColor = '#0ea5e9',
   xLabelFormatter = (val) => val.toString(),
   yLabelFormatter = (val) => val.toString(),
+  showTotals = true,
+  showBlindSpots = true,
+  title,
 }: GenericHeatmapProps) {
-  // Create a lookup map
+  // Create lookup map and compute totals
   const dataMap = new Map<string, number>();
+  const rowTotals = new Map<string | number, number>();
+  const colTotals = new Map<string | number, number>();
   let maxValue = 0;
+  let grandTotal = 0;
+
+  // Initialize totals
+  yLabels.forEach(y => rowTotals.set(y, 0));
+  xLabels.forEach(x => colTotals.set(x, 0));
+
   data.forEach(d => {
     const key = `${d.x}-${d.y}`;
     dataMap.set(key, d.value);
     if (d.value > maxValue) maxValue = d.value;
+    rowTotals.set(d.y, (rowTotals.get(d.y) || 0) + d.value);
+    colTotals.set(d.x, (colTotals.get(d.x) || 0) + d.value);
+    grandTotal += d.value;
   });
+
+  const gridCols = showTotals
+    ? `180px repeat(${xLabels.length}, 70px) 60px`
+    : `180px repeat(${xLabels.length}, 70px)`;
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+      {title && (
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+          {title}
+        </h3>
+      )}
       <div
         className="inline-grid gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden"
-        style={{
-          gridTemplateColumns: `180px repeat(${xLabels.length}, 90px)`
-        }}
+        style={{ gridTemplateColumns: gridCols }}
       >
         {/* Header Row */}
         <div className="bg-slate-50 p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-center">
@@ -136,8 +160,13 @@ export function GenericHeatmap({
             {xLabelFormatter(x)}
           </div>
         ))}
+        {showTotals && (
+          <div className="bg-slate-100 px-1 py-2 text-[10px] font-bold text-slate-600 text-center flex items-center justify-center min-h-[60px]">
+            Total
+          </div>
+        )}
 
-        {/* Rows */}
+        {/* Data Rows */}
         {yLabels.map(y => (
           <div key={`row-${y}`} className="contents">
             <div className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-[44px] border-r border-slate-100 leading-tight">
@@ -148,24 +177,32 @@ export function GenericHeatmap({
             {xLabels.map(x => {
               const val = dataMap.get(`${x}-${y}`) || 0;
               const intensity = maxValue > 0 ? val / maxValue : 0;
-
-              // Color scale: White to Blue (or custom)
-              // Using Slate/Blue mix for professional look
-              const opacity = Math.max(0.05, intensity * 0.95);
+              const opacity = Math.max(0.08, intensity * 0.92);
+              const isBlindSpot = val === 0 && showBlindSpots;
 
               return (
                 <div
                   key={`${x}-${y}`}
-                  className="bg-white h-[44px] relative group flex items-center justify-center"
-                  title={`${yLabelFormatter(y)} in ${x}: ${val}`}
+                  className={`h-[44px] relative group flex items-center justify-center ${isBlindSpot ? 'bg-slate-50' : 'bg-white'}`}
+                  title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${val}`}
                 >
-                  <div
-                    className="absolute inset-0 transition-all duration-300"
-                    style={{
-                      backgroundColor: baseColor,
-                      opacity: val === 0 ? 0 : opacity
-                    }}
-                  />
+                  {isBlindSpot ? (
+                    // Blind spot indicator - diagonal stripes pattern
+                    <div
+                      className="absolute inset-0 opacity-40"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, #cbd5e1 4px, #cbd5e1 5px)',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 transition-all duration-300"
+                      style={{
+                        backgroundColor: baseColor,
+                        opacity: val === 0 ? 0 : opacity
+                      }}
+                    />
+                  )}
                   {val > 0 && (
                     <span className={`relative z-10 text-sm font-bold ${intensity > 0.5 ? 'text-white' : 'text-slate-700'}`}>
                       {valueFormatter(val)}
@@ -174,9 +211,51 @@ export function GenericHeatmap({
                 </div>
               );
             })}
+
+            {/* Row Total */}
+            {showTotals && (
+              <div className="bg-slate-50 h-[44px] flex items-center justify-center">
+                <span className="text-sm font-semibold text-slate-600">
+                  {rowTotals.get(y) || 0}
+                </span>
+              </div>
+            )}
           </div>
         ))}
+
+        {/* Column Totals Row */}
+        {showTotals && (
+          <div className="contents">
+            <div className="bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 flex items-center h-[44px]">
+              Total
+            </div>
+            {xLabels.map(x => (
+              <div key={`total-${x}`} className="bg-slate-50 h-[44px] flex items-center justify-center">
+                <span className="text-sm font-semibold text-slate-600">
+                  {colTotals.get(x) || 0}
+                </span>
+              </div>
+            ))}
+            <div className="bg-slate-100 h-[44px] flex items-center justify-center">
+              <span className="text-sm font-bold text-slate-700">
+                {grandTotal}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
+
+      {showBlindSpots && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+          <div
+            className="w-4 h-4 rounded border border-slate-200"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #cbd5e1 2px, #cbd5e1 3px)',
+            }}
+          />
+          <span>No reports — potential blind spot</span>
+        </div>
+      )}
     </div>
   );
 }

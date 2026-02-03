@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart } from '@/components/overview-charts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
+// Filter type for risk distribution view
+type RiskFilter = 'all' | string;
+
 type View = {
   id: number;
   title: string;
@@ -99,6 +102,7 @@ const datasetLabels: Record<DatasetKey, string> = {
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('human');
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const activeData = data.datasets[datasetKey];
@@ -107,6 +111,21 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const vendorStackKeys = useMemo(() => data.labels.vendorTags, [data.labels.vendorTags]);
   const riskStackKeys = useMemo(() => data.labels.riskLabels, [data.labels.riskLabels]);
+
+  // Filter risk data by selected risk type
+  const filteredRiskBySector = useMemo(() => {
+    if (riskFilter === 'all') return activeData.riskBySector;
+    return activeData.riskBySector.filter(d => d.x === riskFilter);
+  }, [activeData.riskBySector, riskFilter]);
+
+  // Filter risk trend for single risk type view
+  const filteredRiskTrend = useMemo(() => {
+    if (riskFilter === 'all') return activeData.riskTrend;
+    return activeData.riskTrend.map(row => ({
+      year: row.year,
+      [riskFilter]: row[riskFilter] || 0,
+    }));
+  }, [activeData.riskTrend, riskFilter]);
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
@@ -175,7 +194,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {VIEWS.map(item => (
               <button
                 key={item.id}
@@ -261,18 +280,54 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 2 && (
           <div className="space-y-8">
-            <StackedBarChart
-              data={activeData.adoptionTrend}
-              xAxisKey="year"
-              stackKeys={adoptionStackKeys}
-              colors={adoptionColors}
+            {/* Adoption Trends */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-slate-800">Adoption Maturity Over Time</h3>
+              <StackedBarChart
+                data={activeData.adoptionTrend}
+                xAxisKey="year"
+                stackKeys={adoptionStackKeys}
+                colors={adoptionColors}
+              />
+            </div>
+
+            {/* Adoption by Sector Heatmap */}
+            <GenericHeatmap
+              data={activeData.adoptionBySector}
+              xLabels={data.labels.adoptionTypes}
+              yLabels={data.sectors}
+              baseColor="#0ea5e9"
+              valueFormatter={value => `${value}`}
+              xLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={true}
+              title="Adoption Intensity by Sector"
             />
-            <StackedBarChart
-              data={activeData.vendorTrend}
-              xAxisKey="year"
-              stackKeys={vendorStackKeys}
-              colors={vendorColors}
+
+            {/* Vendor Trends */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-slate-800">Vendor References Over Time</h3>
+              <StackedBarChart
+                data={activeData.vendorTrend}
+                xAxisKey="year"
+                stackKeys={vendorStackKeys}
+                colors={vendorColors}
+              />
+            </div>
+
+            {/* Vendor by Sector Heatmap */}
+            <GenericHeatmap
+              data={activeData.vendorBySector}
+              xLabels={data.labels.vendorTags}
+              yLabels={data.sectors}
+              baseColor="#14b8a6"
+              valueFormatter={value => `${value}`}
+              xLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={true}
+              title="Vendor Concentration by Sector"
             />
+
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
               <p className="font-semibold text-slate-900">Category Definitions</p>
               <p className="mt-2 font-medium text-slate-800">Adoption Types:</p>
@@ -289,7 +344,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <li><span className="font-medium text-slate-800">Undisclosed:</span> Vendor not specified in disclosure.</li>
               </ul>
               <p className="mt-3 leading-relaxed">
-                <span className="font-medium text-slate-800">Data source:</span> Extracted from annual report text via NLP classification.
+                <span className="font-medium text-slate-800">Heatmaps:</span> Show distribution across CNI sectors.
+                Striped cells indicate no reports (potential blind spots in vendor disclosure).
               </p>
             </div>
           </div>
@@ -297,20 +353,55 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 3 && (
           <div className="space-y-8">
+            {/* Risk Type Filter */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="risk-filter" className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Focus on Risk Type
+                </label>
+                <select
+                  id="risk-filter"
+                  value={riskFilter}
+                  onChange={e => setRiskFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
+                >
+                  <option value="all">All Risk Types</option>
+                  {data.labels.riskLabels.map(label => (
+                    <option key={label} value={label}>{formatLabel(label)}</option>
+                  ))}
+                </select>
+              </div>
+              {riskFilter !== 'all' && (
+                <button
+                  onClick={() => setRiskFilter('all')}
+                  className="mt-6 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
+
+            {/* Risk Trend Over Time */}
             <StackedBarChart
-              data={activeData.riskTrend}
+              data={filteredRiskTrend}
               xAxisKey="year"
-              stackKeys={riskStackKeys}
+              stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
               colors={riskColors}
             />
+
+            {/* Risk by Sector Heatmap */}
             <GenericHeatmap
-              data={activeData.riskBySector}
-              xLabels={data.labels.riskLabels}
+              data={filteredRiskBySector}
+              xLabels={riskFilter === 'all' ? data.labels.riskLabels : [riskFilter]}
               yLabels={data.sectors}
               baseColor="#f97316"
               valueFormatter={value => `${value}`}
               xLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={true}
+              title="Risk Distribution by Sector"
             />
+
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
               <p className="font-semibold text-slate-900">Risk Category Definitions</p>
               <ul className="mt-2 space-y-1 leading-relaxed text-xs">
@@ -326,7 +417,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </ul>
               <p className="mt-3 leading-relaxed">
                 <span className="font-medium text-slate-800">Heatmap:</span> Rows are CNI sectors, columns are risk categories.
-                Darker cells indicate higher report counts.
+                Darker cells indicate higher report counts. Striped cells indicate no reports (potential blind spots).
               </p>
             </div>
           </div>
@@ -339,16 +430,22 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={data.years}
               yLabels={data.labels.confidenceBands}
               baseColor="#0ea5e9"
-              valueFormatter={value => `${value} reports`}
+              valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={false}
+              title="Confidence Distribution"
             />
             <GenericHeatmap
               data={activeData.substantivenessHeatmap}
               xLabels={data.years}
               yLabels={data.labels.substantivenessBands}
               baseColor="#14b8a6"
-              valueFormatter={value => `${value} reports`}
+              valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={false}
+              title="Substantiveness Distribution"
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm lg:col-span-2">
               <p className="font-semibold text-slate-900">Quality Metric Definitions</p>

@@ -85,6 +85,8 @@ export type GoldenDataset = {
   riskTrend: Record<string, number>[];
   vendorTrend: Record<string, number>[];
   riskBySector: { x: string; y: string; value: number }[];
+  adoptionBySector: { x: string; y: string; value: number }[];
+  vendorBySector: { x: string; y: string; value: number }[];
   confidenceHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
 };
@@ -417,6 +419,8 @@ const buildDataset = (
   const vendorTrend = initYearSeries(years, vendorTags);
 
   const riskBySectorCounts = new Map<string, number>();
+  const adoptionBySectorCounts = new Map<string, number>();
+  const vendorBySectorCounts = new Map<string, number>();
   const confidenceCounts = new Map<string, number>();
   const substantivenessCounts = new Map<string, number>();
 
@@ -449,6 +453,16 @@ const buildDataset = (
       riskBySectorCounts.set(key, (riskBySectorCounts.get(key) || 0) + 1);
     });
 
+    report.adoptionTypes.forEach(type => {
+      const key = `${type}|||${report.sector}`;
+      adoptionBySectorCounts.set(key, (adoptionBySectorCounts.get(key) || 0) + 1);
+    });
+
+    report.vendorTags.forEach(tag => {
+      const key = `${tag}|||${report.sector}`;
+      vendorBySectorCounts.set(key, (vendorBySectorCounts.get(key) || 0) + 1);
+    });
+
     const allConfidences: number[] = [];
     report.adoptionConfidences.forEach(values => {
       const avg = averageConfidence(values);
@@ -477,6 +491,16 @@ const buildDataset = (
   const riskBySector = Array.from(riskBySectorCounts.entries()).map(([key, value]) => {
     const [label, sector] = key.split('|||');
     return { x: label, y: sector, value };
+  });
+
+  const adoptionBySector = Array.from(adoptionBySectorCounts.entries()).map(([key, value]) => {
+    const [type, sector] = key.split('|||');
+    return { x: type, y: sector, value };
+  });
+
+  const vendorBySector = Array.from(vendorBySectorCounts.entries()).map(([key, value]) => {
+    const [tag, sector] = key.split('|||');
+    return { x: tag, y: sector, value };
   });
 
   const confidenceHeatmap: { x: number; y: string; value: number }[] = [];
@@ -516,6 +540,8 @@ const buildDataset = (
     riskTrend,
     vendorTrend,
     riskBySector,
+    adoptionBySector,
+    vendorBySector,
     confidenceHeatmap,
     substantivenessHeatmap,
   };

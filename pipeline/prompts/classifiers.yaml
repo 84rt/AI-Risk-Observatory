@@ -67,8 +67,12 @@ mention_type_v2: |
     If it's general interest or high-level consideration, use general_ambiguous.
     Delivering AI systems for clients counts as adoption; pure consulting/advice without
     deployment does NOT.
+    If AI is mentioned only as a risk of failing to adopt, label risk only (not adoption).
+    AI governance policies/standards/frameworks are NOT adoption unless they explicitly
+    describe deployment or use.
   - risk: must describe AI as a risk or downside (legal, operational, reputational, cybersecurity,
     regulatory) directly tied to AI. Generic risk language without AI = NOT risk.
+    Risk mitigation/governance language alone is NOT risk unless a specific AI downside is described.
   - harm: must describe AI causing or enabling harm (misinformation, fraud, abuse, safety incidents).
   - vendor: must explicitly name a third-party AI vendor/platform (e.g., Microsoft, Google, OpenAI, AWS).
   - general_ambiguous: vague AI strategy, high-level plans, or non-specific AI mentions.
