@@ -166,12 +166,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   {formatNumber(activeData.summary.totalCompanies)}
                 </p>
               </div>
-              <div className="animate-rise animate-rise-delay-3 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Signal Reports</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">
-                  {formatNumber(activeData.summary.aiSignalReports)}
-                </p>
-              </div>
             </div>
           </div>
 
