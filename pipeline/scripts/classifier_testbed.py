@@ -7,13 +7,7 @@ Cell-based workflow:
 2. Run FUNCTIONS cell (collapse after)
 3. Use action cells as needed: LOAD DATA, RUN CLASSIFIER, COMPARE, etc.
 """
-# %%% CLEAR PROMPT CACHE (important when updating prompts)
-from src.utils.prompt_loader import _load_prompt_yaml
-_load_prompt_yaml.cache_clear() 
-print("Prompt cache cleared")
 
-from src.utils.prompt_loader import get_prompt_template
-print(get_prompt_template("mention_type_v2")[:10000])
 #%% SETUP & IMPORTS
 import json
 import os
@@ -29,6 +23,14 @@ REPO_ROOT = PIPELINE_DIR.parent
 sys.path.insert(0, str(PIPELINE_DIR))
 
 from src.classifiers.llm_classifier_v2 import LLMClassifierV2
+
+### CLEAR PROMPT CACHE (important when updating prompts)
+from src.utils.prompt_loader import _load_prompt_yaml
+_load_prompt_yaml.cache_clear() 
+print("Prompt cache cleared")
+
+from src.utils.prompt_loader import get_prompt_template
+print(get_prompt_template("mention_type_v3")[:10000])
 
 # Paths
 # Baseline annotations: use reconciled gold set after human/LLM review.
@@ -148,7 +150,7 @@ def run_classifier(
             "llm_mention_types": llm_types,
             "confidence": result.confidence_score,
             "reasoning": result.reasoning,
-            "chunk_text": chunk["chunk_text"][:500],
+            "chunk_text": chunk["chunk_text"],
         })
 
     save_run(run_id, results, {"model_name": model_name, "temperature": temperature, "thinking_budget": thinking_budget})
@@ -238,7 +240,6 @@ def show_table(
 def show_details(
     results: list[dict],
     indices: list[int] | None = None,
-    max_chars: int | None = 400,
 ) -> None:
     """Show detailed view for specific chunks (or all disagreements if indices=None)."""
     print("\n" + "=" * 80)
@@ -257,14 +258,8 @@ def show_details(
         print(f"    Match: {match}")
         print(f"    Human: {sorted(r['human_mention_types'])}")
         print(f"    LLM:   {sorted(r['llm_mention_types'])} (conf: {r['confidence']:.2f})")
-        reasoning = r["reasoning"]
-        text = r["chunk_text"]
-        if max_chars is None:
-            print(f"    Reasoning: {reasoning}")
-            print(f"    Text: {text}")
-        else:
-            print(f"    Reasoning: {reasoning[:300]}...")
-            print(f"    Text: {text[:max_chars]}...")
+        print(f"    Reasoning: {r['reasoning']}")
+        print(f"    Text: {r['chunk_text']}")
         print("-" * 80)
 
 
@@ -315,6 +310,15 @@ def show_diff_summary(results: list[dict], exclude_added_general_ambiguous: bool
         "transitions": transition_counts,
     }
 
+def refresh_human_labels(results: list[dict], chunks: list[dict]) -> None:
+    human_by_id = {
+        c.get("chunk_id", c.get("annotation_id")): c.get("mention_types", [])
+        for c in chunks
+    }
+    for r in results:
+        cid = r.get("chunk_id")
+        if cid in human_by_id:
+            r["human_mention_types"] = human_by_id[cid]
 
 print("Functions loaded.")
 
@@ -337,10 +341,10 @@ print(f"Loaded {len(chunks)} chunks from golden set.")
 
 
 #%% CONFIG: Set run parameters here
-RUN_ID = "gemini-3-flash-preview-v2-reconciled-new-prompt-v0.2-sanity-check-again" # "gemini-flash-v1"
+RUN_ID = "gemini-3-flash-prompt_v3-tes-1740-thinking-0"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
-THINKING_BUDGET = 1024
+THINKING_BUDGET = 0
 
 
 #%% RUN CLASSIFIER (or load from cache) - SYNC MODE
@@ -353,19 +357,14 @@ else:
     results = run_classifier(RUN_ID, chunks, MODEL_NAME, TEMPERATURE, THINKING_BUDGET)
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
-
-#%% ============================================================
-#   BATCH API MODE (50% cost, async)
-#   ============================================================
-
 #%% BATCH: Initialize client
 from src.utils.batch_api import BatchClient
 batch = BatchClient(runs_dir=RUNS_DIR)
 
 
 #%% BATCH: Prepare and submit job
-BATCH_RUN_ID = "batch-gemini-2-flash-test"
-BATCH_MODEL = "gemini-2.0-flash"
+BATCH_RUN_ID = "batch-gemini-3-flash-prompt_v3-1740"
+BATCH_MODEL = "gemini-3-flash-preview"
 
 batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
 batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
@@ -387,16 +386,6 @@ if batch_results:
     results = batch_results  # Use batch results for analysis below
 
 #%% REFRESH HUMAN LABELS FROM BASELINE (no LLM rerun)
-def refresh_human_labels(results: list[dict], chunks: list[dict]) -> None:
-    human_by_id = {
-        c.get("chunk_id", c.get("annotation_id")): c.get("mention_types", [])
-        for c in chunks
-    }
-    for r in results:
-        cid = r.get("chunk_id")
-        if cid in human_by_id:
-            r["human_mention_types"] = human_by_id[cid]
-
 refresh_human_labels(results, chunks)
 
 show_summary(results)
@@ -407,17 +396,15 @@ show_table(results)
 
 
 #%% SHOW DIFFERENCES ONLY
-show_table(results, diff_only=True, exclude_added_general_ambiguous=True)
+exclude_gen_ambig = True
+show_table(results, diff_only=True, exclude_added_general_ambiguous=exclude_gen_ambig)
 
-
+#%% SHOW DIFF SUMMARY (actionable label deltas)
+show_diff_summary(results, exclude_added_general_ambiguous=exclude_gen_ambig)
 #%% SHOW DISAGREEMENT DETAILS
 show_details(results)
 
-#%% SHOW DIFF SUMMARY (actionable label deltas)
-show_diff_summary(results, exclude_added_general_ambiguous=True)
-
-
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
-show_details(results, indices=[21, 36, 44])
+show_details(results, indices=[44])
 
 # %%

@@ -19,6 +19,43 @@ Pipeline reads/writes under the repo-level `data/` tree:
 - Database: `data/db/airo.db`
 Note: classifier API calls log prompt/response char counts and token estimates at DEBUG in `data/logs/pipeline/classifier_runs/*.log`.
 
+## Reconcile LLM vs Human Annotations (from a testbed run)
+
+Use this when you’ve run `classifier_testbed.py` and want to compare/reconcile
+LLM labels against the current human baseline **without** re-running the LLM.
+
+1) Export the testbed run into LLM-annotations format:
+   This export is required for each new testbed run (`<run_id>`).
+
+```bash
+python3 scripts/export_testbed_run_for_reconcile.py \
+  --testbed-run data/testbed_runs/<run_id>.jsonl \
+  --human data/golden_set/human_reconciled/annotations.jsonl \
+  --output-dir data/golden_set/llm/<run_id> \
+  --confidence-mode uniform
+```
+
+2) Reconcile (interactive). Tip: use `--only-disagreements` and `--resume`:
+
+```bash
+python3 scripts/reconcile_annotations.py \
+  --human data/golden_set/human_reconciled/annotations.jsonl \
+  --llm data/golden_set/llm/<run_id>/annotations.jsonl \
+  --output-dir data/golden_set/reconciled/<run_id> \
+  --only-disagreements \
+  --max-chunks 50 \
+  --resume
+```
+
+3) Merge reconciled updates into the human baseline:
+
+```bash
+python3 scripts/merge_reconciled_golden_set.py \
+  --human data/golden_set/human_reconciled/annotations.jsonl \
+  --reconciled data/golden_set/reconciled/<run_id>/annotations.jsonl \
+  --output data/golden_set/human_reconciled/annotations.jsonl
+```
+
 ## Golden Set Pipeline
 
 The golden set pipeline has three phases:

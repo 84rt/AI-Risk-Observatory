@@ -61,7 +61,7 @@ class LLMClassifierV2(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            "mention_type_v2",
+            "mention_type_v3",
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,

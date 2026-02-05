@@ -67,7 +67,7 @@ class BatchClient:
         )
 
         return get_prompt_messages(
-            "mention_type_v2",
+            "mention_type_v3",
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,
@@ -119,7 +119,7 @@ class BatchClient:
 
             requests.append({
                 "contents": [{"parts": [{"text": combined_text}]}],
-                "generation_config": config,
+                "config": config,
             })
 
         print(f"Prepared {len(requests)} batch requests.")
@@ -294,7 +294,7 @@ class BatchClient:
                     "llm_mention_types": llm_types,
                     "confidence": confidence,
                     "reasoning": parsed.get("reasoning", ""),
-                    "chunk_text": chunk["chunk_text"][:500],
+                    "chunk_text": chunk["chunk_text"],
                 })
 
             except (json.JSONDecodeError, AttributeError, KeyError) as e:
@@ -312,7 +312,7 @@ class BatchClient:
             "llm_mention_types": [],
             "confidence": 0.0,
             "reasoning": error,
-            "chunk_text": chunk["chunk_text"][:500],
+            "chunk_text": chunk["chunk_text"],
             "error": error,
         }
 

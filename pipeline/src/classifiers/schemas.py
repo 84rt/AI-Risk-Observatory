@@ -95,13 +95,13 @@ class MentionTypeResponseV2(BaseModel):
     )
     mention_types: List[MentionType] = Field(
         description=(
-            "Detected mention types (non-mutually exclusive). "
-            "'adoption': AI deployment/implementation by company or clients. "
-            "'risk': AI described as risk, downside, or material concern. "
-            "'harm': AI causing or enabling harm. "
-            "'vendor': Named AI vendor/platform mentioned. "
-            "'general_ambiguous': Vague AI reference, high-level plans. "
-            "'none': False positive, no AI mention."
+            "Detected mention types. "
+            "'adoption': Real deployment/implementation/pilot of AI (not intent/strategy alone). "
+            "'risk': AI directly attributed as risk source. "
+            "'harm': Past harms caused by AI. "
+            "'vendor': Named AI vendor (Microsoft, Google, OpenAI, AWS, etc.). "
+            "'general_ambiguous': Vague AI mentions not fitting other categories; try use alone. "
+            "'none': No explicit AI/ML/LLM mention or false positive."
         )
     )
     confidence_scores: MentionConfidenceScores = Field(

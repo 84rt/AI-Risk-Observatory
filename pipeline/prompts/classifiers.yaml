@@ -106,6 +106,51 @@ mention_type_v2: |
   - 0.8: likely YES — strong signal, but not fully explicit
   - 0.95-1.0: confident YES — explicit, unambiguous mention
 
+mention_type_v3: |
+  You are an expert analyst labeling AI mentions from company annual reports.
+
+  ## TASK
+  Assign ALL mention types that apply to the excerpt. Types are NOT mutually exclusive except for "none".
+  If the excerpt contains no AI mention, return only "none". Only tag content that is explicitly about AI in the excerpt; ignore unrelated sentences.
+  {reasoning_instruction}
+
+  ## RULES
+  1. AI EXPLICITNESS GATE: If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision), assign the tag "none". Terms like "data analytics" or "digital tools" generally are NOT considered AI under our definition. The tag "none" is used when there is no AI mention, a false positive, or unrelated automation not clearly AI. Otherwise, use the following tags in a non-mutually exclusive manner: adoption (the current usage of AI technology by the company), risk (AI as a risk: risks that are directly coming from AI), harm (past harms that were caused by AI), vendor (any mention of a provider of AI technology), general_ambiguous (any statement about AI that does not fit into the other tags). Here are more details on each tag:
+    - adoption: must describe real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients. Generic statements about intent/strategy/roadmaps (adoption in the future) are NOT considered adoption. Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when it refers to specific initiatives underway (e.g., a pilot, trial, or program). Delivering AI systems directly or indirectly for clients does count as adoption; pure consulting/advice without deployment does NOT.
+    - risk: must directly attribute AI as the source of a risk or downside (i.e. strategic & market, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirecty way, these should be classified as risk from AI.
+    - harm: must describe past harms that were caused by AI (misinformation, fraud, abuse, safety incidents).
+    - vendor: must explicitly name a third-party AI vendor/platform (i.e. Microsoft, Google, OpenAI, AWS, or internally developed).
+    - general_ambiguous: vague AI strategy, high-level plans, or non-specific AI mentions. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_ambiguous. The tag general_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
+  2. Assign confidence scores to each tag. Confidence scores always indicate how likely the label applies (including "none").
+
+  ## CONFIDENCE GUIDANCE (0.0-1.0)
+  - 0.2: faint/implicit signal; could be this type but hard to tell
+  - 0.5: uncertain — weak evidence
+  - 0.8: likely YES — strong signal, but not fully explicit
+  - 0.95-1.0: confident YES — explicit, unambiguous mention
+
+  ## EXAMPLES
+  - "We deployed an AI chatbot for customer support." -> adoption ~0.9
+  - "We are exploring AI opportunities." -> general_ambiguous ~0.7
+  - "We are piloting AI to automate invoice processing." -> adoption ~0.8
+  - "We use data analytics and predictive analytics to optimize routing." -> none ~0.6 (unless AI/ML explicitly stated)
+  - "AI could increase misinformation risks." -> risk ~0.8
+  - "AI is a long-term megatrend, being widely adopted within the industry; we are evaluating any risks associated with it." -> risk ~0.7 (no "adoption" tag, as no evidence of adoption by company)
+  - "We partner with Microsoft for AI tooling." -> vendor ~0.9, adoption ~0.6
+  - "We partnered with OpenAI to deliver AI systems for clients in 2024." -> vendor ~0.9, adoption ~0.8
+  - "Automation of customer service tasks improved our..." -> general_ambiguous ~0.2 (not necessarily AI)
+  - "Address: FT-AI 4810 Shangh'ai', is where the..." -> none ~0.9 (a false positive)
+  - "AI-generated misinformation has damaged our brand reputation." -> harm ~0.9
+
+  ## OUTPUT CONSTRAINTS
+  - mention_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide a confidence score for EVERY label in mention_types.
+  - Do NOT include confidence scores for labels not in mention_types.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
 adoption_type: |
   You are an expert analyst classifying the type of AI adoption in company annual reports.
 

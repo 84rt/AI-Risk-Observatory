@@ -69,7 +69,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--only-disagreements",
         action="store_true",
-        help="Only show chunks where human and LLM differ.",
+        help="Only show chunks where human and LLM mention_types differ.",
+    )
+    parser.add_argument(
+        "--include-subtype-disagreements",
+        action="store_true",
+        help="When used with --only-disagreements, also treat adoption/risk/vendor differences as disagreements.",
     )
     parser.add_argument(
         "--max-chunks",
@@ -315,10 +320,13 @@ def annotations_match(
     human: Optional[Dict[str, Any]],
     llm: Optional[Dict[str, Any]],
     llm_threshold: float,
+    include_subtypes: bool,
 ) -> bool:
     if not human or not llm:
         return False
-    fields = ["mention_types", "adoption_types", "risk_taxonomy", "vendor_tags"]
+    fields = ["mention_types"]
+    if include_subtypes:
+        fields.extend(["adoption_types", "risk_taxonomy", "vendor_tags"])
     for field in fields:
         human_set = set(normalize_list(human.get(field)))
         llm_set = set(filter_llm_labels(llm, field, llm_threshold))
@@ -587,7 +595,7 @@ def main() -> None:
             llm = llm_by_id.get(cid)
 
             if args.only_disagreements and annotations_match(
-                human, llm, args.llm_confidence_threshold
+                human, llm, args.llm_confidence_threshold, args.include_subtype_disagreements
             ):
                 skipped += 1
                 continue
