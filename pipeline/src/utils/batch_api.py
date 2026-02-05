@@ -106,9 +106,9 @@ class BatchClient:
 
         for chunk in chunks:
             system_prompt, user_prompt = self._get_prompt_for_chunk(chunk)
-            combined_text = f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}"
 
             config: dict[str, Any] = {
+                "system_instruction": system_prompt,
                 "temperature": temperature,
                 "response_mime_type": "application/json",
                 "response_schema": response_schema,
@@ -118,7 +118,7 @@ class BatchClient:
                 config["thinking_config"] = {"thinking_budget": thinking_budget}
 
             requests.append({
-                "contents": [{"parts": [{"text": combined_text}]}],
+                "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
                 "config": config,
             })
 

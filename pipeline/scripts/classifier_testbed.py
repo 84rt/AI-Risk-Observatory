@@ -55,12 +55,16 @@ print(f"Runs dir: {RUNS_DIR}")
 
 
 #%% FUNCTIONS (collapse this after running)
-def load_chunks(limit: int = 50) -> list[dict]:
-    """Load chunks from golden set."""
+def load_chunks(limit: int = 50, offset: int = 0) -> list[dict]:
+    """Load chunks from golden set, optionally skipping the first `offset` chunks."""
     chunks = []
+    skipped = 0
     with GOLDEN_SET.open() as f:
         for line in f:
             if line.strip():
+                if skipped < offset:
+                    skipped += 1
+                    continue
                 chunks.append(json.loads(line))
                 if len(chunks) >= limit:
                     break
@@ -336,67 +340,69 @@ else:
 
 
 #%% LOAD GOLDEN SET CHUNKS
-chunks = load_chunks(limit=50)
-print(f"Loaded {len(chunks)} chunks from golden set.")
+chunks = load_chunks(limit=100, offset=50)
+print(f"Loaded {len(chunks)} chunks from golden set (offset=50).")
 
-
-#%% CONFIG: Set run parameters here
-RUN_ID = "gemini-3-flash-prompt_v3-tes-1740-thinking-0"
+#%% SYNC CONFIG: Set run parameters
+RUN_ID = "gemini-3-flash-prompt_v3-1750-thinking-0"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0
 
 
-#%% RUN CLASSIFIER (or load from cache) - SYNC MODE
+#%% SYNC RUN: Classifier (or load from cache)
 cached = load_run(RUN_ID)
 if cached:
     print(f"Loaded {len(cached)} results from cache: {RUN_ID}")
-    results = cached
+    sync_results = cached
 else:
     print(f"Running classifier: {RUN_ID} with {MODEL_NAME}")
-    results = run_classifier(RUN_ID, chunks, MODEL_NAME, TEMPERATURE, THINKING_BUDGET)
+    sync_results = run_classifier(RUN_ID, chunks, MODEL_NAME, TEMPERATURE, THINKING_BUDGET)
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
-#%% BATCH: Initialize client
+
+#%% ############################ BATCH MODE ############################
+# BATCH: Initialize client
 from src.utils.batch_api import BatchClient
 batch = BatchClient(runs_dir=RUNS_DIR)
 
-
-#%% BATCH: Prepare and submit job
-BATCH_RUN_ID = "batch-gemini-3-flash-prompt_v3-1740"
+BATCH_RUN_ID = "batch-gemini-3-flash-v3-100chunks-offset50"
 BATCH_MODEL = "gemini-3-flash-preview"
 
 batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
+
+#%% BATCH: Submit job
 batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
 
-
 #%% BATCH: Check status (run this periodically)
+batch_job_name = "batches/6jc3woykqlbycnq1m2x38wf04qk4y96nmnu2"
 batch.check_status(batch_job_name)
-
+"""
+python3 scripts/watch_batch_status.py --run-id batch-gemini-3-flash-v3-100chunks-offset50
+"""
 
 #%% BATCH: List all recent jobs
 batch.list_jobs()
 
-
 #%% BATCH: Get results when done
 batch_results = batch.get_results(batch_job_name, chunks)
 if batch_results:
-    # Save to cache for analysis
     save_run(BATCH_RUN_ID, batch_results, {"model_name": BATCH_MODEL, "batch_mode": True})
-    results = batch_results  # Use batch results for analysis below
+
+#%% ############################ ANALYSIS ############################
+# Choose which results to analyze: sync_results or batch_results
+results = sync_results  # | sync_results | batch_results | 
+exclude_gen_ambig = True
 
 #%% REFRESH HUMAN LABELS FROM BASELINE (no LLM rerun)
 refresh_human_labels(results, chunks)
-
 show_summary(results)
-
 
 #%% SHOW FULL TABLE
 show_table(results)
 
 
 #%% SHOW DIFFERENCES ONLY
-exclude_gen_ambig = True
 show_table(results, diff_only=True, exclude_added_general_ambiguous=exclude_gen_ambig)
 
 #%% SHOW DIFF SUMMARY (actionable label deltas)
@@ -405,6 +411,4 @@ show_diff_summary(results, exclude_added_general_ambiguous=exclude_gen_ambig)
 show_details(results)
 
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
-show_details(results, indices=[44])
-
-# %%
+show_details(results, indices=[17])

@@ -685,20 +685,16 @@ class BaseClassifier(ABC):
                 thinking_budget=self.thinking_budget
             )
 
+        # Pass system prompt as proper system_instruction
+        if system_prompt:
+            config_kwargs["system_instruction"] = system_prompt
+
         config = types.GenerateContentConfig(**config_kwargs)
 
-        # Build contents with system instruction
-        contents = []
-        if system_prompt:
-            contents.append(types.Content(
-                role="user",
-                parts=[types.Part(text=f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}")]
-            ))
-        else:
-            contents.append(types.Content(
-                role="user",
-                parts=[types.Part(text=user_prompt)]
-            ))
+        contents = [types.Content(
+            role="user",
+            parts=[types.Part(text=user_prompt)]
+        )]
 
         response = self.gemini_client.models.generate_content(
             model=self.model_name,
