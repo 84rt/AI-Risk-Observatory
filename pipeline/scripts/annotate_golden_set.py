@@ -30,11 +30,11 @@ ADOPTION_TYPES = [
 ]
 
 RISK_TAXONOMY = [
-    ("strategic_market", "Strategic & Market (failure to adopt, displacement)"),
-    ("operational_technical", "Operational & Technical (failures, bias, reliability, errors)"),
+    ("strategic_competitive", "Strategic & Competitive (failure to adopt, displacement)"),
+    ("operational_technical", "Operational & Technical (failures, reliability, errors)"),
     ("cybersecurity", "Cybersecurity (AI attacks, breaches, vulnerabilities)"),
     ("workforce", "Workforce Impacts (jobs, skills, automation)"),
-    ("regulatory", "Regulatory & Compliance (liability, AI regs)"),
+    ("regulatory", "Regulatory & Compliance (privacy, IP, liability, AI regs)"),
     ("information_integrity", "Information Integrity (misinfo, deepfakes)"),
     ("reputational_ethical", "Reputational & Ethical (trust, ethics, rights)"),
     ("third_party_supply_chain", "Third-Party & Supply Chain (vendor reliance, misuse)"),

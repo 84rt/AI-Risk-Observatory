@@ -116,10 +116,10 @@ mention_type_v3: |
 
   ## RULES
   1. AI EXPLICITNESS GATE: If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision), assign the tag "none". Terms like "data analytics" or "digital tools" generally are NOT considered AI under our definition. The tag "none" is used when there is no AI mention, a false positive, or unrelated automation not clearly AI. Otherwise, use the following tags in a non-mutually exclusive manner: adoption (the current usage of AI technology by the company), risk (AI as a risk: risks that are directly coming from AI), harm (past harms that were caused by AI), vendor (any mention of a provider of AI technology), general_ambiguous (any statement about AI that does not fit into the other tags). Here are more details on each tag:
-    - adoption: must describe real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients. Generic statements about intent/strategy/roadmaps (adoption in the future) are NOT considered adoption. Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when it refers to specific initiatives underway (e.g., a pilot, trial, or program). Delivering AI systems directly or indirectly for clients does count as adoption; pure consulting/advice without deployment does NOT.
-    - risk: must directly attribute AI as the source of a risk or downside (i.e. strategic & market, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirecty way, these should be classified as risk from AI.
+    - adoption: must directly describe real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients. Generic statements about intent/strategy/roadmaps (adoption in the future) are NOT considered adoption. Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when it refers to specific initiatives underway (e.g., a pilot, trial, or program). Delivering AI systems directly or indirectly for clients does count as adoption; pure consulting/advice without deployment does NOT.
+    - risk: must directly attribute AI as the source of a risk or downside (i.e. strategic & competitive, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirecty way, these should be classified as risk from AI.
     - harm: must describe past harms that were caused by AI (misinformation, fraud, abuse, safety incidents).
-    - vendor: must explicitly name a third-party AI vendor/platform (i.e. Microsoft, Google, OpenAI, AWS, or internally developed).
+    - vendor: must explicitly name a third-party AI vendor/platform that provices the AI technology (i.e. Microsoft, Google, OpenAI, AWS, or explicitly developed in-house). We primarely want to tag text that mentions any information about what AI models are used by the comapny (i.e. GPT or Google Gemini).
     - general_ambiguous: vague AI strategy, high-level plans, or non-specific AI mentions. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_ambiguous. The tag general_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
   2. Assign confidence scores to each tag. Confidence scores always indicate how likely the label applies (including "none").
 
@@ -154,87 +154,101 @@ mention_type_v3: |
 adoption_type: |
   You are an expert analyst classifying the type of AI adoption in company annual reports.
 
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
   ## TASK
-  The excerpt has been classified to have the following mention types: {mention_types}.
-  Identify the AI adoption type(s) present. Categories are NOT mutually exclusive.
-  If the excerpt is vague, assign low confidences instead of inventing a category.
-  Include all adoption_confidences keys with numeric values (0.0-1.0).
+  The excerpt has already been classified with the following mention types: {mention_types}.
+  Classify the AI adoption type(s) present. Categories are NOT mutually exclusive.
+  Assign confidence scores (0.0-1.0) for ALL adoption types. Use 0.0 for types not present.
+  {reasoning_instruction}
 
-  ## CATEGORIES:
-  - non_llm: Traditional AI/ML, everythiing that is AI but not LLM or Agentic AI (i.e. computer vision, predictive analytics, fraud detection)
-  - llm: Large Language Models (GPT, ChatGPT, text generation, NLP)
-  - agentic: Autonomous/agentic AI systems (self-directed agents, or AI systems that perform autonomous that was previously done by humans)
+  ## CATEGORIES
+  - non_llm: Traditional AI/ML — everything that is AI but not LLM or Agentic AI (e.g., computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, robotic process automation with ML).
+  - llm: Large Language Models — GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarisation, code generation.
+  - agentic: Autonomous/agentic AI — self-directed AI agents that perform tasks with limited human intervention, AI systems replacing human decision-making workflows end-to-end.
+
+  ## RULES
+  1. A single excerpt can describe multiple adoption types (e.g., LLM + agentic).
+  2. If the excerpt is vague about which type, assign low confidences rather than guessing.
+  3. "AI-powered" or "AI tools" without further detail — assign low confidence to the most likely type based on context.
+  4. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
+  5. Generic "automation" without AI specificity should get very low confidence across all types.
+
+  ## SUBSTANTIVENESS
+  How tangible is the AI adoption disclosure?
+  - boilerplate: Pure jargon, no information content. Could appear in any company's report unchanged (e.g., "We leverage AI to drive innovation and improve operations.").
+  - contextual: Identifies a specific use case or domain but lacks concrete detail (e.g., "We use AI in our underwriting process." or "We deployed AI in our risk management.").
+  - substantive: Names systems, quantifies impact, or explains what/how/why with technical detail (e.g., "We deployed GPT-4 for document review, cutting processing time by 40%.").
 
   ## EXAMPLES
-  - "We deployed a GPT-based chatbot for HR." -> llm ~0.9
-  - "We use predictive analytics to detect fraud." -> non_llm ~0.9
-  - "We are rolling out AI agents to automate workflows." -> agentic ~0.9, llm ~0.4
-  - "In 2024, our AI platform fully automated customer service tasks." -> non_llm ~0.3, llm ~0.6, agentic ~0.8
+  - "We deployed a GPT-based chatbot for HR queries." → llm ~0.9
+  - "We use predictive analytics and machine learning to detect fraud." → non_llm ~0.9
+  - "We are rolling out AI agents to fully automate claims processing end-to-end." → agentic ~0.9, llm ~0.4
+  - "In 2024, our AI platform autonomously handled customer service with no human oversight." → agentic ~0.8, llm ~0.6
+  - "We integrated Microsoft Copilot across our organisation." → llm ~0.8
+  - "We use AI to improve operations." → assign low confidence to the most likely type based on context
+  - "Our computer vision system detects manufacturing defects on the production line." → non_llm ~0.9
+
+  ## OUTPUT CONSTRAINTS
+  - Include ALL three adoption_confidences keys (non_llm, llm, agentic) with numeric values 0.0-1.0.
+  - substantiveness must be one of: boilerplate, contextual, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year}
 
 risk: |
-  You are an expert analyst classifying the type of AI risks in company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-  Report Section: {report_section}
+  You are an expert analyst classifying AI-related risks mentioned in company annual reports.
 
   ## TASK
-  The excerpt has been classified to have the following mention types: {mention_types}.
-  Identify ALL applicable AI risk categories. Categories are NOT mutually exclusive.
-  If a risk spans multiple categories, include all that apply.
-  If the excerpt is too vague, use "none".
-  Remember that if a vague statments on risk that is not directly related to AI, should be classified as none and when you are uncertian assign lower confidence.
+  The excerpt has already been classified with the following mention types: {mention_types}.
+  Classify the AI risk(s) — risks that come from or are directly caused by AI — into the categories below. Categories are NOT mutually exclusive; if the excerpt contains multiple risks or a risk spanning multiple categories, include all that apply.
+  {reasoning_instruction}
+
+  ## CATEGORIES
+  - strategic_competitive: Failure to adopt AI, industry displacement, competitive disadvantage from AI disruption.
+  - operational_technical: AI model failures, reliability issues, system errors, hallucinations, accuracy problems.
+  - cybersecurity: AI-enabled cyberattacks, AI-related data breaches, adversarial attacks on AI systems.
+  - workforce_impacts: AI-driven job displacement, skills obsolescence, shadow AI usage by employees.
+  - regulatory_compliance: AI Act compliance, GDPR/privacy implications of AI, IP/copyright risks, data governance, legal liability from AI decisions, regulatory uncertainty.
+  - information_integrity: AI-generated misinformation, deepfakes, content authenticity issues.
+  - reputational_ethical: Public trust erosion from AI, ethical concerns, algorithmic bias, human rights implications.
+  - third_party_supply_chain: Over-reliance on AI vendors, concentration risk, downstream misuse of AI.
+  - environmental_impact: Energy consumption from AI training/inference, carbon footprint, sustainability concerns.
+  - national_security: AI in critical infrastructure, defence applications, geopolitical AI risks, export controls.
+  - none: The excerpt is too vague to assign a specific risk category, or the risk is not clearly attributable to AI.
+
+  ## RULES
+  1. AI must be explicitly or clearly implicitly attributed as the source of the risk. A risk section that mentions both AI and a risk in separate sentences needs a clear causal link to qualify.
+  2. Generic risk language without an AI connection is NOT an AI risk — assign "none".
+  3. If the excerpt mentions AI risk only in vague/high-level terms (e.g., "AI poses emerging risks"), assign "none" with moderate confidence, or assign a plausible category with low confidence.
+  4. Downstream or indirect risks from AI technologies still count (e.g., "rapid AI adoption creates skills gaps" → workforce_impacts).
+  5. Assign confidence scores to reflect how explicitly the risk category is described, not just whether AI is mentioned.
+
+  ## SUBSTANTIVENESS
+  How tangible is the AI risk disclosure?
+  - boilerplate: Generic risk language, no information content. Could appear in any company's report unchanged (e.g., "AI poses risks to our business.").
+  - contextual: Identifies a specific risk area but no mitigation detail or tangible commitments (e.g., "AI regulation may affect our compliance obligations.").
+  - substantive: Describes specific risk mechanisms AND tangible mitigation actions or commitments (e.g., "We allocated EUR 5M to reclassify 3 high-risk AI systems under the EU AI Act by 2025.").
 
   ## EXAMPLES
-  - "Increasing risk from new technologies such as Artificial Intelligence (AI) is a major concern." -> none ~0.8
-  - "Artificial Intelligence (AI) is posing increasing cyberse∫curity concerns." -> cybersecurity ~0.9
-  - "[In the Risk Section] Digital threats and cybersecurity risks are evolving rapidly." -> none ~0.8 (no AI mention)
-  - "We might fail to adopt AI technologies in a timely manner." -> strategic_market ~0.9
-  - "[In the Risk Section] The increasing regulation, especially the AI Act, are difficult to comply with and might result in legal liability." -> regulatory_compliance ~0.9
-  - "Deepfakes and GenAI can cause misinformation and damage to our reputation." -> reputational_ethical ~0.9, information_integrity ~0.9
-  - "Continued geopolitical tensions require extra focus on reputational risks associated with our global operations. Rapid advances in AI bring stakeholder scrutiny on topics like data ethics, reskilling and supply chain risks." -> workforce_impacts ~0.8, reputational_ethical ~0.9, third_party_supply_chain ~0.2
+  - "Increasing risk from new technologies such as Artificial Intelligence (AI) is a major concern." → none ~0.7 (too vague to assign a specific category)
+  - "Artificial Intelligence (AI) is posing increasing cybersecurity concerns." → cybersecurity ~0.9
+  - "[In the Risk Section] Digital threats and cybersecurity risks are evolving rapidly." → none ~0.9 (no AI mention)
+  - "We might fail to adopt AI technologies in a timely manner, putting us at a competitive disadvantage." → strategic_competitive ~0.9
+  - "The increasing regulation, especially the EU AI Act, may result in significant compliance costs and legal liability." → regulatory_compliance ~0.9
+  - "Deepfakes and GenAI can cause misinformation and damage to our reputation." → information_integrity ~0.9, reputational_ethical ~0.8
+  - "Rapid advances in AI bring stakeholder scrutiny on data ethics, reskilling and supply chain risks." → workforce_impacts ~0.7, reputational_ethical ~0.7, third_party_supply_chain ~0.3
+  - "Our AI models could produce inaccurate or unreliable outputs, leading to poor decisions." → operational_technical ~0.9
 
-vendor: |
-  You are an expert analyst extracting AI vendor mentions from company annual reports.
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it should be the only label.
+  - Provide a confidence score for EVERY label in risk_types.
+  - substantiveness must be one of: boilerplate, contextual, substantive.
 
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
-
-  ## TASK
-  Identify AI vendors or providers explicitly mentioned in the excerpt.
-  Use only the vendor tags listed in the schema.
-  If a named vendor is not in the list, use "other" and set other_vendor.
-
-  ## VENDOR TAGS (DEFINITIONS)
-  - google
-  - microsoft
-  - openai
-  - internal
-  - undisclosed
-  - other (provide name in other_vendor)
-
-  ## EXAMPLES
-  - "We partner with Microsoft for AI tooling." -> microsoft ~0.9
-  - "We use a third-party AI provider." -> undisclosed ~0.7
-  - "Our in-house AI models..." -> internal ~0.8
-  - "We use Anthropic models." -> other ~0.8, other_vendor: "Anthropic"
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
 
 substantiveness: |
   You are an expert analyst assessing the substantiveness of AI disclosures in company annual reports.
-
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
 
   ## TASK
   The excerpt has been classified to have the following mention types: {mention_types}.
@@ -246,18 +260,48 @@ substantiveness: |
   - "AI may pose risks to our industry." -> contextual ~0.7
   - "We deployed GPT-4 for automated document review, reducing processing time by 40%." -> substantive ~0.95
 
-harms: |
-  You are an expert analyst detecting AI-related harms in company annual reports.
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
 
-  ## CONTEXT
-  Company: {firm_name}
-  Sector: {sector}
-  Report Year: {report_year}
+vendor: |
+  You are an expert analyst extracting AI vendor mentions from company annual reports.
 
   ## TASK
-  Determine whether the excerpt mentions AI-related harms - past events that had negative consequences for the company (misinformation, fraud, cyber abuse, safety incidents, discrimination, etc.). 
+  The excerpt has already been classified with the following mention types: {mention_types}.
+  Identify which AI vendors/providers are mentioned. Tags are NOT mutually exclusive.
+  Assign confidence scores (0.0-1.0) for ALL vendor tags. Use 0.0 for vendors not mentioned.
+  If no vendor can be identified, set all confidences to 0.0.
+  {reasoning_instruction}
+
+  ## VENDOR TAGS
+  - google: Google, Vertex AI, Gemini, DeepMind, Google Cloud AI
+  - microsoft: Microsoft Azure AI, Copilot, Azure OpenAI Service (note: "Microsoft Teams" or "Microsoft Office" alone is NOT an AI vendor mention)
+  - openai: OpenAI, GPT, ChatGPT, DALL-E
+  - anthropic: Anthropic, Claude
+  - meta: Meta AI, Llama
+  - internal: Explicitly stated in-house / proprietary AI development
+  - undisclosed: Third-party AI vendor referenced but not named
+  - other: Named AI vendor not in the above list (specify in other_vendor field)
+
+  ## RULES
+  1. Only tag vendors that provide AI technology to the company — not mere name-drops in board bios, industry commentary, or conference attendance.
+  2. A vendor must be linked to actual usage, partnership, licensing, or procurement of AI capabilities.
+  3. Microsoft/Azure mentions only count if tied to AI services (Azure AI, Copilot, Azure OpenAI), not general cloud/office products.
+  4. If a product is clearly AI-powered but the vendor is unnamed, use "undisclosed".
+  5. If the company describes building AI internally (e.g., "our proprietary ML platform"), use "internal".
 
   ## EXAMPLES
-  - "Deepfakes have been used to defraud our customers." -> harms_mentioned: true, confidence ~0.95
-  - "We are monitoring AI-related risks." -> harms_mentioned: false, confidence ~0.8
-  - "AI-generated misinformation has damaged our brand reputation." -> harms_mentioned: true, confidence ~0.9
+  - "We deployed OpenAI's GPT-4 for document review." → openai ~0.95
+  - "We partnered with Microsoft to integrate Copilot across the organisation." → microsoft ~0.9
+  - "Our team built a proprietary ML platform in-house." → internal ~0.9
+  - "We use a third-party AI solution for fraud detection." → undisclosed ~0.8
+  - "Our CEO spoke at a Google AI conference." → all 0.0 (name-drop, not vendor usage)
+  - "We use Microsoft 365 for productivity." → all 0.0 (not an AI vendor mention)
+  - "We integrated Claude into our legal review workflow." → anthropic ~0.9
+
+  ## OUTPUT CONSTRAINTS
+  - Include ALL vendor_confidences keys with numeric values 0.0-1.0.
+  - Set other_vendor only if the "other" tag has non-zero confidence.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year}

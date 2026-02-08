@@ -48,6 +48,17 @@ class BatchClient:
         self.client = genai.Client(api_key=self.api_key)
         self.runs_dir = runs_dir
 
+        self._user_template = (
+            "## CHUNK_ID\n"
+            "{chunk_id}\n\n"
+            "## NOTE\n"
+            "Include this CHUNK_ID in the JSON output as \"chunk_id\".\n\n"
+            "## EXCERPT\n"
+            "\"\"\"\n"
+            "{text}\n"
+            "\"\"\"\n"
+        )
+
     def _get_prompt_for_chunk(self, chunk: dict) -> tuple[str, str]:
         """Build system and user prompts for a chunk (mirrors LLMClassifierV2)."""
         from src.utils.prompt_loader import get_prompt_messages
@@ -57,6 +68,7 @@ class BatchClient:
         if len(text) > max_chars:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
+        chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", "unknown"))
         firm_name = chunk.get("company_name", "Unknown Company")
         report_year = chunk.get("report_year", "Unknown")
         sector = "Unknown"
@@ -69,6 +81,8 @@ class BatchClient:
         return get_prompt_messages(
             "mention_type_v3",
             reasoning_policy="short",
+            user_template=self._user_template,
+            chunk_id=chunk_id,
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,
@@ -266,17 +280,49 @@ class BatchClient:
         if len(responses) != len(chunks):
             print(f"WARNING: {len(responses)} responses != {len(chunks)} chunks")
 
+        chunk_by_id: dict[str, dict] = {}
+        for i, chunk in enumerate(chunks):
+            cid = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
+            if cid:
+                chunk_by_id[str(cid)] = chunk
+
         results = []
-        for i, (resp, chunk) in enumerate(zip(responses, chunks)):
-            chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
+        seen_chunk_ids: set[str] = set()
+        response_chunk_id_hits = 0
+        for i, resp in enumerate(responses):
+            fallback_chunk = chunks[i] if i < len(chunks) else {}
+            fallback_chunk_id = fallback_chunk.get(
+                "chunk_id",
+                fallback_chunk.get("annotation_id", f"unknown_{i}"),
+            )
 
             if resp.error:
-                results.append(self._make_error_result(chunk, chunk_id, str(resp.error)))
+                results.append(self._make_error_result(fallback_chunk, fallback_chunk_id, str(resp.error)))
                 continue
 
             try:
                 response_text = resp.response.text
                 parsed = json.loads(response_text)
+                parsed_chunk_id = parsed.get("chunk_id")
+
+                matched_by = "index_fallback"
+                if parsed_chunk_id and str(parsed_chunk_id) in chunk_by_id:
+                    chunk_id = str(parsed_chunk_id)
+                    chunk = chunk_by_id[chunk_id]
+                    matched_by = "response_chunk_id"
+                    response_chunk_id_hits += 1
+                    if chunk_id in seen_chunk_ids:
+                        print(f"WARNING: duplicate chunk_id in responses: {chunk_id}; using fallback index.")
+                        chunk = fallback_chunk
+                        chunk_id = fallback_chunk_id
+                        matched_by = "index_fallback"
+                else:
+                    if parsed_chunk_id:
+                        print(f"WARNING: unknown chunk_id in response: {parsed_chunk_id}; using fallback index.")
+                    chunk = fallback_chunk
+                    chunk_id = fallback_chunk_id
+
+                seen_chunk_ids.add(chunk_id)
 
                 llm_types = [str(mt) for mt in parsed.get("mention_types", [])]
 
@@ -295,10 +341,17 @@ class BatchClient:
                     "confidence": confidence,
                     "reasoning": parsed.get("reasoning", ""),
                     "chunk_text": chunk["chunk_text"],
+                    "response_chunk_id": parsed_chunk_id,
+                    "matched_by": matched_by,
+                    "response_index": i,
                 })
 
             except (json.JSONDecodeError, AttributeError, KeyError) as e:
-                results.append(self._make_error_result(chunk, chunk_id, f"Parse error: {e}"))
+                results.append(self._make_error_result(fallback_chunk, fallback_chunk_id, f"Parse error: {e}"))
+
+        if responses:
+            hit_rate = response_chunk_id_hits / len(responses) * 100
+            print(f"Response chunk_id hit rate: {response_chunk_id_hits}/{len(responses)} ({hit_rate:.1f}%)")
 
         return results
 

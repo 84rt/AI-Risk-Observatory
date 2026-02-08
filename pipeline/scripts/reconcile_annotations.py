@@ -14,6 +14,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from annotate_golden_set import (
@@ -97,6 +98,11 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.0,
         help="Ignore LLM labels below this confidence when comparing/displaying.",
+    )
+    parser.add_argument(
+        "--show-llm-reasoning",
+        action="store_true",
+        help="Display LLM reasoning text when available.",
     )
     return parser.parse_args()
 
@@ -255,6 +261,13 @@ def display_chunk(chunk: Dict[str, Any]) -> None:
     print("=" * 80 + "\n")
 
 
+def display_chunk_header(index: int, total: int, diff_label: Optional[str]) -> None:
+    progress = f"[{index}/{total}]"
+    print(colorize(f"{progress}", ANSI_BOLD))
+    if diff_label:
+        print(colorize(f"Mismatch: {diff_label}", ANSI_HIGHLIGHT + ANSI_BOLD))
+
+
 def fmt_list(items: List[str]) -> str:
     if not items:
         return "(none)"
@@ -267,10 +280,30 @@ def fmt_conf(conf: Dict[str, float]) -> str:
     return ", ".join(f"{k}={v:.2f}" for k, v in sorted(conf.items()))
 
 
+def extract_llm_reasoning(record: Optional[Dict[str, Any]]) -> str:
+    if not record:
+        return ""
+    details = record.get("llm_details") or {}
+    for key in ("mention_reasoning", "reasoning", "rationale"):
+        value = details.get(key)
+        if value:
+            return str(value).strip()
+    for key in ("reasoning", "rationale"):
+        value = record.get(key)
+        if value:
+            return str(value).strip()
+    return ""
+
+
+def indent_lines(text: str, prefix: str = "    ") -> str:
+    return "\n".join(f"{prefix}{line}" for line in text.splitlines())
+
+
 def print_annotations(
     human: Optional[Dict[str, Any]],
     llm: Optional[Dict[str, Any]],
     llm_threshold: float,
+    show_llm_reasoning: bool,
 ) -> None:
     h = human or {}
     l = llm or {}
@@ -314,6 +347,93 @@ def print_annotations(
     print(colorize(f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}", ANSI_CYAN))
     print(colorize(f"  LLM   vendor_tags: {fmt_list(l_vendor)}", ANSI_CYAN))
     print()
+
+
+def display_llm_reasoning(llm: Optional[Dict[str, Any]], show: bool) -> None:
+    if not show or not llm:
+        return
+    reasoning = extract_llm_reasoning(llm)
+    if not reasoning:
+        return
+    print(colorize("LLM reasoning:", ANSI_HIGHLIGHT + ANSI_BOLD))
+    print(colorize(indent_lines(reasoning, "  "), ANSI_HIGHLIGHT))
+
+
+def build_diff_label(
+    human: Optional[Dict[str, Any]],
+    llm: Optional[Dict[str, Any]],
+    llm_threshold: float,
+) -> Optional[str]:
+    if not human or not llm:
+        return None
+    h_set = set(normalize_list(human.get("mention_types")))
+    l_set = set(filter_llm_labels(llm, "mention_types", llm_threshold))
+    if h_set == l_set:
+        return None
+    if len(h_set) == 1 and len(l_set) == 1:
+        return f"{next(iter(sorted(h_set)))} -> {next(iter(sorted(l_set)))}"
+    added = sorted(l_set - h_set)
+    removed = sorted(h_set - l_set)
+    parts = []
+    if added:
+        parts.append(f"Added {', '.join(added)}")
+    if removed:
+        parts.append(f"Removed {', '.join(removed)}")
+    return "; ".join(parts) if parts else None
+
+
+def summarize_disagreements(
+    ids: List[str],
+    human_by_id: Dict[str, Dict[str, Any]],
+    llm_by_id: Dict[str, Dict[str, Any]],
+    llm_threshold: float,
+) -> Dict[str, Counter]:
+    added_counts: Counter = Counter()
+    removed_counts: Counter = Counter()
+    transition_counts: Counter = Counter()
+
+    for cid in ids:
+        human = human_by_id.get(cid)
+        llm = llm_by_id.get(cid)
+        if not human or not llm:
+            continue
+        h_set = set(normalize_list(human.get("mention_types")))
+        l_set = set(filter_llm_labels(llm, "mention_types", llm_threshold))
+        if h_set == l_set:
+            continue
+        added = l_set - h_set
+        removed = h_set - l_set
+        for label in added:
+            added_counts[label] += 1
+        for label in removed:
+            removed_counts[label] += 1
+        if len(h_set) == 1 and len(l_set) == 1:
+            transition_counts[f"{next(iter(h_set))} -> {next(iter(l_set))}"] += 1
+
+    return {
+        "added": added_counts,
+        "removed": removed_counts,
+        "transitions": transition_counts,
+    }
+
+
+def print_diff_summary(summary: Dict[str, Counter]) -> None:
+    def print_block(title: str, counter: Counter, prefix: str = "") -> None:
+        print(title)
+        print("-" * len(title))
+        if not counter:
+            print("(none)\n")
+            return
+        for label, count in counter.most_common():
+            print(f"{prefix}{label} x{count}")
+        print()
+
+    print("\n" + "=" * 60)
+    print("DIFF SUMMARY (mention_types)")
+    print("=" * 60)
+    print_block("Added Labels", summary["added"], prefix="Added ")
+    print_block("Removed Labels", summary["removed"], prefix="Removed ")
+    print_block("Single-Label Transitions", summary["transitions"], prefix="")
 
 
 def annotations_match(
@@ -581,32 +701,58 @@ def main() -> None:
 
     reviewed = 0
     skipped = 0
-    shown = 0
 
     try:
+        review_ids: List[str] = []
         for cid in sorted_ids:
-            if args.max_chunks and shown >= args.max_chunks:
+            if args.max_chunks and len(review_ids) >= args.max_chunks:
                 break
             if cid in reconciled_ids:
                 skipped += 1
                 continue
-
             human = human_by_id.get(cid)
             llm = llm_by_id.get(cid)
-
             if args.only_disagreements and annotations_match(
                 human, llm, args.llm_confidence_threshold, args.include_subtype_disagreements
             ):
                 skipped += 1
                 continue
+            if not (human or llm):
+                skipped += 1
+                continue
+            review_ids.append(cid)
 
+        if args.only_disagreements and review_ids:
+            summary = summarize_disagreements(
+                review_ids,
+                human_by_id,
+                llm_by_id,
+                args.llm_confidence_threshold,
+            )
+            print_diff_summary(summary)
+
+        total = len(review_ids)
+        for idx, cid in enumerate(review_ids, start=1):
+            human = human_by_id.get(cid)
+            llm = llm_by_id.get(cid)
             chunk = human or llm
             if not chunk:
                 skipped += 1
                 continue
 
+            display_chunk_header(
+                idx,
+                total,
+                build_diff_label(human, llm, args.llm_confidence_threshold),
+            )
+            display_llm_reasoning(llm, args.show_llm_reasoning)
             display_chunk(chunk)
-            print_annotations(human, llm, args.llm_confidence_threshold)
+            print_annotations(
+                human,
+                llm,
+                args.llm_confidence_threshold,
+                args.show_llm_reasoning,
+            )
 
             prompt = "Select: 1=human 2=llm 3=custom s=skip q=quit\n> "
             choice = input(colorize(prompt, ANSI_HIGHLIGHT)).strip().lower()
@@ -648,7 +794,6 @@ def main() -> None:
             append_jsonl(output_path, record)
             reconciled_ids.add(cid)
             reviewed += 1
-            shown += 1
 
             progress = {
                 "run_id": run_id,

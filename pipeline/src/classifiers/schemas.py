@@ -89,6 +89,10 @@ class MentionTypeResponse(BaseModel):
 class MentionTypeResponseV2(BaseModel):
     """Stricter response schema for mention type classification."""
 
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
     reasoning: Optional[str] = Field(
         default=None,
         description="Brief explanation of classification rationale.",
@@ -138,6 +142,24 @@ class MentionTypeResponseV2(BaseModel):
 
 
 # =============================================================================
+# Substantiveness (shared enum, used by multiple response models)
+# =============================================================================
+
+
+class SubstantivenessLevel(str, Enum):
+    """How tangible/concrete an AI disclosure is.
+
+    boilerplate:  Pure jargon, no information content. Could appear in any report unchanged.
+    moderate:     Identifies a specific area or application but lacks concrete details.
+    substantive:  Contains specifics: named systems, quantified impact, or tangible commitments.
+    """
+
+    boilerplate = "boilerplate"
+    moderate = "moderate"
+    substantive = "substantive"
+
+
+# =============================================================================
 # Adoption Type Classifier
 # =============================================================================
 
@@ -176,6 +198,14 @@ class AdoptionTypeResponse(BaseModel):
             "0.0-0.2=unclear/generic, 0.3-0.6=implied/vague, 0.7-1.0=explicit."
         )
     )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI adoption disclosure? "
+            "'boilerplate': generic phrasing with no information content (e.g., 'We leverage AI to drive innovation'). "
+            "'moderate': identifies a specific use case or domain but lacks detail (e.g., 'We use AI in our underwriting process'). "
+            "'substantive': names systems, quantifies impact, or explains what/how/why (e.g., 'We deployed GPT-4 for document review, cutting processing time by 40%')."
+        )
+    )
     reasoning: Optional[str] = Field(
         default=None,
         description="Brief explanation of classification rationale.",
@@ -190,7 +220,7 @@ class AdoptionTypeResponse(BaseModel):
 class RiskType(str, Enum):
     """AI risk categories taxonomy."""
 
-    strategic_market = "strategic_market"
+    strategic_competitive = "strategic_competitive"
     operational_technical = "operational_technical"
     cybersecurity = "cybersecurity"
     workforce_impacts = "workforce_impacts"
@@ -206,13 +236,13 @@ class RiskType(str, Enum):
 class RiskConfidenceScores(BaseModel):
     """Confidence scores for each risk type."""
 
-    strategic_market: Optional[float] = Field(
+    strategic_competitive: Optional[float] = Field(
         default=None,
-        description="Strategic/market risk confidence (0.0-1.0): failure to adopt, competitive disadvantage",
+        description="Strategic/competitive risk confidence (0.0-1.0): failure to adopt, competitive disadvantage",
     )
     operational_technical: Optional[float] = Field(
         default=None,
-        description="Operational/technical risk confidence (0.0-1.0): model failures, bias, reliability",
+        description="Operational/technical risk confidence (0.0-1.0): model failures, reliability",
     )
     cybersecurity: Optional[float] = Field(
         default=None,
@@ -224,7 +254,7 @@ class RiskConfidenceScores(BaseModel):
     )
     regulatory_compliance: Optional[float] = Field(
         default=None,
-        description="Regulatory/compliance risk confidence (0.0-1.0): AI Act, GDPR, legal liability",
+        description="Regulatory/compliance risk confidence (0.0-1.0): AI Act, privacy, IP/copyright, legal liability",
     )
     information_integrity: Optional[float] = Field(
         default=None,
@@ -265,6 +295,14 @@ class RiskResponse(BaseModel):
         description=(
             "Confidence per detected risk type (0.0-1.0). "
             "0.0=no evidence, 0.2=implied, 0.5=plausible, 0.8=explicit, 0.95=unambiguous."
+        )
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI risk disclosure? "
+            "'boilerplate': generic risk language with no information content (e.g., 'AI poses risks to our business'). "
+            "'moderate': identifies a specific risk area but no mitigation or detail (e.g., 'AI regulation may affect our compliance obligations'). "
+            "'substantive': describes specific risk mechanisms and tangible mitigation actions or commitments (e.g., 'We allocated EUR 5M to reclassify 3 high-risk AI systems under the EU AI Act by 2025')."
         )
     )
     reasoning: Optional[str] = Field(
@@ -349,28 +387,20 @@ class VendorResponse(BaseModel):
 # =============================================================================
 
 
-class SubstantivenessLevel(str, Enum):
-    """Levels of substantiveness in AI disclosures."""
-
-    boilerplate = "boilerplate"
-    contextual = "contextual"
-    substantive = "substantive"
-
-
 class SubstantivenessScores(BaseModel):
     """Confidence scores for each substantiveness level."""
 
     boilerplate: Optional[float] = Field(
         default=None,
-        description="Generic legal phrasing confidence (0.0-1.0)",
+        description="Generic jargon, no information content (0.0-1.0)",
     )
-    contextual: Optional[float] = Field(
+    moderate: Optional[float] = Field(
         default=None,
-        description="Sector-relevant but non-specific confidence (0.0-1.0)",
+        description="Identifies area/application but lacks concrete detail (0.0-1.0)",
     )
     substantive: Optional[float] = Field(
         default=None,
-        description="Named systems, quantified impact confidence (0.0-1.0)",
+        description="Named systems, quantified impact, tangible commitments (0.0-1.0)",
     )
 
 

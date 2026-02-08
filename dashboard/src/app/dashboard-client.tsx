@@ -66,7 +66,7 @@ const riskColors: Record<string, string> = {
   reputational_ethical: '#14b8a6',
   information_integrity: '#0ea5e9',
   third_party_supply_chain: '#22c55e',
-  strategic_market: '#84cc16',
+  strategic_competitive: '#84cc16',
   workforce: '#0f766e',
   environmental: '#10b981',
 };

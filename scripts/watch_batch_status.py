@@ -24,6 +24,20 @@ def colorize(text: str, color: str) -> str:
     return f"{color}{text}{ANSI_RESET}"
 
 
+def format_timedelta(seconds: int) -> str:
+    if seconds < 0:
+        seconds = 0
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or hours:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s")
+    return " ".join(parts)
+
+
 def load_env_local(repo_root: Path) -> None:
     env_path = repo_root / ".env.local"
     if not env_path.exists():
@@ -53,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--interval-seconds",
         type=int,
-        default=60,
+        default=120,
         help="Polling interval in seconds",
     )
     return parser.parse_args()
@@ -106,6 +120,8 @@ def main() -> None:
 
     job_name = resolve_job_name(args)
     client = BatchClient(runs_dir=args.runs_dir)
+    started_at = datetime.now()
+    print(f"Started: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
 
     while True:
         status = client.check_status(job_name)
@@ -115,10 +131,14 @@ def main() -> None:
         if state == "JOB_STATE_SUCCEEDED":
             msg = colorize("✅ ready for download", ANSI_GREEN)
             print(f"[{timestamp}] {msg}", flush=True)
+            elapsed = int((datetime.now() - started_at).total_seconds())
+            print(f"Elapsed: {format_timedelta(elapsed)}", flush=True)
             break
         if state in ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED"):
             msg = colorize(f"❌ {state.lower()}", ANSI_RED)
             print(f"[{timestamp}] {msg}", flush=True)
+            elapsed = int((datetime.now() - started_at).total_seconds())
+            print(f"Elapsed: {format_timedelta(elapsed)}", flush=True)
             break
         if state in ("JOB_STATE_PENDING", "JOB_STATE_RUNNING"):
             msg = colorize("⏳ pending", ANSI_YELLOW)

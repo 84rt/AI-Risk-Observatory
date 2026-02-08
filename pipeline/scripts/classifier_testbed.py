@@ -340,17 +340,17 @@ else:
 
 
 #%% LOAD GOLDEN SET CHUNKS
-chunks = load_chunks(limit=100, offset=50)
-print(f"Loaded {len(chunks)} chunks from golden set (offset=50).")
+chunks = load_chunks(limit=324, offset=150)
+print(f"Loaded {len(chunks)} chunks from golden set (offset=150).")
 
 #%% SYNC CONFIG: Set run parameters
-RUN_ID = "gemini-3-flash-prompt_v3-1750-thinking-0"
+RUN_ID = "gemini-3-flash-v3-324chunks-offset150"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0
 
 
-#%% SYNC RUN: Classifier (or load from cache)
+#%% RUN SYNC: Classifier (or load from cache)
 cached = load_run(RUN_ID)
 if cached:
     print(f"Loaded {len(cached)} results from cache: {RUN_ID}")
@@ -366,7 +366,7 @@ else:
 from src.utils.batch_api import BatchClient
 batch = BatchClient(runs_dir=RUNS_DIR)
 
-BATCH_RUN_ID = "batch-gemini-3-flash-v3-100chunks-offset50"
+BATCH_RUN_ID = "batch-gemini-3-flash-v3-324chunks-offset150-new"
 BATCH_MODEL = "gemini-3-flash-preview"
 
 batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
@@ -375,10 +375,11 @@ batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinkin
 batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
 
 #%% BATCH: Check status (run this periodically)
-batch_job_name = "batches/6jc3woykqlbycnq1m2x38wf04qk4y96nmnu2"
+batch_job_name= "batches/2j0ufhrtjqml6fubzlb6u1ifur1us0qg462c"
 batch.check_status(batch_job_name)
 """
-python3 scripts/watch_batch_status.py --run-id batch-gemini-3-flash-v3-100chunks-offset50
+python3 scripts/watch_batch_status.py --run-id 
+# batch_job_name = ""
 """
 
 #%% BATCH: List all recent jobs
@@ -391,8 +392,8 @@ if batch_results:
 
 #%% ############################ ANALYSIS ############################
 # Choose which results to analyze: sync_results or batch_results
-results = sync_results  # | sync_results | batch_results | 
-exclude_gen_ambig = True
+results = batch_results  # | sync_results | batch_results | 
+exclude_gen_ambig = False
 
 #%% REFRESH HUMAN LABELS FROM BASELINE (no LLM rerun)
 refresh_human_labels(results, chunks)
@@ -412,3 +413,105 @@ show_details(results)
 
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
 show_details(results, indices=[17])
+
+#############################################################################
+"""
+
+  1) Export
+
+  python3 pipeline/scripts/export_testbed_run_for_reconcile.py \
+    --testbed-run data/testbed_runs/batch-gemini-3-flash-v3-324chunks-offset150.jsonl \
+    --human data/golden_set/human_reconciled/annotations.jsonl \
+    --output-dir data/golden_set/llm/batch-gemini-3-flash-v3-324chunks-offset150 \
+    --confidence-mode uniform
+
+  2) Reconcile (mention-type disagreements only)
+
+  python3 pipeline/scripts/reconcile_annotations.py \
+    --human data/golden_set/human_reconciled/annotations.jsonl \
+    --llm data/golden_set/llm/batch-gemini-3-flash-v3-324chunks-offset150/annotations.jsonl \
+    --output-dir data/golden_set/reconciled/batch-gemini-3-flash-v3-324chunks-offset150 \
+    --only-disagreements \
+    --show-llm-reasoning \
+    --max-chunks 324 \
+    --resume
+
+  3) Merge into baseline
+
+  python3 pipeline/scripts/merge_reconciled_golden_set.py \
+    --human data/golden_set/human_reconciled/annotations.jsonl \
+    --reconciled data/golden_set/reconciled/batch-gemini-3-flash-v3-324chunks-offset150/annotations.jsonl \
+    --output data/golden_set/human_reconciled/annotations.jsonl
+
+"""
+#%%
+#%% ############################ SANITY CHECKS ############################
+def check_run_alignment(run_id: str, limit: int, offset: int) -> None:
+    """Verify run chunk_id order matches the golden-set slice used to submit the batch."""
+    run_path = get_run_path(run_id)
+    if not run_path.exists():
+        print(f"Run file not found: {run_path}")
+        return
+
+    run = [json.loads(l) for l in run_path.read_text().splitlines() if l.strip()]
+    chunks = load_chunks(limit=limit, offset=offset)
+
+    print(f"run_len={len(run)} chunks_len={len(chunks)}")
+    mismatch = None
+    for i, (r, c) in enumerate(zip(run, chunks)):
+        if r.get("chunk_id") != c.get("chunk_id"):
+            mismatch = (i, r.get("chunk_id"), c.get("chunk_id"))
+            break
+
+    if mismatch:
+        idx, run_id_at, chunk_id_at = mismatch
+        print(f"FIRST MISMATCH @ index {idx}")
+        print(f"  run chunk_id:   {run_id_at}")
+        print(f"  slice chunk_id: {chunk_id_at}")
+    else:
+        print("Order check: OK")
+
+
+def check_run_text_alignment(run_id: str) -> None:
+    """Verify chunk_text in run file matches the golden set by chunk_id."""
+    run_path = get_run_path(run_id)
+    if not run_path.exists():
+        print(f"Run file not found: {run_path}")
+        return
+
+    human_by_id = {
+        r["chunk_id"]: r
+        for r in map(json.loads, GOLDEN_SET.read_text().splitlines())
+        if r.get("chunk_id")
+    }
+    run = [json.loads(l) for l in run_path.read_text().splitlines() if l.strip()]
+
+    mismatches = []
+    for r in run:
+        h = human_by_id.get(r.get("chunk_id"))
+        if not h:
+            continue
+        if (r.get("chunk_text") or "").strip() != (h.get("chunk_text") or "").strip():
+            mismatches.append(r.get("chunk_id"))
+
+    print(f"text mismatches: {len(mismatches)}")
+    if mismatches:
+        print(f"sample: {mismatches[:5]}")
+
+
+def check_run_errors(run_id: str) -> None:
+    """Count parse/error entries in a run file."""
+    run_path = get_run_path(run_id)
+    if not run_path.exists():
+        print(f"Run file not found: {run_path}")
+        return
+
+    run = [json.loads(l) for l in run_path.read_text().splitlines() if l.strip()]
+    err = sum(1 for r in run if r.get("error"))
+    print(f"errors: {err}")
+
+
+#%% SANITY CHECKS
+# check_run_alignment("batch-gemini-3-flash-v3-324chunks-offset150", limit=324, offset=150)
+# check_run_text_alignment("batch-gemini-3-flash-v3-324chunks-offset150")
+check_run_errors("batch-gemini-3-flash-v3-324chunks-offset150")

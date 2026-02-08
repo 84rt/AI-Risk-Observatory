@@ -142,7 +142,7 @@ const riskLabels = [
   'reputational_ethical',
   'information_integrity',
   'third_party_supply_chain',
-  'strategic_market',
+  'strategic_competitive',
   'workforce',
   'environmental',
 ];

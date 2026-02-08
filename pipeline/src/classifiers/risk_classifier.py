@@ -14,13 +14,13 @@ from ..utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 # Risk categories taxonomy (for reference and validation)
 RISK_CATEGORIES = {
-    "strategic_market": {
-        "name": "Strategic & Market Risk",
-        "description": "Failure to adopt, market displacement, competitive disadvantage",
+    "strategic_competitive": {
+        "name": "Strategic & Competitive Risk",
+        "description": "Failure to adopt, industry displacement, competitive disadvantage",
     },
     "operational_technical": {
         "name": "Operational & Technical Risk",
-        "description": "Model failures, bias, reliability, system errors, hallucinations",
+        "description": "Model failures, reliability, system errors, hallucinations",
     },
     "cybersecurity": {
         "name": "Cybersecurity Risk",
@@ -32,7 +32,7 @@ RISK_CATEGORIES = {
     },
     "regulatory_compliance": {
         "name": "Regulatory & Compliance Risk",
-        "description": "Legal liability, AI Act, GDPR, regulatory uncertainty",
+        "description": "Legal liability, AI Act, privacy, IP/copyright, regulatory uncertainty",
     },
     "information_integrity": {
         "name": "Information Integrity",
