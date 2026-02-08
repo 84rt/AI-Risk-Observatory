@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Export classifier_testbed run output into LLM annotations format for reconciliation."""
+"""Export classifier_testbed run output into LLM annotations format for reconciliation.
+
+Supports both phase 1 (mention_type) and phase 2 (vendor, risk, adoption_type) testbed runs.
+"""
 
 from __future__ import annotations
 
@@ -58,6 +61,16 @@ def parse_args() -> argparse.Namespace:
             "'none' leaves empty; 'uniform' assigns the testbed confidence to each label."
         ),
     )
+    parser.add_argument(
+        "--classifier-type",
+        choices=["mention_type", "vendor", "risk", "adoption_type"],
+        default="mention_type",
+        help=(
+            "Which classifier produced the testbed run. "
+            "mention_type (default) reads llm_mention_types; "
+            "phase 2 classifiers (vendor, risk, adoption_type) read llm_labels."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -98,10 +111,16 @@ def build_llm_record(
     base: Optional[Dict[str, Any]],
     model_name: Optional[str],
     confidence_mode: str,
+    classifier_type: str = "mention_type",
 ) -> Dict[str, Any]:
     chunk_id = testbed.get("chunk_id")
-    mention_types = testbed.get("llm_mention_types") or []
     confidence = testbed.get("confidence", 0.0)
+
+    # Phase 1 testbed saves llm_mention_types; phase 2 saves llm_labels
+    if classifier_type == "mention_type":
+        llm_labels = testbed.get("llm_mention_types") or []
+    else:
+        llm_labels = testbed.get("llm_labels") or []
 
     record: Dict[str, Any] = dict(base) if base else {}
     record.update(
@@ -110,27 +129,36 @@ def build_llm_record(
             "run_id": run_id,
             "chunk_id": chunk_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "mention_types": mention_types,
-            "adoption_types": [],
-            "adoption_confidence": {},
-            "risk_taxonomy": [],
-            "risk_confidence": {},
-            "risk_substantiveness": None,
-            "vendor_tags": [],
-            "vendor_other": None,
             "source": "llm",
-            "classifier_id": "llm_testbed",
+            "classifier_id": f"llm_testbed_{classifier_type}",
             "classifier_version": "v2",
             "model_name": model_name,
         }
     )
 
+    # Place LLM labels into the correct field based on classifier type
+    if classifier_type == "mention_type":
+        record["mention_types"] = llm_labels
+    elif classifier_type == "vendor":
+        record["vendor_tags"] = llm_labels
+        record["vendor_other"] = testbed.get("llm_other")
+    elif classifier_type == "risk":
+        record["risk_taxonomy"] = llm_labels
+    elif classifier_type == "adoption_type":
+        record["adoption_types"] = llm_labels
+
     llm_details: Dict[str, Any] = {
-        "mention_reasoning": testbed.get("reasoning", ""),
+        "reasoning": testbed.get("reasoning", ""),
     }
-    if confidence_mode == "uniform" and mention_types:
-        llm_details["mention_confidences"] = {
-            str(label): float(confidence) for label in mention_types
+    if confidence_mode == "uniform" and llm_labels:
+        conf_key = {
+            "mention_type": "mention_confidences",
+            "vendor": "vendor_signals",
+            "risk": "risk_confidences",
+            "adoption_type": "adoption_confidences",
+        }.get(classifier_type, "confidences")
+        llm_details[conf_key] = {
+            str(label): float(confidence) for label in llm_labels
         }
     record["llm_details"] = llm_details
 
@@ -172,6 +200,7 @@ def main() -> None:
                 base=base,
                 model_name=model_name,
                 confidence_mode=args.confidence_mode,
+                classifier_type=args.classifier_type,
             )
             f.write(json.dumps(llm_record) + "\n")
             exported += 1

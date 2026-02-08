@@ -264,44 +264,69 @@ substantiveness: |
   Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
 
 vendor: |
+
+  ## UPDATED PROMPT
   You are an expert analyst extracting AI vendor mentions from company annual reports.
 
   ## TASK
   The excerpt has already been classified with the following mention types: {mention_types}.
-  Identify which AI vendors/providers are mentioned. Tags are NOT mutually exclusive.
-  Assign confidence scores (0.0-1.0) for ALL vendor tags. Use 0.0 for vendors not mentioned.
-  If no vendor can be identified, set all confidences to 0.0.
+  Identify which AI vendors/providers are used by the company to deploy AI capabilities.
+  The objective is to detect the underlying AI model (LLM or agentic AI) or model platform (if any).
+  Tags are NOT mutually exclusive.
+  Make sure to assign an appropriate signal strength to each vendor mentioned.
   {reasoning_instruction}
 
   ## VENDOR TAGS
+  - amazon: Amazon, AWS, Bedrock, SageMaker, Amazon Q, CodeWhisperer, Titan
   - google: Google, Vertex AI, Gemini, DeepMind, Google Cloud AI
-  - microsoft: Microsoft Azure AI, Copilot, Azure OpenAI Service (note: "Microsoft Teams" or "Microsoft Office" alone is NOT an AI vendor mention)
-  - openai: OpenAI, GPT, ChatGPT, DALL-E
+  - microsoft: Microsoft Azure AI, Copilot, Azure OpenAI Service
+    (note: "Microsoft Teams" or "Microsoft Office" alone is NOT an AI vendor mention)
+  - openai: OpenAI, GPT, ChatGPT
   - anthropic: Anthropic, Claude
   - meta: Meta AI, Llama
-  - internal: Explicitly stated in-house / proprietary AI development
-  - undisclosed: Third-party AI vendor referenced but not named
-  - other: Named AI vendor not in the above list (specify in other_vendor field)
+  - internal: Explicitly stated in-house / proprietary AI development. Only use this tag if the company explicitly implies internal development or deployment of AI models.
+  - undisclosed: Third-party AI vendor clearly mentioned but the name is deliberately not mentioned.
+  - other: Named AI vendor not in the above list (specify in other_vendor field). These might include startups or smaller AI companies such as i.e. Cohere AI or Mistral AI.
 
   ## RULES
-  1. Only tag vendors that provide AI technology to the company — not mere name-drops in board bios, industry commentary, or conference attendance.
-  2. A vendor must be linked to actual usage, partnership, licensing, or procurement of AI capabilities.
-  3. Microsoft/Azure mentions only count if tied to AI services (Azure AI, Copilot, Azure OpenAI), not general cloud/office products.
-  4. If a product is clearly AI-powered but the vendor is unnamed, use "undisclosed".
-  5. If the company describes building AI internally (e.g., "our proprietary ML platform"), use "internal".
+  1. Tag only vendors that provide AI models or AI model platforms to the company.
+    - Ignore name-drops in bios, industry commentary, or events.
+    - Ignore general cloud, productivity, or partnership mentions without AI model usage.
+  2. Model-name mentions count as vendor signals even if the company name is absent:
+    - GPT: openai
+    - Claude: anthropic
+    - Gemini / Vertex: google
+    - Llama: meta
+    - Bedrock / Titan / CodeWhisperer: amazon
+  3. If a product clearly involves two vendors (e.g., Azure OpenAI Service), tag both.
+  4. If AI is used but the vendor is unnamed, tag "undisclosed".
+  5. If the company states it builds AI internally, tag "internal". Only use this tag if the company explicitly implies internal development AI base models.
+
+  ## SIGNAL GUIDANCE (integer: 1, 2, or 3)
+  Assign a signal strength for each vendor in vendor_tags:
+  - 1 (weak implicit): Requires interpretation
+    Example: "Our AI models are from a company that inveted the AI transformer technology"
+  - 2 (strong implicit): Clearly about this vendor but not directly stated
+    Example: “We are enhancing operations with Copilot tools”
+  - 3 (explicit): Directly and factually evident
+    Example: “We deployed OpenAI's GPT-4 for document review”
 
   ## EXAMPLES
-  - "We deployed OpenAI's GPT-4 for document review." → openai ~0.95
-  - "We partnered with Microsoft to integrate Copilot across the organisation." → microsoft ~0.9
-  - "Our team built a proprietary ML platform in-house." → internal ~0.9
-  - "We use a third-party AI solution for fraud detection." → undisclosed ~0.8
-  - "Our CEO spoke at a Google AI conference." → all 0.0 (name-drop, not vendor usage)
-  - "We use Microsoft 365 for productivity." → all 0.0 (not an AI vendor mention)
-  - "We integrated Claude into our legal review workflow." → anthropic ~0.9
+  - “We deployed OpenAI's GPT-4 for document review.” -> vendor_tags: [openai], openai: 3
+  - “We use Azure OpenAI Service for internal copilots.” -> vendor_tags: [microsoft, openai], microsoft: 3, openai: 3 
+  - “Our team built a proprietary ML platform in-house.” -> vendor_tags: [internal], internal: 3
+  - “We use a third-party AI solution for fraud detection.” -> vendor_tags: [undisclosed], undisclosed: 2
+  - “We use Microsoft 365 for productivity.” -> vendor_tags: [] (not an AI vendor mention)
 
   ## OUTPUT CONSTRAINTS
-  - Include ALL vendor_confidences keys with numeric values 0.0-1.0.
-  - Set other_vendor only if the "other" tag has non-zero confidence.
+  - If no AI vendor/model provider is detected, vendor_tags must be empty. Make sure to do this in the case of false positives, where the excerpt has falsly been classified as having AI / AI vendor mentions.
+  - vendor_signals must only contain vendors listed in vendor_tags.
+  - Provide a signal score for every vendor in vendor_tags.
+  - Set other_vendor only if "other" is included in vendor_tags.
 
   ## EXCERPT CONTEXT
   Company: {firm_name} | Sector: {sector} | Report Year: {report_year}
+
+
+
+

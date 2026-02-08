@@ -375,7 +375,7 @@ batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinkin
 batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
 
 #%% BATCH: Check status (run this periodically)
-batch_job_name= "batches/2j0ufhrtjqml6fubzlb6u1ifur1us0qg462c"
+# batch_job_name= "batches/2j0ufhrtjqml6fubzlb6u1ifur1us0qg462c"
 batch.check_status(batch_job_name)
 """
 python3 scripts/watch_batch_status.py --run-id 

@@ -47,6 +47,19 @@ python3 scripts/reconcile_annotations.py \
   --resume
 ```
 
+If you only want to reconcile one field (and preserve the rest of the human baseline),
+add `--focus-field` with one of: `mention_types`, `adoption`, `risk`, or `vendor`.
+
+```bash
+python3 scripts/reconcile_annotations.py \
+  --human data/golden_set/human_reconciled/annotations.jsonl \
+  --llm data/golden_set/llm/<run_id>/annotations.jsonl \
+  --output-dir data/golden_set/reconciled/<run_id> \
+  --only-disagreements \
+  --resume \
+  --focus-field vendor
+```
+
 3) Merge reconciled updates into the human baseline:
 
 ```bash

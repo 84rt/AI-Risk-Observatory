@@ -45,23 +45,23 @@ class VendorClassifier(BaseClassifier):
         """Extract classification result from VendorResponse."""
         response: VendorResponse = parsed  # type: ignore
 
-        vendor_confidences = response.vendor_confidences.model_dump(exclude_none=True)
         reasoning = response.reasoning or ""
 
-        # Get active vendors with non-zero confidence
+        # Get active vendors from the vendor_tags list
         active_vendors = [
-            key for key, score in vendor_confidences.items()
-            if isinstance(score, (int, float)) and score > 0
+            vt.value if hasattr(vt, "value") else str(vt)
+            for vt in response.vendor_tags
         ]
         if response.other_vendor:
-            active_vendors.append(f"other:{response.other_vendor}")
+            active_vendors = [
+                f"other:{response.other_vendor}" if v == "other" else v
+                for v in active_vendors
+            ]
         primary_label = ",".join(sorted(active_vendors)) if active_vendors else "none"
 
-        # Max confidence across all vendors
-        scores = [
-            s for s in vendor_confidences.values()
-            if isinstance(s, (int, float))
-        ]
-        confidence = max(scores) if scores else 0.0
+        # Max signal across detected vendors (normalize to 0.0-1.0 for confidence)
+        signals = response.vendor_signals.model_dump(exclude_none=True)
+        scores = [s for s in signals.values() if isinstance(s, int)]
+        confidence = max(scores) / 3.0 if scores else 0.0
 
         return primary_label, confidence, [], reasoning

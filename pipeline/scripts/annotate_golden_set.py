@@ -44,6 +44,7 @@ RISK_TAXONOMY = [
 ]
 
 VENDOR_TAGS = [
+    ("amazon", "Amazon / AWS"),
     ("google", "Google"),
     ("microsoft", "Microsoft"),
     ("openai", "OpenAI"),

@@ -104,6 +104,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Display LLM reasoning text when available.",
     )
+    parser.add_argument(
+        "--focus-field",
+        choices=["all", "mention_types", "adoption", "risk", "vendor"],
+        default="all",
+        help=(
+            "Only compare and reconcile a single field; other fields are preserved "
+            "from the base record (human if available)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -280,6 +289,91 @@ def fmt_conf(conf: Dict[str, float]) -> str:
     return ", ".join(f"{k}={v:.2f}" for k, v in sorted(conf.items()))
 
 
+def fmt_vendor_other(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return f" (other_vendor: {value})"
+
+
+def normalize_vendor_other(value: Optional[str]) -> str:
+    return (value or "").strip()
+
+
+def extract_labels(
+    record: Optional[Dict[str, Any]],
+    field: str,
+    is_llm: bool,
+    llm_threshold: float,
+) -> List[str]:
+    if not record:
+        return []
+    if is_llm:
+        return filter_llm_labels(record, field, llm_threshold)
+    return normalize_list(record.get(field))
+
+
+def extract_confidence(
+    record: Optional[Dict[str, Any]],
+    keys: List[str],
+    llm_detail_key: str,
+    is_llm: bool,
+    llm_threshold: float,
+) -> Dict[str, float]:
+    if not record:
+        return {}
+    conf = extract_conf_map(record, keys)
+    if is_llm and not conf:
+        conf = extract_llm_conf_map(record, llm_detail_key)
+    if is_llm:
+        conf = filter_llm_conf_map(conf, llm_threshold)
+    return conf
+
+
+def apply_focus_override(
+    record: Dict[str, Any],
+    selected: Dict[str, Any],
+    selected_is_llm: bool,
+    focus_field: str,
+    llm_threshold: float,
+) -> None:
+    if focus_field == "mention_types":
+        record["mention_types"] = extract_labels(
+            selected, "mention_types", selected_is_llm, llm_threshold
+        )
+        return
+    if focus_field == "adoption":
+        record["adoption_types"] = extract_labels(
+            selected, "adoption_types", selected_is_llm, llm_threshold
+        )
+        record["adoption_confidence"] = extract_confidence(
+            selected,
+            ["adoption_confidence", "adoption_confidences"],
+            "adoption_confidences",
+            selected_is_llm,
+            llm_threshold,
+        )
+        return
+    if focus_field == "risk":
+        record["risk_taxonomy"] = extract_labels(
+            selected, "risk_taxonomy", selected_is_llm, llm_threshold
+        )
+        record["risk_confidence"] = extract_confidence(
+            selected,
+            ["risk_confidence", "risk_confidences"],
+            "risk_confidences",
+            selected_is_llm,
+            llm_threshold,
+        )
+        record["risk_substantiveness"] = selected.get("risk_substantiveness")
+        return
+    if focus_field == "vendor":
+        vendor_tags = extract_labels(selected, "vendor_tags", selected_is_llm, llm_threshold)
+        record["vendor_tags"] = vendor_tags
+        record["vendor_other"] = (
+            selected.get("vendor_other") if "other" in set(vendor_tags) else None
+        )
+
+
 def extract_llm_reasoning(record: Optional[Dict[str, Any]]) -> str:
     if not record:
         return ""
@@ -304,6 +398,7 @@ def print_annotations(
     llm: Optional[Dict[str, Any]],
     llm_threshold: float,
     show_llm_reasoning: bool,
+    focus_field: str,
 ) -> None:
     h = human or {}
     l = llm or {}
@@ -319,6 +414,8 @@ def print_annotations(
 
     h_vendor = normalize_list(h.get("vendor_tags"))
     l_vendor = filter_llm_labels(l, "vendor_tags", llm_threshold)
+    h_vendor_other = (h.get("vendor_other") or "").strip()
+    l_vendor_other = (l.get("vendor_other") or "").strip()
 
     h_adopt_conf = extract_conf_map(h, ["adoption_confidence", "adoption_confidences"])
     h_risk_conf = extract_conf_map(h, ["risk_confidence", "risk_confidences"])
@@ -337,16 +434,112 @@ def print_annotations(
     )
 
     print(colorize("Annotations:", ANSI_BOLD))
-    print(colorize(f"  HUMAN mention_types: {fmt_list(h_mention)}", ANSI_GREEN))
-    print(colorize(f"  HUMAN adoption_types: {fmt_list(h_adoption)}  conf: {fmt_conf(h_adopt_conf)}", ANSI_GREEN))
-    print(colorize(f"  HUMAN risk_taxonomy: {fmt_list(h_risk)}  conf: {fmt_conf(h_risk_conf)}", ANSI_GREEN))
-    print(colorize(f"  HUMAN vendor_tags: {fmt_list(h_vendor)}", ANSI_GREEN))
-    print("-")
-    print(colorize(f"  LLM   mention_types: {fmt_list(l_mention)}  conf: {fmt_conf(l_mention_conf)}", ANSI_CYAN))
-    print(colorize(f"  LLM   adoption_types: {fmt_list(l_adoption)}  conf: {fmt_conf(l_adopt_conf)}", ANSI_CYAN))
-    print(colorize(f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}", ANSI_CYAN))
-    print(colorize(f"  LLM   vendor_tags: {fmt_list(l_vendor)}", ANSI_CYAN))
-    print()
+    if focus_field == "all":
+        print(colorize(f"  HUMAN mention_types: {fmt_list(h_mention)}", ANSI_GREEN))
+        print(
+            colorize(
+                f"  HUMAN adoption_types: {fmt_list(h_adoption)}  conf: {fmt_conf(h_adopt_conf)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  HUMAN risk_taxonomy: {fmt_list(h_risk)}  conf: {fmt_conf(h_risk_conf)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  HUMAN vendor_tags: {fmt_list(h_vendor)}{fmt_vendor_other(h_vendor_other)}",
+                ANSI_GREEN,
+            )
+        )
+        print("-")
+        print(
+            colorize(
+                f"  LLM   mention_types: {fmt_list(l_mention)}  conf: {fmt_conf(l_mention_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   adoption_types: {fmt_list(l_adoption)}  conf: {fmt_conf(l_adopt_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   vendor_tags: {fmt_list(l_vendor)}{fmt_vendor_other(l_vendor_other)}",
+                ANSI_CYAN,
+            )
+        )
+        print()
+        return
+
+    if focus_field == "mention_types":
+        print(colorize(f"  HUMAN mention_types: {fmt_list(h_mention)}", ANSI_GREEN))
+        print(
+            colorize(
+                f"  LLM   mention_types: {fmt_list(l_mention)}  conf: {fmt_conf(l_mention_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print()
+        return
+
+    if focus_field == "adoption":
+        print(
+            colorize(
+                f"  HUMAN adoption_types: {fmt_list(h_adoption)}  conf: {fmt_conf(h_adopt_conf)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   adoption_types: {fmt_list(l_adoption)}  conf: {fmt_conf(l_adopt_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print()
+        return
+
+    if focus_field == "risk":
+        print(
+            colorize(
+                f"  HUMAN risk_taxonomy: {fmt_list(h_risk)}  conf: {fmt_conf(h_risk_conf)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print()
+        return
+
+    if focus_field == "vendor":
+        print(
+            colorize(
+                f"  HUMAN vendor_tags: {fmt_list(h_vendor)}{fmt_vendor_other(h_vendor_other)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   vendor_tags: {fmt_list(l_vendor)}{fmt_vendor_other(l_vendor_other)}",
+                ANSI_CYAN,
+            )
+        )
+        print()
+        return
 
 
 def display_llm_reasoning(llm: Optional[Dict[str, Any]], show: bool) -> None:
@@ -363,12 +556,26 @@ def build_diff_label(
     human: Optional[Dict[str, Any]],
     llm: Optional[Dict[str, Any]],
     llm_threshold: float,
+    focus_field: str,
 ) -> Optional[str]:
     if not human or not llm:
         return None
-    h_set = set(normalize_list(human.get("mention_types")))
-    l_set = set(filter_llm_labels(llm, "mention_types", llm_threshold))
+    field_map = {
+        "all": "mention_types",
+        "mention_types": "mention_types",
+        "adoption": "adoption_types",
+        "risk": "risk_taxonomy",
+        "vendor": "vendor_tags",
+    }
+    field = field_map.get(focus_field, "mention_types")
+    h_set = set(normalize_list(human.get(field)))
+    l_set = set(filter_llm_labels(llm, field, llm_threshold))
     if h_set == l_set:
+        if focus_field == "vendor" and "other" in h_set:
+            h_other = normalize_vendor_other(human.get("vendor_other"))
+            l_other = normalize_vendor_other(llm.get("vendor_other"))
+            if h_other != l_other:
+                return "other_vendor differs"
         return None
     if len(h_set) == 1 and len(l_set) == 1:
         return f"{next(iter(sorted(h_set)))} -> {next(iter(sorted(l_set)))}"
@@ -387,18 +594,28 @@ def summarize_disagreements(
     human_by_id: Dict[str, Dict[str, Any]],
     llm_by_id: Dict[str, Dict[str, Any]],
     llm_threshold: float,
+    focus_field: str,
 ) -> Dict[str, Counter]:
     added_counts: Counter = Counter()
     removed_counts: Counter = Counter()
     transition_counts: Counter = Counter()
+
+    field_map = {
+        "all": "mention_types",
+        "mention_types": "mention_types",
+        "adoption": "adoption_types",
+        "risk": "risk_taxonomy",
+        "vendor": "vendor_tags",
+    }
+    field = field_map.get(focus_field, "mention_types")
 
     for cid in ids:
         human = human_by_id.get(cid)
         llm = llm_by_id.get(cid)
         if not human or not llm:
             continue
-        h_set = set(normalize_list(human.get("mention_types")))
-        l_set = set(filter_llm_labels(llm, "mention_types", llm_threshold))
+        h_set = set(normalize_list(human.get(field)))
+        l_set = set(filter_llm_labels(llm, field, llm_threshold))
         if h_set == l_set:
             continue
         added = l_set - h_set
@@ -417,7 +634,7 @@ def summarize_disagreements(
     }
 
 
-def print_diff_summary(summary: Dict[str, Counter]) -> None:
+def print_diff_summary(summary: Dict[str, Counter], focus_field: str) -> None:
     def print_block(title: str, counter: Counter, prefix: str = "") -> None:
         print(title)
         print("-" * len(title))
@@ -428,8 +645,9 @@ def print_diff_summary(summary: Dict[str, Counter]) -> None:
             print(f"{prefix}{label} x{count}")
         print()
 
+    title_field = focus_field if focus_field != "all" else "mention_types"
     print("\n" + "=" * 60)
-    print("DIFF SUMMARY (mention_types)")
+    print(f"DIFF SUMMARY ({title_field})")
     print("=" * 60)
     print_block("Added Labels", summary["added"], prefix="Added ")
     print_block("Removed Labels", summary["removed"], prefix="Removed ")
@@ -441,9 +659,29 @@ def annotations_match(
     llm: Optional[Dict[str, Any]],
     llm_threshold: float,
     include_subtypes: bool,
+    focus_field: str,
 ) -> bool:
     if not human or not llm:
         return False
+    if focus_field != "all":
+        field_map = {
+            "mention_types": "mention_types",
+            "adoption": "adoption_types",
+            "risk": "risk_taxonomy",
+            "vendor": "vendor_tags",
+        }
+        field = field_map.get(focus_field, "mention_types")
+        human_set = set(normalize_list(human.get(field)))
+        llm_set = set(filter_llm_labels(llm, field, llm_threshold))
+        if human_set != llm_set:
+            return False
+        if focus_field == "vendor" and "other" in human_set:
+            h_other = normalize_vendor_other(human.get("vendor_other"))
+            l_other = normalize_vendor_other(llm.get("vendor_other"))
+            if h_other != l_other:
+                return False
+        return True
+
     fields = ["mention_types"]
     if include_subtypes:
         fields.extend(["adoption_types", "risk_taxonomy", "vendor_tags"])
@@ -713,7 +951,11 @@ def main() -> None:
             human = human_by_id.get(cid)
             llm = llm_by_id.get(cid)
             if args.only_disagreements and annotations_match(
-                human, llm, args.llm_confidence_threshold, args.include_subtype_disagreements
+                human,
+                llm,
+                args.llm_confidence_threshold,
+                args.include_subtype_disagreements,
+                args.focus_field,
             ):
                 skipped += 1
                 continue
@@ -728,8 +970,9 @@ def main() -> None:
                 human_by_id,
                 llm_by_id,
                 args.llm_confidence_threshold,
+                args.focus_field,
             )
-            print_diff_summary(summary)
+            print_diff_summary(summary, args.focus_field)
 
         total = len(review_ids)
         for idx, cid in enumerate(review_ids, start=1):
@@ -743,7 +986,7 @@ def main() -> None:
             display_chunk_header(
                 idx,
                 total,
-                build_diff_label(human, llm, args.llm_confidence_threshold),
+                build_diff_label(human, llm, args.llm_confidence_threshold, args.focus_field),
             )
             display_llm_reasoning(llm, args.show_llm_reasoning)
             display_chunk(chunk)
@@ -752,9 +995,15 @@ def main() -> None:
                 llm,
                 args.llm_confidence_threshold,
                 args.show_llm_reasoning,
+                args.focus_field,
             )
 
-            prompt = "Select: 1=human 2=llm 3=custom s=skip q=quit\n> "
+            if args.focus_field == "all":
+                prompt = "Select: 1=human 2=llm 3=custom s=skip q=quit\n> "
+            else:
+                prompt = (
+                    f"Select (focus={args.focus_field}): 1=human 2=llm 3=custom s=skip q=quit\n> "
+                )
             choice = input(colorize(prompt, ANSI_HIGHLIGHT)).strip().lower()
             if choice in {"q", "quit"}:
                 raise KeyboardInterrupt
@@ -767,17 +1016,41 @@ def main() -> None:
                     print("No human annotation available; skipping.")
                     skipped += 1
                     continue
-                record = build_selected_annotation(
-                    human, run_id, "human", args.llm_confidence_threshold
-                )
+                if args.focus_field == "all":
+                    record = build_selected_annotation(
+                        human, run_id, "human", args.llm_confidence_threshold
+                    )
+                else:
+                    base = human or llm
+                    base_source = "human" if human else "llm"
+                    record = build_selected_annotation(
+                        base, run_id, base_source, args.llm_confidence_threshold
+                    )
+                    apply_focus_override(
+                        record, human, False, args.focus_field, args.llm_confidence_threshold
+                    )
             elif choice == "2":
                 if not llm:
                     print("No LLM annotation available; skipping.")
                     skipped += 1
                     continue
-                record = build_selected_annotation(
-                    llm, run_id, "llm", args.llm_confidence_threshold
-                )
+                if args.focus_field == "all":
+                    record = build_selected_annotation(
+                        llm, run_id, "llm", args.llm_confidence_threshold
+                    )
+                else:
+                    base = human or llm
+                    base_source = "human" if human else "llm"
+                    record = build_selected_annotation(
+                        base, run_id, base_source, args.llm_confidence_threshold
+                    )
+                    apply_focus_override(
+                        record, llm, True, args.focus_field, args.llm_confidence_threshold
+                    )
+                    if base_source != "llm":
+                        record["review_source"] = "custom"
+                        record["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+                        record["source_annotation_id"] = None
             elif choice == "3":
                 record = build_custom_annotation(chunk, run_id)
                 if record is None:
