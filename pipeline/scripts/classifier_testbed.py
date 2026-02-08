@@ -340,11 +340,11 @@ else:
 
 
 #%% LOAD GOLDEN SET CHUNKS
-chunks = load_chunks(limit=324, offset=150)
-print(f"Loaded {len(chunks)} chunks from golden set (offset=150).")
+chunks = load_chunks(limit=100, offset=0)
+print(f"Loaded {len(chunks)} chunks from golden set (offset=0).")
 
 #%% SYNC CONFIG: Set run parameters
-RUN_ID = "gemini-3-flash-v3-324chunks-offset150"
+RUN_ID = "gemini-3-flash-v3.1-100chunks"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0
@@ -366,7 +366,7 @@ else:
 from src.utils.batch_api import BatchClient
 batch = BatchClient(runs_dir=RUNS_DIR)
 
-BATCH_RUN_ID = "batch-gemini-3-flash-v3-324chunks-offset150-new"
+BATCH_RUN_ID = "batch-gemini-3-flash-v3.1-100chunks"
 BATCH_MODEL = "gemini-3-flash-preview"
 
 batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
@@ -393,7 +393,7 @@ if batch_results:
 #%% ############################ ANALYSIS ############################
 # Choose which results to analyze: sync_results or batch_results
 results = batch_results  # | sync_results | batch_results | 
-exclude_gen_ambig = False
+exclude_gen_ambig = True
 
 #%% REFRESH HUMAN LABELS FROM BASELINE (no LLM rerun)
 refresh_human_labels(results, chunks)
@@ -416,7 +416,6 @@ show_details(results, indices=[17])
 
 #############################################################################
 """
-
   1) Export
 
   python3 pipeline/scripts/export_testbed_run_for_reconcile.py \
@@ -444,7 +443,6 @@ show_details(results, indices=[17])
     --output data/golden_set/human_reconciled/annotations.jsonl
 
 """
-#%%
 #%% ############################ SANITY CHECKS ############################
 def check_run_alignment(run_id: str, limit: int, offset: int) -> None:
     """Verify run chunk_id order matches the golden-set slice used to submit the batch."""
