@@ -1005,11 +1005,17 @@ def _extract_primary_set(classification: Any) -> set[str]:
             if isinstance(types, list):
                 return {str(t.value) if hasattr(t, "value") else str(t) for t in types}
 
-        # Handle adoption_types style (with confidences)
-        if "adoption_confidences" in classification:
-            confs = classification["adoption_confidences"]
+        # Handle adoption_types style (with signals)
+        if "adoption_signals" in classification or "adoption_confidences" in classification:
+            confs = classification.get("adoption_signals") or classification.get("adoption_confidences")
+            if isinstance(confs, list):
+                return {
+                    str(e.get("type"))
+                    for e in confs
+                    if isinstance(e, dict) and isinstance(e.get("signal"), (int, float)) and e.get("signal") > 0
+                }
             if isinstance(confs, dict):
-                return {k for k, v in confs.items() if isinstance(v, (int, float)) and v > 0.5}
+                return {k for k, v in confs.items() if isinstance(v, (int, float)) and v > 0}
 
         # Handle risk_types style
         if "risk_types" in classification:

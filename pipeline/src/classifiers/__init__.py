@@ -17,9 +17,8 @@ from .schemas import (
     MentionConfidenceScores,
     MentionTypeResponse,
     MentionTypeResponseV2,
-    MentionTypeResponseV2,
     AdoptionType,
-    AdoptionConfidenceScores,
+    AdoptionSignalEntry,
     AdoptionTypeResponse,
     RiskType,
     RiskConfidenceScores,
@@ -32,6 +31,9 @@ from .schemas import (
     SubstantivenessResponse,
     HarmsResponse,
 )
+
+# Backward compatibility for older imports that still expect this symbol name.
+AdoptionConfidenceScores = AdoptionSignalEntry
 
 __all__ = [
     # Base classes
@@ -54,6 +56,7 @@ __all__ = [
     "SubstantivenessLevel",
     # Schemas - Confidence score models
     "MentionConfidenceScores",
+    "AdoptionSignalEntry",
     "AdoptionConfidenceScores",
     "RiskConfidenceScores",
     "VendorEntry",

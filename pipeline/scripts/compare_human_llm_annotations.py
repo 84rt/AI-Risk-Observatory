@@ -96,6 +96,15 @@ def extract_llm_confidence(record: Dict[str, Any], key: str) -> Dict[str, float]
     value = details.get(key)
     if isinstance(value, dict):
         return {str(k): float(v) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        out = {}
+        for entry in value:
+            if isinstance(entry, dict):
+                k = entry.get("type") or entry.get("label")
+                v = entry.get("signal")
+                if k is not None and isinstance(v, (int, float)):
+                    out[str(k)] = float(v)
+        return out
     return {}
 
 
@@ -111,7 +120,9 @@ def filter_llm_labels(
     if field == "mention_types":
         confs = details.get("mention_confidences") or {}
     elif field == "adoption_types":
-        confs = details.get("adoption_confidences") or {}
+        confs = details.get("adoption_signals") or details.get("adoption_confidences") or {}
+        if isinstance(confs, list):
+            confs = extract_llm_confidence({"llm_details": {"adoption_signals": confs}}, "adoption_signals")
     elif field == "risk_taxonomy":
         confs = details.get("risk_confidences") or {}
     elif field == "vendor_tags":
@@ -257,7 +268,7 @@ def main() -> None:
         write_csv(output_dir / f"{field}_metrics.csv", metrics)
 
     adoption_conf_diff, adoption_conf_n = compute_confidence_diffs(
-        paired, "adoption_confidence", "adoption_confidences"
+        paired, "adoption_confidence", "adoption_signals"
     )
     risk_conf_diff, risk_conf_n = compute_confidence_diffs(
         paired, "risk_confidence", "risk_confidences"
@@ -303,7 +314,9 @@ def main() -> None:
             if field == "mention_types":
                 confs = details.get("mention_confidences") or {}
             elif field == "adoption_types":
-                confs = details.get("adoption_confidences") or {}
+                confs = details.get("adoption_signals") or details.get("adoption_confidences") or {}
+                if isinstance(confs, list):
+                    confs = extract_llm_confidence({"llm_details": {"adoption_signals": confs}}, "adoption_signals")
             elif field == "risk_taxonomy":
                 confs = details.get("risk_confidences") or {}
             elif field == "vendor_tags":

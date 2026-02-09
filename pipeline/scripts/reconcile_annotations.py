@@ -178,6 +178,19 @@ def normalize_list(value: Any) -> List[str]:
     return []
 
 
+def _signals_list_to_map(value: Any) -> Dict[str, float]:
+    if isinstance(value, list):
+        out: Dict[str, float] = {}
+        for entry in value:
+            if isinstance(entry, dict):
+                key = entry.get("type") or entry.get("label")
+                sig = entry.get("signal")
+                if key is not None and isinstance(sig, (int, float)):
+                    out[str(key)] = float(sig)
+        return out
+    return {}
+
+
 def extract_conf_map(record: Optional[Dict[str, Any]], keys: List[str]) -> Dict[str, float]:
     if not record:
         return {}
@@ -189,6 +202,10 @@ def extract_conf_map(record: Optional[Dict[str, Any]], keys: List[str]) -> Dict[
                 for k, v in value.items()
                 if v is not None and isinstance(v, (int, float))
             }
+        if isinstance(value, list):
+            mapped = _signals_list_to_map(value)
+            if mapped:
+                return mapped
     return {}
 
 
@@ -203,6 +220,8 @@ def extract_llm_conf_map(record: Optional[Dict[str, Any]], key: str) -> Dict[str
             for k, v in value.items()
             if v is not None and isinstance(v, (int, float))
         }
+    if isinstance(value, list):
+        return _signals_list_to_map(value)
     return {}
 
 
@@ -220,7 +239,9 @@ def filter_llm_labels(
     if field == "mention_types":
         confs = details.get("mention_confidences") or {}
     elif field == "adoption_types":
-        confs = details.get("adoption_confidences") or {}
+        confs = details.get("adoption_signals") or details.get("adoption_confidences") or {}
+        if isinstance(confs, list):
+            confs = _signals_list_to_map(confs)
     elif field == "risk_taxonomy":
         confs = details.get("risk_confidences") or {}
     elif field == "vendor_tags":
@@ -347,8 +368,8 @@ def apply_focus_override(
         )
         record["adoption_confidence"] = extract_confidence(
             selected,
-            ["adoption_confidence", "adoption_confidences"],
-            "adoption_confidences",
+            ["adoption_confidence", "adoption_confidences", "adoption_signals"],
+            "adoption_signals",
             selected_is_llm,
             llm_threshold,
         )
@@ -417,11 +438,11 @@ def print_annotations(
     h_vendor_other = (h.get("vendor_other") or "").strip()
     l_vendor_other = (l.get("vendor_other") or "").strip()
 
-    h_adopt_conf = extract_conf_map(h, ["adoption_confidence", "adoption_confidences"])
+    h_adopt_conf = extract_conf_map(h, ["adoption_confidence", "adoption_confidences", "adoption_signals"])
     h_risk_conf = extract_conf_map(h, ["risk_confidence", "risk_confidences"])
 
     l_adopt_conf = filter_llm_conf_map(
-        extract_llm_conf_map(l, "adoption_confidences"),
+        extract_llm_conf_map(l, "adoption_signals") or extract_llm_conf_map(l, "adoption_confidences"),
         llm_threshold,
     )
     l_risk_conf = filter_llm_conf_map(
@@ -880,7 +901,7 @@ def build_selected_annotation(
         "vendor_tags": vendor_tags,
         "vendor_other": selected.get("vendor_other"),
         "adoption_confidence": extract_conf_map(
-            selected, ["adoption_confidence", "adoption_confidences"]
+            selected, ["adoption_confidence", "adoption_confidences", "adoption_signals"]
         ),
         "risk_confidence": extract_conf_map(selected, ["risk_confidence", "risk_confidences"]),
         "review_source": source,
@@ -892,7 +913,7 @@ def build_selected_annotation(
         llm_details = selected.get("llm_details") or {}
         record["llm_details"] = llm_details
         if not record["adoption_confidence"]:
-            record["adoption_confidence"] = extract_llm_conf_map(selected, "adoption_confidences")
+            record["adoption_confidence"] = extract_llm_conf_map(selected, "adoption_signals") or extract_llm_conf_map(selected, "adoption_confidences")
         if not record["risk_confidence"]:
             record["risk_confidence"] = extract_llm_conf_map(selected, "risk_confidences")
         if llm_threshold > 0:

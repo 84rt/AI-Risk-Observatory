@@ -150,12 +150,31 @@ def build_llm_record(
     llm_details: Dict[str, Any] = {
         "reasoning": testbed.get("reasoning", ""),
     }
+    # Preserve per-label signal/confidence maps when present in testbed output
+    if classifier_type == "risk":
+        risk_conf = testbed.get("risk_confidences")
+        if isinstance(risk_conf, dict) and risk_conf:
+            llm_details["risk_confidences"] = {
+                str(k): float(v)
+                for k, v in risk_conf.items()
+                if v is not None and isinstance(v, (int, float))
+            }
+    if classifier_type == "adoption_type":
+        adopt_conf = testbed.get("adoption_signals") or testbed.get("adoption_confidences")
+        if isinstance(adopt_conf, dict) and adopt_conf:
+            llm_details["adoption_signals"] = {
+                str(k): int(v)
+                for k, v in adopt_conf.items()
+                if v is not None and isinstance(v, (int, float))
+            }
+        elif isinstance(adopt_conf, list) and adopt_conf:
+            llm_details["adoption_signals"] = adopt_conf
     if confidence_mode == "uniform" and llm_labels:
         conf_key = {
             "mention_type": "mention_confidences",
             "vendor": "vendor_signals",
             "risk": "risk_confidences",
-            "adoption_type": "adoption_confidences",
+            "adoption_type": "adoption_signals",
         }.get(classifier_type, "confidences")
         llm_details[conf_key] = {
             str(label): float(confidence) for label in llm_labels

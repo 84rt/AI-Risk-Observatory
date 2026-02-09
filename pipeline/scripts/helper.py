@@ -87,10 +87,17 @@ def run_mention_classification(
                 adoption_classification = adoption_result.classification
                 adoption_types = []
                 if isinstance(adoption_classification, dict):
-                    adoption_confidences = adoption_classification.get("adoption_confidences", {}) or {}
-                    if isinstance(adoption_confidences, dict):
+                    adoption_signals = adoption_classification.get("adoption_signals") or adoption_classification.get("adoption_confidences") or {}
+                    if isinstance(adoption_signals, list):
+                        for entry in adoption_signals:
+                            if isinstance(entry, dict):
+                                k = entry.get("type")
+                                v = entry.get("signal")
+                                if isinstance(v, (int, float)) and v > confidence_threshold:
+                                    adoption_types.append(str(k))
+                    elif isinstance(adoption_signals, dict):
                         adoption_types = [
-                            k for k, v in adoption_confidences.items()
+                            k for k, v in adoption_signals.items()
                             if isinstance(v, (int, float)) and v > confidence_threshold
                         ]
                 llm_result["adoption_types"] = adoption_types

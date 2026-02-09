@@ -173,7 +173,13 @@ def print_chunk_review(
     h_adoption = h.get("adoption_types", [])
     h_risk = h.get("risk_taxonomy", [])
     h_vendor = h.get("vendor_tags", [])
-    h_adopt_conf = h.get("adoption_confidences", {})
+    h_adopt_conf = h.get("adoption_signals") or h.get("adoption_confidences", {})
+    if isinstance(h_adopt_conf, list):
+        h_adopt_conf = {
+            str(e.get("type")): float(e.get("signal"))
+            for e in h_adopt_conf
+            if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+        }
     h_risk_conf = h.get("risk_confidences", {})
 
     # Mention types
@@ -195,7 +201,13 @@ def print_chunk_review(
     for label in variant_labels:
         v = variants[label] or {}
         v_adoption = v.get("adoption_types", [])
-        v_adopt_conf = v.get("adoption_confidences", {})
+        v_adopt_conf = v.get("adoption_signals") or v.get("adoption_confidences", {})
+        if isinstance(v_adopt_conf, list):
+            v_adopt_conf = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in v_adopt_conf
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
         color = variant_color_map[label]
         print(f"    {color}{label:16s}{C.RESET} {fmt_list(v_adoption, C.CYAN)}  conf={fmt_conf(v_adopt_conf)}")
         print(f"    {'':16s} diff: {highlight_diff(h_adoption, v_adoption)}")

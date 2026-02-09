@@ -271,8 +271,8 @@ def main() -> None:
                     result = runs[0]
                     variant_results[cid]["adoption"] = result
                     variant_results[cid]["adoption_runs"] = runs if args.best_of_n > 1 else None
-                    ac = result.get("adoption_confidences", {})
-                    print(f"    {short_id} | adoption_conf={ac}")
+                    ac = result.get("adoption_signals") or result.get("adoption_confidences", {})
+                    print(f"    {short_id} | adoption_signals={ac}")
                 else:
                     print(f"    {short_id} | SKIPPED (adoption conf={adoption_conf:.2f})")
 
@@ -326,9 +326,23 @@ def main() -> None:
 
                     # Adoption
                     adoption_raw = data.get("adoption", {})
-                    adoption_confidences = adoption_raw.get("adoption_confidences", {})
+                    adoption_signals = adoption_raw.get("adoption_signals") or adoption_raw.get("adoption_confidences", {})
+                    signal_map = {}
+                    if isinstance(adoption_signals, list):
+                        for entry in adoption_signals:
+                            if isinstance(entry, dict):
+                                k = entry.get("type")
+                                v = entry.get("signal")
+                                if k is not None and isinstance(v, (int, float)):
+                                    signal_map[str(k)] = float(v)
+                    elif isinstance(adoption_signals, dict):
+                        signal_map = {
+                            str(k): float(v)
+                            for k, v in adoption_signals.items()
+                            if isinstance(v, (int, float))
+                        }
                     adoption_types = [
-                        k for k, v in adoption_confidences.items()
+                        k for k, v in signal_map.items()
                         if isinstance(v, (int, float)) and v >= args.mention_threshold
                     ]
 
@@ -349,7 +363,7 @@ def main() -> None:
                         "mention_types": mention_types,
                         "mention_confidences": mention_confidences,
                         "adoption_types": adoption_types,
-                        "adoption_confidences": adoption_confidences,
+                        "adoption_signals": adoption_signals,
                         "risk_taxonomy": risk_taxonomy,
                         "risk_confidences": risk_confidences,
                         "risk_substantiveness": risk_substantiveness,
@@ -386,7 +400,7 @@ def main() -> None:
                 vr = model_results[variant_label].get(cid, {})
                 mc = vr.get("mention_confidences", {})
                 mt = vr.get("mention_types", [])
-                ac = vr.get("adoption", {}).get("adoption_confidences", {})
+                ac = vr.get("adoption", {}).get("adoption_signals") or vr.get("adoption", {}).get("adoption_confidences", {})
                 rt = vr.get("risk", {}).get("risk_types", [])
                 rc = vr.get("risk", {}).get("confidence_scores", {})
 

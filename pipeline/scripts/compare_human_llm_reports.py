@@ -84,7 +84,13 @@ def filter_llm_labels(
     if field == "mention_types":
         confs = details.get("mention_confidences") or {}
     elif field == "adoption_types":
-        confs = details.get("adoption_confidences") or {}
+        confs = details.get("adoption_signals") or details.get("adoption_confidences") or {}
+        if isinstance(confs, list):
+            confs = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in confs
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
     elif field == "risk_taxonomy":
         confs = details.get("risk_confidences") or {}
     elif field == "vendor_tags":

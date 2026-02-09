@@ -94,8 +94,11 @@ class RiskClassifier(BaseClassifier):
 
         # Convert enum values to strings
         risk_types = [rt.value for rt in response.risk_types]
-        # Convert confidence scores object to dict
-        confidence_scores = response.confidence_scores.model_dump(exclude_none=True)
+        # Convert risk signal list to dict keyed by risk type
+        confidence_scores = {
+            entry.type.value if hasattr(entry.type, "value") else str(entry.type): entry.signal
+            for entry in response.risk_signals
+        }
         reasoning = response.reasoning or ""
 
         # Validate risk types against known categories

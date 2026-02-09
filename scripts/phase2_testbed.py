@@ -40,7 +40,7 @@ print(f"Available prompts: {', '.join(_load_prompt_yaml().keys())}")
 
 #%% VIEW PROMPT (change key as needed, re-run to inspect)
 _load_prompt_yaml.cache_clear()
-PROMPT_KEY = "vendor"  # adoption_type | risk | vendor | mention_type_v3
+PROMPT_KEY = "risk"  # adoption_type | risk | vendor | mention_type_v3
 print(f"\n{'='*60}\nPROMPT: {PROMPT_KEY}\n{'='*60}")
 print(get_prompt_template(PROMPT_KEY))
 
@@ -127,10 +127,99 @@ RISK_LABEL_ALIASES = {
     "environmental": "environmental_impact",
 }
 
+RISK_SIGNAL_LABEL_THRESHOLD = 2
+
 
 def normalize_risk_labels(labels: list[str]) -> list[str]:
     """Map legacy risk label names to current taxonomy."""
     return [RISK_LABEL_ALIASES.get(l, l) for l in labels]
+
+
+def normalize_none_equivalent(labels: list[str]) -> list[str]:
+    """Treat [] and ['none'] as equivalent empty label sets."""
+    if not labels:
+        return []
+    normalized = [str(l) for l in labels if l is not None]
+    if set(normalized) == {"none"}:
+        return []
+    return normalized
+
+
+def adoption_signal_map(classification: dict) -> dict[str, int]:
+    """Normalize adoption signals from new list format or legacy dict format."""
+    if not isinstance(classification, dict):
+        return {}
+    signals_list = classification.get("adoption_signals")
+    if isinstance(signals_list, list):
+        out: dict[str, int] = {}
+        for entry in signals_list:
+            if isinstance(entry, dict):
+                key = entry.get("type")
+                val = entry.get("signal")
+                if key is not None and isinstance(val, (int, float)):
+                    out[str(key)] = int(val)
+        return out
+    legacy = classification.get("adoption_confidences")
+    if isinstance(legacy, dict):
+        return {
+            str(k): int(v)
+            for k, v in legacy.items()
+            if isinstance(v, (int, float))
+        }
+    return {}
+
+
+def risk_signal_map(classification: dict) -> dict[str, int]:
+    """Normalize risk signals from new list format or legacy dict format."""
+    if not isinstance(classification, dict):
+        return {}
+
+    signals_list = classification.get("risk_signals")
+    if isinstance(signals_list, list):
+        out: dict[str, int] = {}
+        for entry in signals_list:
+            if not isinstance(entry, dict):
+                continue
+            key = entry.get("type")
+            val = entry.get("signal")
+            if key is not None and isinstance(val, (int, float)):
+                out[str(key)] = int(val)
+        return out
+
+    legacy = classification.get("confidence_scores")
+    if isinstance(legacy, dict):
+        return {
+            str(k): int(v)
+            for k, v in legacy.items()
+            if isinstance(v, (int, float))
+        }
+
+    return {}
+
+
+def extract_risk_labels(
+    classification: dict,
+    min_signal: int = RISK_SIGNAL_LABEL_THRESHOLD,
+) -> list[str]:
+    """Extract applied risk labels and optionally filter weak/speculative labels."""
+    if not isinstance(classification, dict):
+        return []
+
+    raw_types = []
+    for rt in classification.get("risk_types", []):
+        raw = str(rt.value) if hasattr(rt, "value") else str(rt)
+        if raw and raw != "none":
+            raw_types.append(raw)
+
+    signals = risk_signal_map(classification)
+    if not signals:
+        return sorted(set(raw_types))
+
+    labels = [
+        rt for rt in raw_types
+        if int(signals.get(rt, 0)) >= min_signal
+    ]
+    return sorted(set(labels))
 
 
 # --- Classifier config ---
@@ -140,18 +229,14 @@ CLASSIFIER_CONFIG = {
         "cls": AdoptionTypeClassifier,
         "human_field": "adoption_types",
         "extract_llm_labels": lambda classification: [
-            k for k, v in classification.get("adoption_confidences", {}).items()
+            k for k, v in adoption_signal_map(classification).items()
             if isinstance(v, (int, float)) and v > 0
         ],
     },
     "risk": {
         "cls": RiskClassifier,
         "human_field": "risk_taxonomy",
-        "extract_llm_labels": lambda classification: [
-            str(rt.value) if hasattr(rt, "value") else str(rt)
-            for rt in classification.get("risk_types", [])
-            if str(rt.value if hasattr(rt, "value") else rt) != "none"
-        ],
+        "extract_llm_labels": lambda classification: extract_risk_labels(classification),
     },
     "vendor": {
         "cls": VendorClassifier,
@@ -226,8 +311,25 @@ def run_phase2(
         result = classifier.classify(chunk["chunk_text"], metadata)
 
         llm_labels = []
+        llm_conf_map = {}
         if result.classification:
             llm_labels = extract_llm_labels(result.classification)
+            if classifier_name == "risk":
+                confs = risk_signal_map(result.classification)
+                if isinstance(confs, dict):
+                    llm_conf_map = {
+                        str(k): v
+                        for k, v in confs.items()
+                        if isinstance(v, (int, float))
+                    }
+            elif classifier_name == "adoption_type":
+                confs = adoption_signal_map(result.classification)
+                if isinstance(confs, dict):
+                    llm_conf_map = {
+                        str(k): v
+                        for k, v in confs.items()
+                        if isinstance(v, (int, float))
+                    }
 
         human_labels = chunk.get(human_field, [])
         if classifier_name == "risk":
@@ -249,6 +351,8 @@ def run_phase2(
             "chunk_text": chunk["chunk_text"],
             "human_other": chunk.get("vendor_other"),
             "llm_other": llm_other_vendor,
+            "risk_confidences": llm_conf_map if classifier_name == "risk" else {},
+            "adoption_signals": llm_conf_map if classifier_name == "adoption_type" else {},
         })
 
     save_run(run_id, results, {
@@ -257,6 +361,9 @@ def run_phase2(
         "temperature": temperature,
         "thinking_budget": thinking_budget,
         "num_filtered": len(filtered),
+        "risk_signal_label_threshold": (
+            RISK_SIGNAL_LABEL_THRESHOLD if classifier_name == "risk" else None
+        ),
     })
     return results
 
@@ -307,7 +414,7 @@ def list_runs() -> list[dict]:
 
 def compare_sets(human: list[str], llm: list[str]) -> str:
     """Compare two label sets: EXACT, PARTIAL, or DIFF."""
-    h, l = set(human), set(llm)
+    h, l = set(normalize_none_equivalent(human)), set(normalize_none_equivalent(llm))
     if h == l:
         return "EXACT"
     if h & l:
@@ -394,8 +501,8 @@ def show_diff_summary(results: list[dict]) -> dict:
     transition_counts: dict[str, int] = {}
 
     for r in results:
-        human = set(r["human_labels"])
-        llm = set(r["llm_labels"])
+        human = set(normalize_none_equivalent(r["human_labels"]))
+        llm = set(normalize_none_equivalent(r["llm_labels"]))
 
         for label in sorted(llm - human):
             added_counts[label] = added_counts.get(label, 0) + 1
@@ -432,56 +539,56 @@ def show_diff_summary(results: list[dict]) -> dict:
 # --- Batch API helpers ---
 
 def prepare_batch_requests(
+    run_id: str,
     classifier_name: str,
     filtered_chunks: list[dict],
     temperature: float = 0.0,
     thinking_budget: int = 0,
-) -> list[dict]:
-    """Build batch requests for any downstream classifier.
+) -> Path:
+    """Write file-based batch requests for any downstream classifier.
 
-    Uses each classifier's get_prompt_messages() and RESPONSE_MODEL.model_json_schema()
-    to construct Gemini batch API request dicts.
+    Each JSONL line has a `key` field (integer index) for reliable matching.
+    No LLM echo needed — the key is in the API metadata.
+
+    Returns:
+        Path to the written JSONL file.
     """
     config = CLASSIFIER_CONFIG[classifier_name]
     cls = config["cls"]
-    # Instantiate just to get prompts (won't call API)
     temp_classifier = cls(run_id="batch-prep", model_name="unused")
 
     response_schema = _clean_schema_for_gemini(
         cls.RESPONSE_MODEL.model_json_schema()
     )
 
-    # Wrap user prompt with a short integer index for order-preserving matching
-    index_wrapper = (
-        "## CHUNK_INDEX\n{chunk_index}\n\n"
-        "## NOTE\nEcho this integer as \"chunk_id\" in the JSON output.\n\n"
-        "## EXCERPT\n{user_prompt}"
-    )
+    jsonl_path = RUNS_DIR / f"{run_id}.batch_input.jsonl"
+    with jsonl_path.open("w") as f:
+        for i, chunk in enumerate(filtered_chunks):
+            metadata = build_metadata(chunk)
+            system_prompt, user_prompt = temp_classifier.get_prompt_messages(
+                chunk["chunk_text"], metadata
+            )
+            generation_config = {
+                "temperature": temperature,
+                "max_output_tokens": 2048,
+                "response_mime_type": "application/json",
+                "response_schema": response_schema,
+            }
+            if thinking_budget > 0:
+                generation_config["thinking_config"] = {"thinking_budget": thinking_budget}
 
-    requests = []
-    for i, chunk in enumerate(filtered_chunks):
-        metadata = build_metadata(chunk)
-        system_prompt, user_prompt = temp_classifier.get_prompt_messages(
-            chunk["chunk_text"], metadata
-        )
-        user_prompt_with_id = index_wrapper.format(
-            chunk_index=i, user_prompt=user_prompt,
-        )
-        req_config = {
-            "system_instruction": system_prompt,
-            "temperature": temperature,
-            "response_mime_type": "application/json",
-            "response_schema": response_schema,
-        }
-        if thinking_budget > 0:
-            req_config["thinking_config"] = {"thinking_budget": thinking_budget}
-        requests.append({
-            "contents": [{"parts": [{"text": user_prompt_with_id}], "role": "user"}],
-            "config": req_config,
-        })
+            line = {
+                "key": str(i),
+                "request": {
+                    "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
+                    "system_instruction": {"parts": [{"text": system_prompt}]},
+                    "generation_config": generation_config,
+                },
+            }
+            f.write(json.dumps(line) + "\n")
 
-    print(f"Prepared {len(requests)} batch requests for {classifier_name}.")
-    return requests
+    print(f"Wrote {len(filtered_chunks)} batch requests to {jsonl_path.name}")
+    return jsonl_path
 
 
 def parse_batch_results(
@@ -490,11 +597,10 @@ def parse_batch_results(
     filtered_chunks: list[dict],
     batch: BatchClient,
 ) -> list[dict] | None:
-    """Retrieve and parse batch results for a downstream classifier.
+    """Download file-based batch results and match by key.
 
-    Matches responses to chunks by chunk_id echoed in the LLM response
-    (Gemini batch API does NOT guarantee response ordering).
-    Falls back to index-based matching when chunk_id is missing.
+    The API attaches each request's `key` to its response — no LLM echo needed.
+    Results are returned in original chunk order.
     """
     job = batch.client.batches.get(name=job_name)
 
@@ -502,15 +608,40 @@ def parse_batch_results(
         print(f"Batch not ready: {job.state.name}")
         return None
 
-    if not hasattr(job, "dest") or not hasattr(job.dest, "inlined_responses"):
-        print("No inlined_responses found.")
-        return None
+    # Extract responses: try file download first, fall back to inlined responses
+    output_lines: list[dict] = []
+    dest = getattr(job, "dest", None)
 
-    responses = job.dest.inlined_responses
-    print(f"Retrieved {len(responses)} responses.")
+    # 1) Try file-based output
+    result_file_name = getattr(dest, "file_name", None) if dest else None
+    if result_file_name:
+        raw_bytes = batch.client.files.download(file=result_file_name)
+        output_text = raw_bytes.decode("utf-8")
+        output_lines = [
+            json.loads(line) for line in output_text.splitlines() if line.strip()
+        ]
+        print(f"Downloaded {len(output_lines)} responses from {result_file_name}")
 
-    if len(responses) != len(filtered_chunks):
-        print(f"WARNING: {len(responses)} responses != {len(filtered_chunks)} chunks")
+    # 2) Fall back to inlined responses
+    if not output_lines and dest and getattr(dest, "inlined_responses", None):
+        for ir in dest.inlined_responses:
+            key = getattr(ir, "key", None)
+            resp = getattr(ir, "response", None)
+            entry: dict = {}
+            if key is not None:
+                entry["key"] = str(key)
+            if resp:
+                # Convert SDK response object to dict matching file-based format
+                resp_dict = resp.model_dump() if hasattr(resp, "model_dump") else {}
+                entry["response"] = resp_dict
+            output_lines.append(entry)
+        print(f"Extracted {len(output_lines)} inlined responses")
+
+    if not output_lines:
+        raise ValueError("No responses found: neither file output nor inlined responses available.")
+
+    if len(output_lines) != len(filtered_chunks):
+        print(f"WARNING: {len(output_lines)} responses != {len(filtered_chunks)} chunks")
 
     config = CLASSIFIER_CONFIG[classifier_name]
     human_field = config["human_field"]
@@ -519,8 +650,6 @@ def parse_batch_results(
     def _human_labels(chunk: dict) -> list[str]:
         labels = chunk.get(human_field, [])
         return normalize_risk_labels(labels) if classifier_name == "risk" else labels
-
-    num_chunks = len(filtered_chunks)
 
     def _make_error(chunk: dict, chunk_id: str, error: str) -> dict:
         return {
@@ -535,106 +664,97 @@ def parse_batch_results(
             "error": error,
         }
 
-    def _extract_response_text(resp_obj) -> str | None:
-        if resp_obj is None:
-            return None
-        response = getattr(resp_obj, "response", None)
-        if response is None:
-            return None
-        # Primary: response.text
-        text = getattr(response, "text", None)
-        if isinstance(text, (bytes, bytearray)):
-            text = text.decode("utf-8", errors="ignore")
-        if isinstance(text, str) and text.strip():
-            return text
-        # Fallback: candidates[0].content.parts[*].text
-        candidates = getattr(response, "candidates", None)
-        if candidates is None and isinstance(response, dict):
-            candidates = response.get("candidates")
-        if candidates:
-            cand0 = candidates[0]
-            content = getattr(cand0, "content", None)
-            if content is None and isinstance(cand0, dict):
-                content = cand0.get("content")
-            parts = getattr(content, "parts", None) if content is not None else None
-            if parts is None and isinstance(content, dict):
-                parts = content.get("parts")
-            if parts:
-                for part in parts:
-                    part_text = getattr(part, "text", None)
-                    if part_text is None and isinstance(part, dict):
-                        part_text = part.get("text")
-                    if isinstance(part_text, (bytes, bytearray)):
-                        part_text = part_text.decode("utf-8", errors="ignore")
-                    if isinstance(part_text, str) and part_text.strip():
-                        return part_text
-        return None
-
     def _extract_confidence(parsed: dict) -> float:
         """Extract max confidence/signal from a parsed response."""
-        # Adoption: adoption_confidences dict
-        if "adoption_confidences" in parsed:
-            scores = parsed["adoption_confidences"]
+        if "adoption_signals" in parsed or "adoption_confidences" in parsed:
+            scores = adoption_signal_map(parsed)
             valid = [v for v in scores.values() if isinstance(v, (int, float))]
             return max(valid) if valid else 0.0
-        # Risk: confidence_scores dict
-        if "confidence_scores" in parsed:
-            scores = parsed["confidence_scores"]
+        if "risk_signals" in parsed or "confidence_scores" in parsed:
+            scores = risk_signal_map(parsed)
             valid = [v for v in scores.values() if isinstance(v, (int, float))]
             return max(valid) if valid else 0.0
-        # Vendor: vendors list with signal scores
         if "vendors" in parsed and isinstance(parsed["vendors"], list):
             signals = [v.get("signal", 0) for v in parsed["vendors"] if isinstance(v, dict)]
             return max(signals) / 3.0 if signals else 0.0
         return 0.0
 
+    def _extract_adoption_conf_map(parsed: dict) -> dict:
+        scores = adoption_signal_map(parsed)
+        return {
+            str(k): v
+            for k, v in scores.items()
+            if isinstance(v, (int, float))
+        }
+
+    def _extract_risk_conf_map(parsed: dict) -> dict:
+        scores = risk_signal_map(parsed)
+        return {
+            str(k): v
+            for k, v in scores.items()
+            if isinstance(v, (int, float))
+        }
+
+    # Build lookup by key
+    response_by_key: dict[str, dict] = {}
+    missing_key_count = 0
+    for entry in output_lines:
+        key = entry.get("key")
+        if key is not None:
+            response_by_key[str(key)] = entry
+        else:
+            missing_key_count += 1
+
+    # If keys are missing entirely, fall back to positional matching
+    if not response_by_key and output_lines:
+        print("WARNING: No response keys found; falling back to positional matching.")
+        response_by_key = {str(i): entry for i, entry in enumerate(output_lines)}
+    elif missing_key_count:
+        print(f"WARNING: {missing_key_count} responses missing keys; unmatched entries may be skipped.")
+
+    # Join in original chunk order
     results = []
-    seen_indices: set[int] = set()
-    index_hits = 0
+    matched = 0
+    errors = []
 
-    for i, resp in enumerate(responses):
-        fallback_chunk = filtered_chunks[i] if i < num_chunks else {}
-        fallback_id = fallback_chunk.get(
-            "chunk_id", fallback_chunk.get("annotation_id", f"unknown_{i}")
-        )
+    for i, chunk in enumerate(filtered_chunks):
+        chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
+        entry = response_by_key.get(str(i))
 
-        if resp.error:
-            results.append(_make_error(fallback_chunk, fallback_id, str(resp.error)))
+        if entry is None:
+            error = f"Key '{i}': no response returned"
+            errors.append(error)
+            results.append(_make_error(chunk, chunk_id, error))
+            continue
+
+        if "error" in entry and entry["error"]:
+            error = f"Key '{i}': API error: {entry['error']}"
+            errors.append(error)
+            results.append(_make_error(chunk, chunk_id, error))
             continue
 
         try:
-            response_text = _extract_response_text(resp)
+            response_obj = entry.get("response", {})
+            response_text = None
+            candidates = response_obj.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    response_text = parts[0].get("text")
+
             if not response_text:
-                results.append(_make_error(fallback_chunk, fallback_id, "Empty response text"))
+                error = f"Key '{i}': empty response text"
+                errors.append(error)
+                results.append(_make_error(chunk, chunk_id, error))
                 continue
+
             parsed = json.loads(response_text)
-
-            # Match by echoed integer index (no positional fallback)
-            echoed = parsed.get("chunk_id")
-            if echoed is None:
-                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: missing chunk_id echo"))
-                continue
-            try:
-                idx = int(echoed)
-            except (ValueError, TypeError):
-                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id '{echoed}' not an integer"))
-                continue
-            if idx < 0 or idx >= num_chunks:
-                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id {idx} out of range [0, {num_chunks})"))
-                continue
-            if idx in seen_indices:
-                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: duplicate chunk_id {idx}"))
-                continue
-
-            seen_indices.add(idx)
-            index_hits += 1
-            chunk = filtered_chunks[idx]
-            chunk_id = chunk.get(
-                "chunk_id", chunk.get("annotation_id", f"unknown_{i}")
-            )
-
             llm_labels = extract_llm_labels(parsed)
             confidence = _extract_confidence(parsed)
+            risk_conf_map = _extract_risk_conf_map(parsed) if classifier_name == "risk" else {}
+            adoption_conf_map = (
+                _extract_adoption_conf_map(parsed) if classifier_name == "adoption_type" else {}
+            )
 
             results.append({
                 "chunk_id": chunk_id,
@@ -647,17 +767,19 @@ def parse_batch_results(
                 "chunk_text": chunk.get("chunk_text", ""),
                 "human_other": chunk.get("vendor_other"),
                 "llm_other": parsed.get("other_vendor"),
+                "risk_confidences": risk_conf_map,
+                "adoption_signals": adoption_conf_map,
             })
+            matched += 1
 
-        except (json.JSONDecodeError, AttributeError, KeyError, ValueError) as e:
-            results.append(_make_error({}, f"parse_error_{i}", f"Parse error: {e}"))
+        except (json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
+            error = f"Key '{i}': parse error: {e}"
+            errors.append(error)
+            results.append(_make_error(chunk, chunk_id, error))
 
-    unmatched = len(results) - index_hits
-    print(f"Matched: {index_hits}/{len(responses)} | Unmatched/errors: {unmatched}")
-    if unmatched:
-        for r in results:
-            if r.get("error"):
-                print(f"  - {r['chunk_id']}: {r['error']}")
+    print(f"Matched: {matched}/{len(filtered_chunks)} | Errors: {len(errors)}")
+    for err in errors:
+        print(f"  - {err}")
 
     return results
 
@@ -688,59 +810,65 @@ print(f"  risk:          {len(risk_chunks)} chunks")
 print(f"  vendor:        {len(vendor_chunks)} chunks (vendor mention_type)")
 
 
-#%% CONFIG
+#%% NOTE: CONFIG
+# batch_job_name = "batches/x0br8z72xdfmgfyvppna2b9eckxcahpfw0tx"  # adoption_type batch job name
+# batch_job_name = "batches/b1dvgrjr3umit887c5nntsg9k1vxrh80es1x"  # risk batch job name
+# BATCH_RUN_ID = "batch-p2-risk-gemini-3-flash-v2-dict" # Change to "None" to generate a new batch run ID.
+
 CLASSIFIER_NAME = "risk"  # | adoption_type | risk | vendor
-RUN_ID = "p2-risk-gemini-3-flash-v2"
+SUFFIX = "new-schema"
 MODEL_NAME = "gemini-3-flash-preview"
+BATCH_MODEL = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0 # I believe that this should be set to 0 for batch mode.
 LIMIT = 0  # 0 = all matching chunks, >0 = first N (for quick iteration)
+RUN_ID = f"p2-{CLASSIFIER_NAME}-{MODEL_NAME}-{SUFFIX}"
+if BATCH_RUN_ID is None:
+    BATCH_RUN_ID = f"batch-p2-{CLASSIFIER_NAME}-{BATCH_MODEL}-{SUFFIX}"
+print(f"Batch run ID: {BATCH_RUN_ID}")  
 
 # Refresh & display active prompt (re-run this cell after editing classifiers.yaml)
 _load_prompt_yaml.cache_clear()
 # print(f"\n{'='*60}\nACTIVE PROMPT: {CLASSIFIER_NAME}\n{'='*60}")
 # print(get_prompt_template(CLASSIFIER_NAME))
 
-
-#%% SYNC: Run or load from cache
+#%% XXX: SYNC: Run or load from cache
 cached = load_run(RUN_ID)
 if cached:
     print(f"Loaded {len(cached)} results from cache: {RUN_ID}")
     sync_results = cached
 else:
     print(f"Running {CLASSIFIER_NAME} classifier: {RUN_ID} with {MODEL_NAME}")
-    sync_results = run_phase2(
-        RUN_ID,
-        CLASSIFIER_NAME,
-        chunks,
-        MODEL_NAME,
-        TEMPERATURE,
-        THINKING_BUDGET,
-        limit=LIMIT,
-    )
+    # sync_results = run_phase2( # Comented out for safety
+    #     RUN_ID,
+    #     CLASSIFIER_NAME,
+    #     chunks,
+    #     MODEL_NAME,
+    #     TEMPERATURE,
+    #     THINKING_BUDGET,
+    #     limit=LIMIT,
+    # )
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
 
 #%% BATCH: Initialize & filter ############################ BATCH MODE ############################
 batch = BatchClient(runs_dir=RUNS_DIR)
 
-BATCH_RUN_ID = f"batch-p2-{CLASSIFIER_NAME}-gemini-3-flash-v1"
-BATCH_MODEL = "gemini-3-flash-preview"
-
 # Filter chunks for this classifier (always re-run this before submit OR parse)
 filtered_chunks = filter_chunks_for_classifier(chunks, CLASSIFIER_NAME, limit=LIMIT)
 print(f"Filtered {len(filtered_chunks)} chunks for {CLASSIFIER_NAME} to {len(filtered_chunks)} chunks")
 
-#%% BATCH: Prepare & submit (skip this cell when reloading existing results)
-batch_requests = prepare_batch_requests(CLASSIFIER_NAME, filtered_chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
-batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
+#%% BATCH: Prepare & submit (or retrieve existing batch job)
+batch_input_path = prepare_batch_requests(BATCH_RUN_ID, CLASSIFIER_NAME, filtered_chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
+
+if batch_job_name is None:
+    batch_job_name = batch.submit(BATCH_RUN_ID, batch_input_path, model_name=BATCH_MODEL)
+
 
 #%% BATCH: List all recent jobs
 batch.list_jobs()
 
 #%% BATCH: Check status (run this periodically)
-batch_job_name = "batches/b1dvgrjr3umit887c5nntsg9k1vxrh80es1x"  # risk batch job name
-# batch_job_name = "batches/kzhm6o1p0qtj2v01fz9en7o7bq3f37pgxzwj"  # adoption_type batch job name
 batch.check_status(batch_job_name)
 
 #%% BATCH: Get results (paste batch_job_name if reconnecting to a previous job)
@@ -774,4 +902,7 @@ show_diff_summary(results)
 show_details(results)
 
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
-show_details(results, indices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33])
+# show_details(results, indices=[0, 1, 2])
+
+job = batch.client.batches.get(name=batch_job_name)
+print(job.model_dump())

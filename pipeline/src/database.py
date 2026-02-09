@@ -32,6 +32,57 @@ def _max_confidence(confidences: dict) -> float:
     return max(values) if values else 0.0
 
 
+def _normalize_adoption_signals(adoption_result: dict) -> dict:
+    """Normalize adoption signals to a dict for storage."""
+    if not isinstance(adoption_result, dict):
+        return {}
+    signals = adoption_result.get("adoption_signals") or adoption_result.get("adoption_confidences") or {}
+    if isinstance(signals, list):
+        out = {}
+        for entry in signals:
+            if isinstance(entry, dict):
+                k = entry.get("type")
+                v = entry.get("signal")
+                if k is not None and isinstance(v, (int, float)):
+                    out[str(k)] = float(v)
+        return out
+    if isinstance(signals, dict):
+        return {
+            str(k): float(v)
+            for k, v in signals.items()
+            if isinstance(v, (int, float))
+        }
+    return {}
+
+
+def _normalize_risk_signals(risk_result: dict) -> dict:
+    """Normalize risk signals to a dict for storage."""
+    if not isinstance(risk_result, dict):
+        return {}
+
+    signals = risk_result.get("risk_signals")
+    if isinstance(signals, list):
+        out = {}
+        for entry in signals:
+            if not isinstance(entry, dict):
+                continue
+            k = entry.get("type")
+            v = entry.get("signal")
+            if k is not None and isinstance(v, (int, float)):
+                out[str(k)] = float(v)
+        return out
+
+    legacy = risk_result.get("confidence_scores")
+    if isinstance(legacy, dict):
+        return {
+            str(k): float(v)
+            for k, v in legacy.items()
+            if isinstance(v, (int, float))
+        }
+
+    return {}
+
+
 class Company(Base):
     """Table for canonical company records."""
 
@@ -789,12 +840,14 @@ class Database:
             mention_type_confidences=json.dumps(mention_confidences),
             mention_reasoning=mention_reasoning,
             risk_types=json.dumps(risk_result.get("risk_types", [])),
-            risk_confidences=json.dumps(risk_result.get("confidence_scores", {})),
+            risk_confidences=json.dumps(_normalize_risk_signals(risk_result)),
             risk_evidence=json.dumps(risk_result.get("evidence", {})),
             risk_key_snippets=json.dumps(risk_result.get("key_snippets", {})),
             risk_substantiveness=risk_result.get("substantiveness_score"),
             risk_reasoning=risk_result.get("reasoning", ""),
-            adoption_confidences=json.dumps(adoption_result.get("adoption_confidences", {})),
+            adoption_confidences=json.dumps(
+                _normalize_adoption_signals(adoption_result)
+            ),
             adoption_evidence=json.dumps(adoption_result.get("evidence", {})),
             adoption_reasoning=adoption_result.get("reasoning", ""),
             vendor_confidences=json.dumps(
@@ -1014,7 +1067,7 @@ class Database:
                 risk_types=json.dumps(classification_data.get("risk_types", [])),
                 evidence=json.dumps(classification_data.get("evidence", {})),
                 key_snippets=json.dumps(classification_data.get("key_snippets", {})),
-                confidence_scores=json.dumps(classification_data.get("confidence_scores", {})),
+                confidence_scores=json.dumps(_normalize_risk_signals(classification_data)),
                 reasoning=classification_data.get("reasoning", ""),
                 model_version=model_version,
                 classification_date=datetime.now().date(),

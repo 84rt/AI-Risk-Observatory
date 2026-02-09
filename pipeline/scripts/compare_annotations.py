@@ -133,7 +133,13 @@ def print_comparison(
             )
             print(f"    Mention: {conf_str or '-'}")
 
-        adopt_conf = details.get('adoption_confidences', {})
+        adopt_conf = details.get('adoption_signals') or details.get('adoption_confidences', {})
+        if isinstance(adopt_conf, list):
+            adopt_conf = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in adopt_conf
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
         if adopt_conf:
             conf_str = ", ".join(
                 f"{k}:{v:.2f}" for k, v in adopt_conf.items()

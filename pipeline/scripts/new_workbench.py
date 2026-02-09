@@ -230,13 +230,18 @@ def compare_sets(human: list[str], llm: list[str]) -> str:
 def extract_adoption_types(adoption_classification: object, threshold: float = 0.0) -> list[str]:
     if not isinstance(adoption_classification, dict):
         return []
-    confidences = adoption_classification.get("adoption_confidences", {}) or {}
-    if not isinstance(confidences, dict):
-        return []
-    return [
-        k for k, v in confidences.items()
-        if isinstance(v, (int, float)) and v > threshold
-    ]
+    signals = adoption_classification.get("adoption_signals") or adoption_classification.get("adoption_confidences") or {}
+    if isinstance(signals, list):
+        return [
+            str(e.get("type")) for e in signals
+            if isinstance(e, dict) and isinstance(e.get("signal"), (int, float)) and e.get("signal") > threshold
+        ]
+    if isinstance(signals, dict):
+        return [
+            k for k, v in signals.items()
+            if isinstance(v, (int, float)) and v > threshold
+        ]
+    return []
 
 
 baseline_results: list[tuple[dict, dict]] = []

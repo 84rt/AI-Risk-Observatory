@@ -369,10 +369,10 @@ batch = BatchClient(runs_dir=RUNS_DIR)
 BATCH_RUN_ID = "batch-gemini-3-flash-v3.1-100chunks"
 BATCH_MODEL = "gemini-3-flash-preview"
 
-batch_requests = batch.prepare_requests(chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
+batch_input_path = batch.prepare_requests(BATCH_RUN_ID, chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
 
 #%% BATCH: Submit job
-batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MODEL)
+batch_job_name = batch.submit(BATCH_RUN_ID, batch_input_path, model_name=BATCH_MODEL)
 
 #%% BATCH: Check status (run this periodically)
 # batch_job_name= "batches/2j0ufhrtjqml6fubzlb6u1ifur1us0qg462c"

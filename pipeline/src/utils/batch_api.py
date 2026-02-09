@@ -1,12 +1,15 @@
 """
 Gemini Batch API helper for async classification at 50% cost.
 
+Uses file-based batch jobs with a `key` field on each request for
+reliable response-to-request matching (no LLM echo needed).
+
 Usage in classifier_testbed.py:
     from src.utils.batch_api import BatchClient
 
     batch = BatchClient()
-    requests = batch.prepare_requests(chunks, model_name="gemini-2.0-flash")
-    job_name = batch.submit(run_id="my-run", requests=requests)
+    jsonl_path = batch.prepare_requests(run_id="my-run", chunks=chunks)
+    job_name = batch.submit(run_id="my-run", jsonl_path=jsonl_path)
 
     # Later (or in another cell):
     status = batch.check_status(job_name)
@@ -27,20 +30,13 @@ from google.genai import types
 
 
 class BatchClient:
-    """Client for Gemini Batch API operations."""
+    """Client for Gemini Batch API operations (file-based)."""
 
     def __init__(
         self,
         api_key: str | None = None,
         runs_dir: Path | None = None,
     ):
-        """
-        Initialize the batch client.
-
-        Args:
-            api_key: Gemini API key (defaults to GEMINI_API_KEY env var)
-            runs_dir: Directory to save batch metadata and results
-        """
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if not self.api_key:
             raise RuntimeError("GEMINI_API_KEY or GOOGLE_API_KEY not set")
@@ -49,17 +45,13 @@ class BatchClient:
         self.runs_dir = runs_dir
 
         self._user_template = (
-            "## CHUNK_INDEX\n"
-            "{chunk_index}\n\n"
-            "## NOTE\n"
-            "Echo this integer as \"chunk_id\" in the JSON output.\n\n"
             "## EXCERPT\n"
             "\"\"\"\n"
             "{text}\n"
             "\"\"\"\n"
         )
 
-    def _get_prompt_for_chunk(self, chunk: dict, chunk_index: int) -> tuple[str, str]:
+    def _get_prompt_for_chunk(self, chunk: dict) -> tuple[str, str]:
         """Build system and user prompts for a chunk (mirrors LLMClassifierV2)."""
         from src.utils.prompt_loader import get_prompt_messages
 
@@ -81,7 +73,6 @@ class BatchClient:
             "mention_type_v3",
             reasoning_policy="short",
             user_template=self._user_template,
-            chunk_index=chunk_index,
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,
@@ -99,86 +90,111 @@ class BatchClient:
 
     def prepare_requests(
         self,
+        run_id: str,
         chunks: list[dict],
         temperature: float = 0.0,
         thinking_budget: int = 0,
-    ) -> list[dict]:
+    ) -> Path:
         """
-        Prepare batch requests from chunks.
+        Write batch requests to a JSONL file with key-based matching.
+
+        Each line: {"key": "<index>", "request": {GenerateContentRequest}}
 
         Args:
-            chunks: List of chunk dicts with chunk_text, company_name, etc.
-            temperature: LLM temperature (0.0 for deterministic)
-            thinking_budget: Token budget for thinking (0 = disabled)
+            run_id: Used to name the JSONL file.
+            chunks: List of chunk dicts.
+            temperature: LLM temperature.
+            thinking_budget: Token budget for thinking (0 = disabled).
 
         Returns:
-            List of request dicts for submit()
+            Path to the written JSONL file.
         """
+        if not self.runs_dir:
+            raise RuntimeError("runs_dir must be set to write batch JSONL files")
+
         response_schema = self._get_response_schema()
-        requests = []
+        jsonl_path = self.runs_dir / f"{run_id}.batch_input.jsonl"
 
-        for i, chunk in enumerate(chunks):
-            system_prompt, user_prompt = self._get_prompt_for_chunk(chunk, chunk_index=i)
+        with jsonl_path.open("w") as f:
+            for i, chunk in enumerate(chunks):
+                system_prompt, user_prompt = self._get_prompt_for_chunk(chunk)
 
-            config: dict[str, Any] = {
-                "system_instruction": system_prompt,
-                "temperature": temperature,
-                "response_mime_type": "application/json",
-                "response_schema": response_schema,
-            }
+                generation_config: dict[str, Any] = {
+                    "temperature": temperature,
+                    "max_output_tokens": 2048,
+                    "response_mime_type": "application/json",
+                    "response_schema": response_schema,
+                }
+                if thinking_budget > 0:
+                    generation_config["thinking_config"] = {"thinking_budget": thinking_budget}
 
-            if thinking_budget > 0:
-                config["thinking_config"] = {"thinking_budget": thinking_budget}
+                line = {
+                    "key": str(i),
+                    "request": {
+                        "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
+                        "system_instruction": {"parts": [{"text": system_prompt}]},
+                        "generation_config": generation_config,
+                    },
+                }
+                f.write(json.dumps(line) + "\n")
 
-            requests.append({
-                "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
-                "config": config,
-            })
-
-        print(f"Prepared {len(requests)} batch requests.")
-        return requests
+        print(f"Wrote {len(chunks)} batch requests to {jsonl_path.name}")
+        return jsonl_path
 
     def submit(
         self,
         run_id: str,
-        requests: list[dict],
+        jsonl_path: Path,
         model_name: str = "gemini-2.0-flash",
     ) -> str:
         """
-        Submit a batch job.
+        Upload JSONL file and submit a file-based batch job.
 
         Args:
-            run_id: Identifier for this batch (used as display_name)
-            requests: List of request dicts from prepare_requests()
-            model_name: Model to use
+            run_id: Identifier for this batch (used as display_name).
+            jsonl_path: Path to JSONL file from prepare_requests().
+            model_name: Model to use.
 
         Returns:
-            Batch job name (use to check status and get results)
+            Batch job name (use to check status and get results).
         """
         if not model_name.startswith("models/"):
             model_name = f"models/{model_name}"
 
+        # Upload input file via Files API
+        uploaded = self.client.files.upload(
+            file=str(jsonl_path),
+            config=types.UploadFileConfig(
+                display_name=run_id,
+                mime_type="jsonl",
+            ),
+        )
+        print(f"Uploaded: {uploaded.name}")
+
+        # Create batch job referencing the uploaded file
         batch_job = self.client.batches.create(
             model=model_name,
-            src=requests,
+            src=uploaded.name,
             config={"display_name": run_id},
         )
 
         job_name = batch_job.name
+        num_requests = sum(1 for _ in jsonl_path.open())
         print(f"Submitted batch: {job_name}")
         print(f"  run_id: {run_id}")
         print(f"  model: {model_name}")
-        print(f"  requests: {len(requests)}")
+        print(f"  requests: {num_requests}")
         print(f"  state: {batch_job.state.name}")
 
-        # Save metadata if runs_dir is set
+        # Save metadata
         if self.runs_dir:
             meta_path = self.runs_dir / f"{run_id}.batch_meta.json"
             meta = {
                 "job_name": job_name,
                 "run_id": run_id,
                 "model_name": model_name,
-                "num_requests": len(requests),
+                "num_requests": num_requests,
+                "uploaded_file": uploaded.name,
                 "submitted_at": datetime.now().isoformat(),
             }
             meta_path.write_text(json.dumps(meta, indent=2))
@@ -187,15 +203,7 @@ class BatchClient:
         return job_name
 
     def check_status(self, job_name: str) -> dict:
-        """
-        Check batch job status.
-
-        Args:
-            job_name: The batch job name from submit()
-
-        Returns:
-            Dict with state and progress info
-        """
+        """Check batch job status."""
         job = self.client.batches.get(name=job_name)
 
         status = {
@@ -210,17 +218,16 @@ class BatchClient:
             status["succeeded"] = getattr(stats, "success_count", None)
             status["failed"] = getattr(stats, "failed_count", None)
 
-        # Print summary
         state = status["state"]
         if state == "JOB_STATE_SUCCEEDED":
-            print(f"✓ SUCCEEDED: {job_name}")
+            print(f"SUCCEEDED: {job_name}")
         elif state == "JOB_STATE_FAILED":
-            print(f"✗ FAILED: {job_name}")
+            print(f"FAILED: {job_name}")
         elif state == "JOB_STATE_CANCELLED":
-            print(f"⊘ CANCELLED: {job_name}")
+            print(f"CANCELLED: {job_name}")
         elif state in ("JOB_STATE_PENDING", "JOB_STATE_RUNNING"):
             label = state.replace("JOB_STATE_", "")
-            print(f"⋯ {label}: {job_name}")
+            print(f"{label}: {job_name}")
             if status.get("total"):
                 done = status.get("succeeded", 0) or 0
                 pct = done / status["total"] * 100
@@ -254,14 +261,14 @@ class BatchClient:
         chunks: list[dict],
     ) -> list[dict] | None:
         """
-        Retrieve and parse results from a completed batch.
+        Download results from a completed file-based batch and match by key.
 
         Args:
-            job_name: The batch job name
-            chunks: Original chunks (to match with responses)
+            job_name: The batch job name.
+            chunks: Original chunks list (indexed 0..N-1, matching keys).
 
         Returns:
-            List of result dicts, or None if not ready
+            List of result dicts in original chunk order, or None if not ready.
         """
         job = self.client.batches.get(name=job_name)
 
@@ -269,59 +276,93 @@ class BatchClient:
             print(f"Batch not ready: {job.state.name}")
             return None
 
-        if not hasattr(job, "dest") or not hasattr(job.dest, "inlined_responses"):
-            print("No inlined_responses found.")
+        # Extract responses: try file download first, fall back to inlined
+        output_lines: list[dict] = []
+        dest = getattr(job, "dest", None)
+
+        result_file_name = getattr(dest, "file_name", None) if dest else None
+        if result_file_name:
+            raw_bytes = self.client.files.download(file=result_file_name)
+            output_text = raw_bytes.decode("utf-8")
+            output_lines = [
+                json.loads(line) for line in output_text.splitlines() if line.strip()
+            ]
+            print(f"Downloaded {len(output_lines)} responses from {result_file_name}")
+
+        if not output_lines and dest and getattr(dest, "inlined_responses", None):
+            for ir in dest.inlined_responses:
+                entry: dict = {}
+                key = getattr(ir, "key", None)
+                if key is not None:
+                    entry["key"] = str(key)
+                resp = getattr(ir, "response", None)
+                if resp:
+                    entry["response"] = resp.model_dump() if hasattr(resp, "model_dump") else {}
+                output_lines.append(entry)
+            print(f"Extracted {len(output_lines)} inlined responses")
+
+        if not output_lines:
+            print("ERROR: No responses found (no file output, no inlined responses)")
             return None
 
-        responses = job.dest.inlined_responses
-        print(f"Retrieved {len(responses)} responses.")
+        if len(output_lines) != len(chunks):
+            print(f"WARNING: {len(output_lines)} responses != {len(chunks)} chunks")
 
-        if len(responses) != len(chunks):
-            print(f"WARNING: {len(responses)} responses != {len(chunks)} chunks")
+        # Build lookup by key
+        response_by_key: dict[str, dict] = {}
+        missing_key_count = 0
+        for entry in output_lines:
+            key = entry.get("key")
+            if key is not None:
+                response_by_key[str(key)] = entry
+            else:
+                missing_key_count += 1
 
-        num_chunks = len(chunks)
+        # If keys are missing entirely, fall back to positional matching
+        if not response_by_key and output_lines:
+            print("WARNING: No response keys found; falling back to positional matching.")
+            response_by_key = {str(i): entry for i, entry in enumerate(output_lines)}
+        elif missing_key_count:
+            print(f"WARNING: {missing_key_count} responses missing keys; unmatched entries may be skipped.")
+
+        # Join in original order
         results = []
-        seen_indices: set[int] = set()
-        index_hits = 0
-        for i, resp in enumerate(responses):
-            fallback_chunk = chunks[i] if i < num_chunks else {}
-            fallback_id = fallback_chunk.get(
-                "chunk_id",
-                fallback_chunk.get("annotation_id", f"unknown_{i}"),
-            )
+        matched = 0
+        errors = []
+        for i, chunk in enumerate(chunks):
+            chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
+            entry = response_by_key.get(str(i))
 
-            if resp.error:
-                results.append(self._make_error_result(fallback_chunk, fallback_id, str(resp.error)))
+            if entry is None:
+                error = f"Key '{i}': no response returned"
+                errors.append(error)
+                results.append(self._make_error_result(chunk, chunk_id, error))
+                continue
+
+            # Check for API-level error on this request
+            if "error" in entry and entry["error"]:
+                error = f"Key '{i}': API error: {entry['error']}"
+                errors.append(error)
+                results.append(self._make_error_result(chunk, chunk_id, error))
                 continue
 
             try:
-                response_text = resp.response.text
+                response_obj = entry.get("response", {})
+                # Extract text from response candidates
+                response_text = None
+                candidates = response_obj.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        response_text = parts[0].get("text")
+
+                if not response_text:
+                    error = f"Key '{i}': empty response text"
+                    errors.append(error)
+                    results.append(self._make_error_result(chunk, chunk_id, error))
+                    continue
+
                 parsed = json.loads(response_text)
-
-                # Match by echoed integer index (no positional fallback)
-                echoed = parsed.get("chunk_id")
-                if echoed is None:
-                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: missing chunk_id echo"))
-                    continue
-                try:
-                    idx = int(echoed)
-                except (ValueError, TypeError):
-                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id '{echoed}' not an integer"))
-                    continue
-                if idx < 0 or idx >= num_chunks:
-                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id {idx} out of range [0, {num_chunks})"))
-                    continue
-                if idx in seen_indices:
-                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: duplicate chunk_id {idx}"))
-                    continue
-
-                seen_indices.add(idx)
-                index_hits += 1
-                chunk = chunks[idx]
-                chunk_id = chunk.get(
-                    "chunk_id", chunk.get("annotation_id", f"unknown_{i}")
-                )
-
                 llm_types = [str(mt) for mt in parsed.get("mention_types", [])]
 
                 confidence = 0.0
@@ -338,18 +379,18 @@ class BatchClient:
                     "llm_mention_types": llm_types,
                     "confidence": confidence,
                     "reasoning": parsed.get("reasoning", ""),
-                    "chunk_text": chunk["chunk_text"],
+                    "chunk_text": chunk.get("chunk_text", ""),
                 })
+                matched += 1
 
-            except (json.JSONDecodeError, AttributeError, KeyError) as e:
-                results.append(self._make_error_result({}, f"parse_error_{i}", f"Parse error: {e}"))
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                error = f"Key '{i}': parse error: {e}"
+                errors.append(error)
+                results.append(self._make_error_result(chunk, chunk_id, error))
 
-        unmatched = len(results) - index_hits
-        print(f"Matched: {index_hits}/{len(responses)} | Unmatched/errors: {unmatched}")
-        if unmatched:
-            for r in results:
-                if r.get("error"):
-                    print(f"  - {r['chunk_id']}: {r['error']}")
+        print(f"Matched: {matched}/{len(chunks)} | Errors: {len(errors)}")
+        for err in errors:
+            print(f"  - {err}")
 
         return results
 

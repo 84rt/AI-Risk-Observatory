@@ -11,7 +11,7 @@ nested objects with explicit properties for known keys.
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, conint, model_validator
 
 
 # =============================================================================
@@ -172,20 +172,14 @@ class AdoptionType(str, Enum):
     agentic = "agentic"
 
 
-class AdoptionConfidenceScores(BaseModel):
-    """Signal scores for each adoption type."""
+class AdoptionSignalEntry(BaseModel):
+    """Single adoption signal entry."""
 
-    non_llm: Optional[int] = Field(
-        default=None,
-        description="Traditional ML/AI signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
+    type: AdoptionType = Field(
+        description="Adoption type label."
     )
-    llm: Optional[int] = Field(
-        default=None,
-        description="LLM signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
-    )
-    agentic: Optional[int] = Field(
-        default=None,
-        description="Agentic AI signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
+    signal: conint(ge=0, le=3) = Field(
+        description="Signal strength (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
     )
 
 
@@ -196,10 +190,10 @@ class AdoptionTypeResponse(BaseModel):
         default=None,
         description="Echoed chunk identifier when provided in the prompt.",
     )
-    adoption_confidences: AdoptionConfidenceScores = Field(
+    adoption_signals: List[AdoptionSignalEntry] = Field(
         description=(
-            "Signal scores (0-3) for each adoption type. "
-            "0=absent, 1=weak/implicit, 2=strong implicit, 3=explicit."
+            "List of adoption signals (one entry per adoption type). "
+            "Each entry has {type, signal} with signal in {0,1,2,3}."
         )
     )
     substantiveness: SubstantivenessLevel = Field(
@@ -214,6 +208,18 @@ class AdoptionTypeResponse(BaseModel):
         default=None,
         description="Brief explanation of classification rationale.",
     )
+
+    @model_validator(mode="after")
+    def validate_adoption_signals(self) -> "AdoptionTypeResponse":
+        types = [entry.type for entry in self.adoption_signals]
+        if len(types) != len(set(types)):
+            raise ValueError("adoption_signals must include each adoption type at most once")
+        missing = set(AdoptionType) - set(types)
+        if missing:
+            raise ValueError(
+                f"adoption_signals missing required types: {', '.join(sorted([m.value for m in missing]))}"
+            )
+        return self
 
 
 # =============================================================================
@@ -240,49 +246,49 @@ class RiskType(str, Enum):
 class RiskConfidenceScores(BaseModel):
     """Confidence scores for each risk type."""
 
-    strategic_competitive: Optional[float] = Field(
-        default=None,
-        description="Strategic/competitive risk confidence (0.0-1.0): failure to adopt, competitive disadvantage",
+    strategic_competitive: conint(ge=0, le=3) = Field(
+        description="Strategic/competitive risk signal (0-3): failure to adopt, competitive disadvantage",
     )
-    operational_technical: Optional[float] = Field(
-        default=None,
-        description="Operational/technical risk confidence (0.0-1.0): model failures, reliability",
+    operational_technical: conint(ge=0, le=3) = Field(
+        description="Operational/technical risk signal (0-3): model failures, reliability",
     )
-    cybersecurity: Optional[float] = Field(
-        default=None,
-        description="Cybersecurity risk confidence (0.0-1.0): AI-enabled attacks, vulnerabilities",
+    cybersecurity: conint(ge=0, le=3) = Field(
+        description="Cybersecurity risk signal (0-3): AI-enabled attacks, vulnerabilities",
     )
-    workforce_impacts: Optional[float] = Field(
-        default=None,
-        description="Workforce impact confidence (0.0-1.0): job displacement, skills obsolescence",
+    workforce_impacts: conint(ge=0, le=3) = Field(
+        description="Workforce impact signal (0-3): job displacement, skills obsolescence",
     )
-    regulatory_compliance: Optional[float] = Field(
-        default=None,
-        description="Regulatory/compliance risk confidence (0.0-1.0): AI Act, privacy, IP/copyright, legal liability",
+    regulatory_compliance: conint(ge=0, le=3) = Field(
+        description="Regulatory/compliance risk signal (0-3): AI Act, privacy, IP/copyright, legal liability",
     )
-    information_integrity: Optional[float] = Field(
-        default=None,
-        description="Information integrity confidence (0.0-1.0): misinformation, deepfakes",
+    information_integrity: conint(ge=0, le=3) = Field(
+        description="Information integrity signal (0-3): misinformation, deepfakes",
     )
-    reputational_ethical: Optional[float] = Field(
-        default=None,
-        description="Reputational/ethical risk confidence (0.0-1.0): public trust, bias concerns",
+    reputational_ethical: conint(ge=0, le=3) = Field(
+        description="Reputational/ethical risk signal (0-3): public trust, bias concerns",
     )
-    third_party_supply_chain: Optional[float] = Field(
-        default=None,
-        description="Third-party/supply chain risk confidence (0.0-1.0): vendor reliance",
+    third_party_supply_chain: conint(ge=0, le=3) = Field(
+        description="Third-party/supply chain risk signal (0-3): vendor reliance",
     )
-    environmental_impact: Optional[float] = Field(
-        default=None,
-        description="Environmental impact confidence (0.0-1.0): energy consumption, carbon",
+    environmental_impact: conint(ge=0, le=3) = Field(
+        description="Environmental impact signal (0-3): energy consumption, carbon",
     )
-    national_security: Optional[float] = Field(
-        default=None,
-        description="National security risk confidence (0.0-1.0): geopolitical, export controls",
+    national_security: conint(ge=0, le=3) = Field(
+        description="National security risk signal (0-3): geopolitical, export controls",
     )
-    none: Optional[float] = Field(
-        default=None,
-        description="Too vague to assign (0.0-1.0)",
+    none: conint(ge=0, le=3) = Field(
+        description="Too vague to assign (0-3)",
+    )
+
+
+class RiskSignalEntry(BaseModel):
+    """Single risk signal entry for an applied risk type."""
+
+    type: RiskType = Field(
+        description="Risk type label."
+    )
+    signal: conint(ge=1, le=3) = Field(
+        description="Signal strength (1-3): 1=weak implicit, 2=strong implicit, 3=explicit",
     )
 
 
@@ -299,10 +305,10 @@ class RiskResponse(BaseModel):
             "Use 'none' if the excerpt is too vague to assign specific categories."
         )
     )
-    confidence_scores: RiskConfidenceScores = Field(
+    risk_signals: List[RiskSignalEntry] = Field(
         description=(
-            "Confidence per detected risk type (0.0-1.0). "
-            "0.0=no evidence, 0.2=implied, 0.5=plausible, 0.8=explicit, 0.95=unambiguous."
+            "Signal scores (1-3) for risk types listed in risk_types only. "
+            "1=weak implicit, 2=strong implicit, 3=explicit."
         )
     )
     substantiveness: SubstantivenessLevel = Field(
@@ -317,6 +323,34 @@ class RiskResponse(BaseModel):
         default=None,
         description="Brief explanation of classification rationale.",
     )
+
+    @model_validator(mode="after")
+    def validate_risk_signals(self) -> "RiskResponse":
+        types = [rt.value for rt in self.risk_types]
+        if not types:
+            raise ValueError("risk_types must not be empty")
+        if "none" in types and len(types) > 1:
+            raise ValueError("risk_types cannot include 'none' with other labels")
+
+        seen = set()
+        for entry in self.risk_signals:
+            key = entry.type.value
+            if key in seen:
+                raise ValueError(f"risk_signals contains duplicate type: {key}")
+            seen.add(key)
+
+        type_set = set(types)
+        if seen != type_set:
+            missing = sorted(type_set - seen)
+            extra = sorted(seen - type_set)
+            details = []
+            if missing:
+                details.append(f"missing types: {', '.join(missing)}")
+            if extra:
+                details.append(f"unexpected types: {', '.join(extra)}")
+            raise ValueError(f"risk_signals must match risk_types exactly ({'; '.join(details)})")
+
+        return self
 
 
 # =============================================================================

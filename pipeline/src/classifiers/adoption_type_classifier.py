@@ -48,20 +48,23 @@ class AdoptionTypeClassifier(BaseClassifier):
         """Extract classification result from AdoptionTypeResponse."""
         response: AdoptionTypeResponse = parsed  # type: ignore
 
-        # Convert confidence scores object to dict
-        adoption_confidences = response.adoption_confidences.model_dump(exclude_none=True)
+        # Convert adoption signals list to dict
+        adoption_signals = {
+            entry.type.value if hasattr(entry.type, "value") else str(entry.type): entry.signal
+            for entry in response.adoption_signals
+        }
         reasoning = response.reasoning or ""
 
-        # Get active types with non-zero confidence
+        # Get active types with non-zero signal
         active_types = [
-            key for key, score in adoption_confidences.items()
+            key for key, score in adoption_signals.items()
             if isinstance(score, (int, float)) and score > 0
         ]
         primary_label = ",".join(sorted(active_types)) if active_types else "none"
 
-        # Get max confidence
+        # Get max signal
         confidence_scores = [
-            score for score in adoption_confidences.values()
+            score for score in adoption_signals.values()
             if isinstance(score, (int, float))
         ]
         confidence = max(confidence_scores) if confidence_scores else 0.0
@@ -72,11 +75,18 @@ class AdoptionTypeClassifier(BaseClassifier):
         self, response: Dict[str, Any], metadata: Dict[str, Any]
     ) -> Tuple[str, float, List[str], str]:
         """Fallback parser for backward compatibility."""
+        adoption_signals_list = response.get("adoption_signals")
         adoption_confidences = response.get("adoption_confidences", {})
         evidence_dict = response.get("evidence", {})
         reasoning = response.get("reasoning", "")
 
-        if not isinstance(adoption_confidences, dict):
+        if isinstance(adoption_signals_list, list):
+            adoption_confidences = {
+                str(entry.get("type")): entry.get("signal")
+                for entry in adoption_signals_list
+                if isinstance(entry, dict)
+            }
+        elif not isinstance(adoption_confidences, dict):
             adoption_confidences = {}
 
         active_types = [

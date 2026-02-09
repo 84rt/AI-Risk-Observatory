@@ -58,14 +58,27 @@ def _build_risk_fields(chunk: Dict[str, Any], payload: Dict[str, Any]) -> Dict[s
 
 
 def _build_adoption_fields(chunk: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
-    adoption_confidences = payload.get("adoption_confidences", {}) or {}
-    adoption_types = tags_from_confidences(adoption_confidences, 0.0)  # threshold applied later
-    valid_scores = [
-        s for s in adoption_confidences.values() if isinstance(s, (int, float))
-    ]
+    adoption_signals = payload.get("adoption_signals") or payload.get("adoption_confidences") or {}
+    signal_map: Dict[str, float] = {}
+    if isinstance(adoption_signals, list):
+        for entry in adoption_signals:
+            if isinstance(entry, dict):
+                k = entry.get("type")
+                v = entry.get("signal")
+                if k is not None and isinstance(v, (int, float)):
+                    signal_map[str(k)] = float(v)
+    elif isinstance(adoption_signals, dict):
+        signal_map = {
+            str(k): float(v)
+            for k, v in adoption_signals.items()
+            if isinstance(v, (int, float))
+        }
+
+    adoption_types = tags_from_confidences(signal_map, 0.0)  # threshold applied later
+    valid_scores = [s for s in signal_map.values() if isinstance(s, (int, float))]
     return {
         "adoption_types_raw": adoption_types,
-        "adoption_confidences": adoption_confidences,
+        "adoption_signals": adoption_signals,
         "adoption_confidence": max(valid_scores) if valid_scores else 0.0,
     }
 
@@ -384,9 +397,24 @@ def run_phase2(
 
         # Adoption fields
         adoption_fields = ds.get("Adoption", {})
-        adoption_confidences = adoption_fields.get("adoption_confidences", {})
-        adoption_types = tags_from_confidences(adoption_confidences, downstream_threshold)
-        if adoption_confidences and not adoption_types:
+        adoption_signals = adoption_fields.get("adoption_signals", {})
+        signal_map: Dict[str, float] = {}
+        if isinstance(adoption_signals, list):
+            for entry in adoption_signals:
+                if isinstance(entry, dict):
+                    k = entry.get("type")
+                    v = entry.get("signal")
+                    if k is not None and isinstance(v, (int, float)):
+                        signal_map[str(k)] = float(v)
+        elif isinstance(adoption_signals, dict):
+            signal_map = {
+                str(k): float(v)
+                for k, v in adoption_signals.items()
+                if isinstance(v, (int, float))
+            }
+
+        adoption_types = tags_from_confidences(signal_map, downstream_threshold)
+        if adoption_signals and not adoption_types:
             adoption_types = ["none"]
         adoption_confidence = adoption_fields.get("adoption_confidence")
 
@@ -417,7 +445,7 @@ def run_phase2(
             "llm_details": {
                 "model": model_name,
                 "mention_confidences": mention_confidences,
-                "adoption_confidences": adoption_confidences,
+                "adoption_signals": adoption_signals,
                 "risk_confidences": risk_confidences,
                 "vendor_confidences": {},
             },

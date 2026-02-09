@@ -23,9 +23,10 @@ VALID_CLASSIFIER_TYPES = {
 
 VALID_ADOPTION_TYPES = {"non_llm", "llm", "agentic"}
 
-VALID_SUBSTANTIVENESS_LEVELS = {"boilerplate", "contextual", "substantive"}
+VALID_SUBSTANTIVENESS_LEVELS = {"boilerplate", "contextual", "moderate", "substantive"}
 
 VALID_RISK_CATEGORIES = {
+    "strategic_competitive",
     "operational_technical",
     "cybersecurity",
     "workforce_impacts",
@@ -35,6 +36,7 @@ VALID_RISK_CATEGORIES = {
     "third_party_supply_chain",
     "environmental_impact",
     "national_security",
+    "none",
 }
 
 
@@ -136,27 +138,49 @@ def _validate_adoption_response(
     messages = []
 
     # Required fields
-    if "adoption_confidences" not in response:
-        msg = "Missing required field: adoption_confidences"
+    if "adoption_signals" not in response:
+        msg = "Missing required field: adoption_signals"
         if strict:
-            raise ValidationError(msg, "adoption_confidences")
+            raise ValidationError(msg, "adoption_signals")
         messages.append(msg)
     else:
-        confidences = response["adoption_confidences"]
-        if not isinstance(confidences, dict):
-            msg = f"adoption_confidences must be a dict, got {type(confidences)}"
+        signals = response["adoption_signals"]
+        if not isinstance(signals, list):
+            msg = f"adoption_signals must be a list, got {type(signals)}"
             if strict:
-                raise ValidationError(msg, "adoption_confidences")
+                raise ValidationError(msg, "adoption_signals")
             messages.append(msg)
         else:
-            for key, score in confidences.items():
-                if key not in VALID_ADOPTION_TYPES:
-                    msg = f"Invalid adoption type key: {key}. Valid: {VALID_ADOPTION_TYPES}"
+            seen = set()
+            for entry in signals:
+                if not isinstance(entry, dict):
+                    msg = f"adoption_signals entry must be a dict, got {type(entry)}"
                     if strict:
-                        raise ValidationError(msg, "adoption_confidences")
+                        raise ValidationError(msg, "adoption_signals")
                     messages.append(msg)
+                    continue
+                atype = entry.get("type")
+                score = entry.get("signal")
+                if atype not in VALID_ADOPTION_TYPES:
+                    msg = f"Invalid adoption type: {atype}. Valid: {VALID_ADOPTION_TYPES}"
+                    if strict:
+                        raise ValidationError(msg, "adoption_signals")
+                    messages.append(msg)
+                else:
+                    if atype in seen:
+                        msg = f"Duplicate adoption type in adoption_signals: {atype}"
+                        if strict:
+                            raise ValidationError(msg, "adoption_signals")
+                        messages.append(msg)
+                    seen.add(atype)
                 signal_valid, signal_msgs = _validate_signal_score(score, strict)
                 messages.extend(signal_msgs)
+            missing = set(VALID_ADOPTION_TYPES) - seen
+            if missing:
+                msg = f"adoption_signals missing required types: {', '.join(sorted(missing))}"
+                if strict:
+                    raise ValidationError(msg, "adoption_signals")
+                messages.append(msg)
 
     return len(messages) == 0, messages
 
@@ -216,28 +240,77 @@ def _validate_risk_response(
                         raise ValidationError(msg, "risk_types")
                     messages.append(msg)
 
-    if "confidence_scores" in response:
-        conf_scores = response["confidence_scores"]
-        if not isinstance(conf_scores, dict):
-            msg = f"confidence_scores must be a dict, got {type(conf_scores)}"
+    if "risk_signals" not in response:
+        msg = "Missing required field: risk_signals"
+        if strict:
+            raise ValidationError(msg, "risk_signals")
+        messages.append(msg)
+    else:
+        risk_signals = response["risk_signals"]
+        if not isinstance(risk_signals, list):
+            msg = f"risk_signals must be a list, got {type(risk_signals)}"
             if strict:
-                raise ValidationError(msg, "confidence_scores")
+                raise ValidationError(msg, "risk_signals")
             messages.append(msg)
         else:
-            for key, value in conf_scores.items():
-                if key not in VALID_RISK_CATEGORIES:
-                    msg = f"Invalid risk category in confidence_scores: {key}"
+            types = response.get("risk_types", [])
+            type_set = set(types) if isinstance(types, list) else set()
+            seen = set()
+            for entry in risk_signals:
+                if not isinstance(entry, dict):
+                    msg = f"risk_signals entry must be a dict, got {type(entry)}"
                     if strict:
-                        raise ValidationError(msg, "confidence_scores")
+                        raise ValidationError(msg, "risk_signals")
                     messages.append(msg)
-                conf_valid, conf_msgs = _validate_confidence(value, strict)
-                messages.extend(conf_msgs)
+                    continue
+                key = entry.get("type")
+                value = entry.get("signal")
+                if key not in VALID_RISK_CATEGORIES:
+                    msg = f"Invalid risk category in risk_signals: {key}"
+                    if strict:
+                        raise ValidationError(msg, "risk_signals")
+                    messages.append(msg)
+                elif key in seen:
+                    msg = f"Duplicate risk type in risk_signals: {key}"
+                    if strict:
+                        raise ValidationError(msg, "risk_signals")
+                    messages.append(msg)
+                else:
+                    seen.add(key)
+
+                signal_valid, signal_msgs = _validate_signal_score(value, strict)
+                messages.extend(signal_msgs)
+                if isinstance(value, (int, float)) and int(value) == 0:
+                    msg = "risk_signals values must be 1-3 for selected labels"
+                    if strict:
+                        raise ValidationError(msg, "risk_signals")
+                    messages.append(msg)
+
+            if "none" in type_set and len(type_set) > 1:
+                msg = "risk_types cannot include 'none' with other labels"
+                if strict:
+                    raise ValidationError(msg, "risk_types")
+                messages.append(msg)
+
+            if seen != type_set:
+                missing = sorted(type_set - seen)
+                extra = sorted(seen - type_set)
+                if missing:
+                    msg = f"risk_signals missing types from risk_types: {', '.join(missing)}"
+                    if strict:
+                        raise ValidationError(msg, "risk_signals")
+                    messages.append(msg)
+                if extra:
+                    msg = f"risk_signals contains types not in risk_types: {', '.join(extra)}"
+                    if strict:
+                        raise ValidationError(msg, "risk_signals")
+                    messages.append(msg)
 
     if "substantiveness_score" in response:
-        conf_valid, conf_msgs = _validate_confidence(
+        signal_valid, signal_msgs = _validate_signal_score(
             response["substantiveness_score"], strict
         )
-        messages.extend(conf_msgs)
+        messages.extend(signal_msgs)
 
     return len(messages) == 0, messages
 
