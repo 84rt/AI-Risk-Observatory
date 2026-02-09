@@ -83,12 +83,14 @@ def load_all_chunks() -> list[dict]:
 
 
 def filter_chunks_for_classifier(
-    chunks: list[dict], classifier_name: str, limit: int = 0,
+    chunks: list[dict],
+    classifier_name: str,
+    limit: int = 0,
 ) -> list[dict]:
     """Filter chunks by human mention_types for a given downstream classifier.
 
-    - adoption_type: chunks where "adoption" in mention_types AND adoption_types non-empty
-    - risk:          chunks where "risk" in mention_types AND risk_taxonomy non-empty
+    - adoption_type: chunks where "adoption" in mention_types
+    - risk:          chunks where "risk" in mention_types
 
     Args:
         limit: If > 0, return only the first `limit` matching chunks (for quick iteration).
@@ -97,13 +99,11 @@ def filter_chunks_for_classifier(
         filtered = [
             c for c in chunks
             if "adoption" in c.get("mention_types", [])
-            and c.get("adoption_types")  # non-empty list
         ]
     elif classifier_name == "risk":
         filtered = [
             c for c in chunks
             if "risk" in c.get("mention_types", [])
-            and c.get("risk_taxonomy")  # non-empty list
         ]
     elif classifier_name == "vendor":
         filtered = [
@@ -157,8 +157,9 @@ CLASSIFIER_CONFIG = {
         "cls": VendorClassifier,
         "human_field": "vendor_tags",
         "extract_llm_labels": lambda classification: [
-            str(vt.value) if hasattr(vt, "value") else str(vt)
-            for vt in classification.get("vendor_tags", [])
+            (v.get("vendor").value if hasattr(v.get("vendor"), "value") else str(v.get("vendor", "")))
+            for v in classification.get("vendors", [])
+            if isinstance(v, dict)
         ],
     },
 }
@@ -450,22 +451,21 @@ def prepare_batch_requests(
         cls.RESPONSE_MODEL.model_json_schema()
     )
 
-    # Template to embed chunk_id in the user prompt (Gemini may return out of order)
-    chunk_id_wrapper = (
-        "## CHUNK_ID\n{chunk_id}\n\n"
-        "## NOTE\nInclude this CHUNK_ID in the JSON output as \"chunk_id\".\n\n"
+    # Wrap user prompt with a short integer index for order-preserving matching
+    index_wrapper = (
+        "## CHUNK_INDEX\n{chunk_index}\n\n"
+        "## NOTE\nEcho this integer as \"chunk_id\" in the JSON output.\n\n"
         "## EXCERPT\n{user_prompt}"
     )
 
     requests = []
-    for chunk in filtered_chunks:
+    for i, chunk in enumerate(filtered_chunks):
         metadata = build_metadata(chunk)
         system_prompt, user_prompt = temp_classifier.get_prompt_messages(
             chunk["chunk_text"], metadata
         )
-        chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", "unknown"))
-        user_prompt_with_id = chunk_id_wrapper.format(
-            chunk_id=chunk_id, user_prompt=user_prompt,
+        user_prompt_with_id = index_wrapper.format(
+            chunk_index=i, user_prompt=user_prompt,
         )
         req_config = {
             "system_instruction": system_prompt,
@@ -520,12 +520,7 @@ def parse_batch_results(
         labels = chunk.get(human_field, [])
         return normalize_risk_labels(labels) if classifier_name == "risk" else labels
 
-    # Build lookup by chunk_id for matching out-of-order responses
-    chunk_by_id: dict[str, dict] = {}
-    for i, chunk in enumerate(filtered_chunks):
-        cid = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
-        if cid:
-            chunk_by_id[str(cid)] = chunk
+    num_chunks = len(filtered_chunks)
 
     def _make_error(chunk: dict, chunk_id: str, error: str) -> dict:
         return {
@@ -540,12 +535,65 @@ def parse_batch_results(
             "error": error,
         }
 
+    def _extract_response_text(resp_obj) -> str | None:
+        if resp_obj is None:
+            return None
+        response = getattr(resp_obj, "response", None)
+        if response is None:
+            return None
+        # Primary: response.text
+        text = getattr(response, "text", None)
+        if isinstance(text, (bytes, bytearray)):
+            text = text.decode("utf-8", errors="ignore")
+        if isinstance(text, str) and text.strip():
+            return text
+        # Fallback: candidates[0].content.parts[*].text
+        candidates = getattr(response, "candidates", None)
+        if candidates is None and isinstance(response, dict):
+            candidates = response.get("candidates")
+        if candidates:
+            cand0 = candidates[0]
+            content = getattr(cand0, "content", None)
+            if content is None and isinstance(cand0, dict):
+                content = cand0.get("content")
+            parts = getattr(content, "parts", None) if content is not None else None
+            if parts is None and isinstance(content, dict):
+                parts = content.get("parts")
+            if parts:
+                for part in parts:
+                    part_text = getattr(part, "text", None)
+                    if part_text is None and isinstance(part, dict):
+                        part_text = part.get("text")
+                    if isinstance(part_text, (bytes, bytearray)):
+                        part_text = part_text.decode("utf-8", errors="ignore")
+                    if isinstance(part_text, str) and part_text.strip():
+                        return part_text
+        return None
+
+    def _extract_confidence(parsed: dict) -> float:
+        """Extract max confidence/signal from a parsed response."""
+        # Adoption: adoption_confidences dict
+        if "adoption_confidences" in parsed:
+            scores = parsed["adoption_confidences"]
+            valid = [v for v in scores.values() if isinstance(v, (int, float))]
+            return max(valid) if valid else 0.0
+        # Risk: confidence_scores dict
+        if "confidence_scores" in parsed:
+            scores = parsed["confidence_scores"]
+            valid = [v for v in scores.values() if isinstance(v, (int, float))]
+            return max(valid) if valid else 0.0
+        # Vendor: vendors list with signal scores
+        if "vendors" in parsed and isinstance(parsed["vendors"], list):
+            signals = [v.get("signal", 0) for v in parsed["vendors"] if isinstance(v, dict)]
+            return max(signals) / 3.0 if signals else 0.0
+        return 0.0
+
     results = []
-    seen_chunk_ids: set[str] = set()
-    chunk_id_hits = 0
+    seen_indices: set[int] = set()
+    index_hits = 0
 
     for i, resp in enumerate(responses):
-        fallback_chunk = filtered_chunks[i] if i < len(filtered_chunks) else {}
+        fallback_chunk = filtered_chunks[i] if i < num_chunks else {}
         fallback_id = fallback_chunk.get(
             "chunk_id", fallback_chunk.get("annotation_id", f"unknown_{i}")
         )
@@ -555,41 +603,38 @@ def parse_batch_results(
             continue
 
         try:
-            response_text = resp.response.text
+            response_text = _extract_response_text(resp)
+            if not response_text:
+                results.append(_make_error(fallback_chunk, fallback_id, "Empty response text"))
+                continue
             parsed = json.loads(response_text)
 
-            # Match response to chunk by echoed chunk_id
-            parsed_chunk_id = parsed.get("chunk_id")
-            matched_by = "index_fallback"
+            # Match by echoed integer index (no positional fallback)
+            echoed = parsed.get("chunk_id")
+            if echoed is None:
+                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: missing chunk_id echo"))
+                continue
+            try:
+                idx = int(echoed)
+            except (ValueError, TypeError):
+                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id '{echoed}' not an integer"))
+                continue
+            if idx < 0 or idx >= num_chunks:
+                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id {idx} out of range [0, {num_chunks})"))
+                continue
+            if idx in seen_indices:
+                results.append(_make_error({}, f"unmatched_resp_{i}", f"Response {i}: duplicate chunk_id {idx}"))
+                continue
 
-            if parsed_chunk_id and str(parsed_chunk_id) in chunk_by_id:
-                chunk_id = str(parsed_chunk_id)
-                chunk = chunk_by_id[chunk_id]
-                matched_by = "response_chunk_id"
-                chunk_id_hits += 1
-                if chunk_id in seen_chunk_ids:
-                    print(f"WARNING: duplicate chunk_id in responses: {chunk_id}; using fallback.")
-                    chunk = fallback_chunk
-                    chunk_id = fallback_id
-                    matched_by = "index_fallback"
-            else:
-                if parsed_chunk_id:
-                    print(f"WARNING: unknown chunk_id in response: {parsed_chunk_id}; using fallback.")
-                chunk = fallback_chunk
-                chunk_id = fallback_id
-
-            seen_chunk_ids.add(chunk_id)
+            seen_indices.add(idx)
+            index_hits += 1
+            chunk = filtered_chunks[idx]
+            chunk_id = chunk.get(
+                "chunk_id", chunk.get("annotation_id", f"unknown_{i}")
+            )
 
             llm_labels = extract_llm_labels(parsed)
-
-            # Extract confidence from parsed response
-            confidence = 0.0
-            for conf_key in ("adoption_confidences", "confidence_scores", "vendor_signals"):
-                if conf_key in parsed:
-                    scores = parsed[conf_key]
-                    valid = [v for v in scores.values() if isinstance(v, (int, float))]
-                    confidence = max(valid) if valid else 0.0
-                    break
+            confidence = _extract_confidence(parsed)
 
             results.append({
                 "chunk_id": chunk_id,
@@ -602,16 +647,17 @@ def parse_batch_results(
                 "chunk_text": chunk.get("chunk_text", ""),
                 "human_other": chunk.get("vendor_other"),
                 "llm_other": parsed.get("other_vendor"),
-                "matched_by": matched_by,
-                "response_index": i,
             })
 
         except (json.JSONDecodeError, AttributeError, KeyError, ValueError) as e:
-            results.append(_make_error(fallback_chunk, fallback_id, f"Parse error: {e}"))
+            results.append(_make_error({}, f"parse_error_{i}", f"Parse error: {e}"))
 
-    if responses:
-        hit_rate = chunk_id_hits / len(responses) * 100
-        print(f"Response chunk_id hit rate: {chunk_id_hits}/{len(responses)} ({hit_rate:.1f}%)")
+    unmatched = len(results) - index_hits
+    print(f"Matched: {index_hits}/{len(responses)} | Unmatched/errors: {unmatched}")
+    if unmatched:
+        for r in results:
+            if r.get("error"):
+                print(f"  - {r['chunk_id']}: {r['error']}")
 
     return results
 
@@ -637,14 +683,14 @@ adoption_chunks = filter_chunks_for_classifier(chunks, "adoption_type")
 risk_chunks = filter_chunks_for_classifier(chunks, "risk")
 vendor_chunks = filter_chunks_for_classifier(chunks, "vendor")
 print(f"\nPhase 2 classifier chunks:")
-print(f"  adoption_type: {len(adoption_chunks)} chunks with labels")
-print(f"  risk:          {len(risk_chunks)} chunks with labels")
+print(f"  adoption_type: {len(adoption_chunks)} chunks")
+print(f"  risk:          {len(risk_chunks)} chunks")
 print(f"  vendor:        {len(vendor_chunks)} chunks (vendor mention_type)")
 
 
 #%% CONFIG
-CLASSIFIER_NAME = "vendor"  # | adoption_type | risk | vendor
-RUN_ID = "p2-vendor-gemini-3-flash-v2"
+CLASSIFIER_NAME = "risk"  # | adoption_type | risk | vendor
+RUN_ID = "p2-risk-gemini-3-flash-v2"
 MODEL_NAME = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0 # I believe that this should be set to 0 for batch mode.
@@ -652,8 +698,8 @@ LIMIT = 0  # 0 = all matching chunks, >0 = first N (for quick iteration)
 
 # Refresh & display active prompt (re-run this cell after editing classifiers.yaml)
 _load_prompt_yaml.cache_clear()
-print(f"\n{'='*60}\nACTIVE PROMPT: {CLASSIFIER_NAME}\n{'='*60}")
-print(get_prompt_template(CLASSIFIER_NAME))
+# print(f"\n{'='*60}\nACTIVE PROMPT: {CLASSIFIER_NAME}\n{'='*60}")
+# print(get_prompt_template(CLASSIFIER_NAME))
 
 
 #%% SYNC: Run or load from cache
@@ -663,19 +709,27 @@ if cached:
     sync_results = cached
 else:
     print(f"Running {CLASSIFIER_NAME} classifier: {RUN_ID} with {MODEL_NAME}")
-    sync_results = run_phase2(RUN_ID, CLASSIFIER_NAME, chunks, MODEL_NAME, TEMPERATURE, THINKING_BUDGET, limit=LIMIT)
+    sync_results = run_phase2(
+        RUN_ID,
+        CLASSIFIER_NAME,
+        chunks,
+        MODEL_NAME,
+        TEMPERATURE,
+        THINKING_BUDGET,
+        limit=LIMIT,
+    )
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
 
 #%% BATCH: Initialize & filter ############################ BATCH MODE ############################
 batch = BatchClient(runs_dir=RUNS_DIR)
 
-BATCH_RUN_ID = f"batch-p2-{CLASSIFIER_NAME}-gemini-3-flash-v2"
+BATCH_RUN_ID = f"batch-p2-{CLASSIFIER_NAME}-gemini-3-flash-v1"
 BATCH_MODEL = "gemini-3-flash-preview"
 
 # Filter chunks for this classifier (always re-run this before submit OR parse)
 filtered_chunks = filter_chunks_for_classifier(chunks, CLASSIFIER_NAME, limit=LIMIT)
-print(f"Filtered {len(filtered_chunks)} chunks for {CLASSIFIER_NAME}")
+print(f"Filtered {len(filtered_chunks)} chunks for {CLASSIFIER_NAME} to {len(filtered_chunks)} chunks")
 
 #%% BATCH: Prepare & submit (skip this cell when reloading existing results)
 batch_requests = prepare_batch_requests(CLASSIFIER_NAME, filtered_chunks, temperature=TEMPERATURE, thinking_budget=THINKING_BUDGET)
@@ -685,7 +739,8 @@ batch_job_name = batch.submit(BATCH_RUN_ID, batch_requests, model_name=BATCH_MOD
 batch.list_jobs()
 
 #%% BATCH: Check status (run this periodically)
-# batch_job_name = "batches/iq4d9n644e98h8ldl9ge87zu1p2q6681a0hc"  # paste job name here if reconnecting
+batch_job_name = "batches/b1dvgrjr3umit887c5nntsg9k1vxrh80es1x"  # risk batch job name
+# batch_job_name = "batches/kzhm6o1p0qtj2v01fz9en7o7bq3f37pgxzwj"  # adoption_type batch job name
 batch.check_status(batch_job_name)
 
 #%% BATCH: Get results (paste batch_job_name if reconnecting to a previous job)

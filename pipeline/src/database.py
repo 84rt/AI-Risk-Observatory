@@ -797,7 +797,10 @@ class Database:
             adoption_confidences=json.dumps(adoption_result.get("adoption_confidences", {})),
             adoption_evidence=json.dumps(adoption_result.get("evidence", {})),
             adoption_reasoning=adoption_result.get("reasoning", ""),
-            vendor_confidences=json.dumps(vendor_result.get("vendor_confidences", {})),
+            vendor_confidences=json.dumps(
+                {v["vendor"]: v["signal"] for v in vendor_result.get("vendors", [])}
+                if vendor_result.get("vendors") else {}
+            ),
             vendor_other=vendor_result.get("other_vendor", ""),
             vendor_evidence=json.dumps(vendor_result.get("evidence", {})),
             vendor_reasoning=vendor_result.get("reasoning", ""),

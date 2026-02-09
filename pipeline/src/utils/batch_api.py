@@ -49,17 +49,17 @@ class BatchClient:
         self.runs_dir = runs_dir
 
         self._user_template = (
-            "## CHUNK_ID\n"
-            "{chunk_id}\n\n"
+            "## CHUNK_INDEX\n"
+            "{chunk_index}\n\n"
             "## NOTE\n"
-            "Include this CHUNK_ID in the JSON output as \"chunk_id\".\n\n"
+            "Echo this integer as \"chunk_id\" in the JSON output.\n\n"
             "## EXCERPT\n"
             "\"\"\"\n"
             "{text}\n"
             "\"\"\"\n"
         )
 
-    def _get_prompt_for_chunk(self, chunk: dict) -> tuple[str, str]:
+    def _get_prompt_for_chunk(self, chunk: dict, chunk_index: int) -> tuple[str, str]:
         """Build system and user prompts for a chunk (mirrors LLMClassifierV2)."""
         from src.utils.prompt_loader import get_prompt_messages
 
@@ -68,7 +68,6 @@ class BatchClient:
         if len(text) > max_chars:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
-        chunk_id = chunk.get("chunk_id", chunk.get("annotation_id", "unknown"))
         firm_name = chunk.get("company_name", "Unknown Company")
         report_year = chunk.get("report_year", "Unknown")
         sector = "Unknown"
@@ -82,7 +81,7 @@ class BatchClient:
             "mention_type_v3",
             reasoning_policy="short",
             user_template=self._user_template,
-            chunk_id=chunk_id,
+            chunk_index=chunk_index,
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,
@@ -118,8 +117,8 @@ class BatchClient:
         response_schema = self._get_response_schema()
         requests = []
 
-        for chunk in chunks:
-            system_prompt, user_prompt = self._get_prompt_for_chunk(chunk)
+        for i, chunk in enumerate(chunks):
+            system_prompt, user_prompt = self._get_prompt_for_chunk(chunk, chunk_index=i)
 
             config: dict[str, Any] = {
                 "system_instruction": system_prompt,
@@ -280,49 +279,48 @@ class BatchClient:
         if len(responses) != len(chunks):
             print(f"WARNING: {len(responses)} responses != {len(chunks)} chunks")
 
-        chunk_by_id: dict[str, dict] = {}
-        for i, chunk in enumerate(chunks):
-            cid = chunk.get("chunk_id", chunk.get("annotation_id", f"unknown_{i}"))
-            if cid:
-                chunk_by_id[str(cid)] = chunk
-
+        num_chunks = len(chunks)
         results = []
-        seen_chunk_ids: set[str] = set()
-        response_chunk_id_hits = 0
+        seen_indices: set[int] = set()
+        index_hits = 0
         for i, resp in enumerate(responses):
-            fallback_chunk = chunks[i] if i < len(chunks) else {}
-            fallback_chunk_id = fallback_chunk.get(
+            fallback_chunk = chunks[i] if i < num_chunks else {}
+            fallback_id = fallback_chunk.get(
                 "chunk_id",
                 fallback_chunk.get("annotation_id", f"unknown_{i}"),
             )
 
             if resp.error:
-                results.append(self._make_error_result(fallback_chunk, fallback_chunk_id, str(resp.error)))
+                results.append(self._make_error_result(fallback_chunk, fallback_id, str(resp.error)))
                 continue
 
             try:
                 response_text = resp.response.text
                 parsed = json.loads(response_text)
-                parsed_chunk_id = parsed.get("chunk_id")
 
-                matched_by = "index_fallback"
-                if parsed_chunk_id and str(parsed_chunk_id) in chunk_by_id:
-                    chunk_id = str(parsed_chunk_id)
-                    chunk = chunk_by_id[chunk_id]
-                    matched_by = "response_chunk_id"
-                    response_chunk_id_hits += 1
-                    if chunk_id in seen_chunk_ids:
-                        print(f"WARNING: duplicate chunk_id in responses: {chunk_id}; using fallback index.")
-                        chunk = fallback_chunk
-                        chunk_id = fallback_chunk_id
-                        matched_by = "index_fallback"
-                else:
-                    if parsed_chunk_id:
-                        print(f"WARNING: unknown chunk_id in response: {parsed_chunk_id}; using fallback index.")
-                    chunk = fallback_chunk
-                    chunk_id = fallback_chunk_id
+                # Match by echoed integer index (no positional fallback)
+                echoed = parsed.get("chunk_id")
+                if echoed is None:
+                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: missing chunk_id echo"))
+                    continue
+                try:
+                    idx = int(echoed)
+                except (ValueError, TypeError):
+                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id '{echoed}' not an integer"))
+                    continue
+                if idx < 0 or idx >= num_chunks:
+                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: chunk_id {idx} out of range [0, {num_chunks})"))
+                    continue
+                if idx in seen_indices:
+                    results.append(self._make_error_result({}, f"unmatched_resp_{i}", f"Response {i}: duplicate chunk_id {idx}"))
+                    continue
 
-                seen_chunk_ids.add(chunk_id)
+                seen_indices.add(idx)
+                index_hits += 1
+                chunk = chunks[idx]
+                chunk_id = chunk.get(
+                    "chunk_id", chunk.get("annotation_id", f"unknown_{i}")
+                )
 
                 llm_types = [str(mt) for mt in parsed.get("mention_types", [])]
 
@@ -341,17 +339,17 @@ class BatchClient:
                     "confidence": confidence,
                     "reasoning": parsed.get("reasoning", ""),
                     "chunk_text": chunk["chunk_text"],
-                    "response_chunk_id": parsed_chunk_id,
-                    "matched_by": matched_by,
-                    "response_index": i,
                 })
 
             except (json.JSONDecodeError, AttributeError, KeyError) as e:
-                results.append(self._make_error_result(fallback_chunk, fallback_chunk_id, f"Parse error: {e}"))
+                results.append(self._make_error_result({}, f"parse_error_{i}", f"Parse error: {e}"))
 
-        if responses:
-            hit_rate = response_chunk_id_hits / len(responses) * 100
-            print(f"Response chunk_id hit rate: {response_chunk_id_hits}/{len(responses)} ({hit_rate:.1f}%)")
+        unmatched = len(results) - index_hits
+        print(f"Matched: {index_hits}/{len(responses)} | Unmatched/errors: {unmatched}")
+        if unmatched:
+            for r in results:
+                if r.get("error"):
+                    print(f"  - {r['chunk_id']}: {r['error']}")
 
         return results
 
@@ -365,7 +363,7 @@ class BatchClient:
             "llm_mention_types": [],
             "confidence": 0.0,
             "reasoning": error,
-            "chunk_text": chunk["chunk_text"],
+            "chunk_text": chunk.get("chunk_text", ""),
             "error": error,
         }
 

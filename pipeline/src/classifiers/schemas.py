@@ -173,29 +173,33 @@ class AdoptionType(str, Enum):
 
 
 class AdoptionConfidenceScores(BaseModel):
-    """Confidence scores for each adoption type."""
+    """Signal scores for each adoption type."""
 
-    non_llm: Optional[float] = Field(
+    non_llm: Optional[int] = Field(
         default=None,
-        description="Traditional ML/AI confidence (0.0-1.0): forecasting, analytics, CV, anomaly detection",
+        description="Traditional ML/AI signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
     )
-    llm: Optional[float] = Field(
+    llm: Optional[int] = Field(
         default=None,
-        description="LLM confidence (0.0-1.0): GPT, ChatGPT, Gemini, Claude, copilots",
+        description="LLM signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
     )
-    agentic: Optional[float] = Field(
+    agentic: Optional[int] = Field(
         default=None,
-        description="Agentic AI confidence (0.0-1.0): autonomous agents, limited human intervention",
+        description="Agentic AI signal (0-3): 0=absent, 1=weak, 2=strong implicit, 3=explicit",
     )
 
 
 class AdoptionTypeResponse(BaseModel):
     """Response schema for adoption type classification."""
 
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
     adoption_confidences: AdoptionConfidenceScores = Field(
         description=(
-            "Confidence scores (0.0-1.0) for each adoption type. "
-            "0.0-0.2=unclear/generic, 0.3-0.6=implied/vague, 0.7-1.0=explicit."
+            "Signal scores (0-3) for each adoption type. "
+            "0=absent, 1=weak/implicit, 2=strong implicit, 3=explicit."
         )
     )
     substantiveness: SubstantivenessLevel = Field(
@@ -285,6 +289,10 @@ class RiskConfidenceScores(BaseModel):
 class RiskResponse(BaseModel):
     """Response schema for risk classification."""
 
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
     risk_types: List[RiskType] = Field(
         description=(
             "Detected AI risk categories (non-mutually exclusive). "
@@ -330,45 +338,11 @@ class VendorTag(str, Enum):
     other = "other"
 
 
-class VendorSignalScores(BaseModel):
-    """Signal strengths for detected vendor tags. Only set scores for tags listed in vendor_tags."""
+class VendorEntry(BaseModel):
+    """A single vendor detection with its signal strength."""
 
-    amazon: Optional[int] = Field(
-        default=None,
-        description="Amazon/AWS/Bedrock/CodeWhisperer signal (1-3)",
-    )
-    google: Optional[int] = Field(
-        default=None,
-        description="Google/Vertex AI/Gemini signal (1-3)",
-    )
-    microsoft: Optional[int] = Field(
-        default=None,
-        description="Microsoft/Azure/Copilot signal (1-3)",
-    )
-    openai: Optional[int] = Field(
-        default=None,
-        description="OpenAI/GPT/ChatGPT signal (1-3)",
-    )
-    anthropic: Optional[int] = Field(
-        default=None,
-        description="Anthropic/Claude signal (1-3)",
-    )
-    meta: Optional[int] = Field(
-        default=None,
-        description="Meta/Llama signal (1-3)",
-    )
-    internal: Optional[int] = Field(
-        default=None,
-        description="In-house/proprietary AI signal (1-3)",
-    )
-    undisclosed: Optional[int] = Field(
-        default=None,
-        description="Third-party mentioned but not named signal (1-3)",
-    )
-    other: Optional[int] = Field(
-        default=None,
-        description="Named vendor not in list signal (1-3)",
-    )
+    vendor: VendorTag = Field(description="Detected vendor tag.")
+    signal: int = Field(description="Signal strength: 1=weak implicit, 2=strong implicit, 3=explicit.")
 
 
 class VendorResponse(BaseModel):
@@ -382,9 +356,9 @@ class VendorResponse(BaseModel):
         default=None,
         description="Brief explanation of classification rationale.",
     )
-    vendor_tags: List[VendorTag] = Field(
+    vendors: List[VendorEntry] = Field(
         description=(
-            "Detected vendor tags. "
+            "Detected vendors with signal strengths. "
             "'amazon': Amazon/AWS/Bedrock/CodeWhisperer. "
             "'google': Google/Vertex AI/Gemini/DeepMind. "
             "'microsoft': Azure AI/Copilot/Azure OpenAI. "
@@ -396,35 +370,29 @@ class VendorResponse(BaseModel):
             "'other': Named vendor not in list."
         )
     )
-    vendor_signals: VendorSignalScores = Field(
-        description=(
-            "Signal strength per detected vendor (1=weak implicit, 2=strong implicit, 3=explicit). "
-            "Only include signals for tags listed in vendor_tags."
-        )
-    )
     other_vendor: Optional[str] = Field(
         default=None,
-        description="Name of vendor if 'other' is in vendor_tags.",
+        description="Name of vendor if 'other' is in vendors list.",
     )
 
     @model_validator(mode="after")
-    def validate_signals(self) -> "VendorResponse":
-        tags = {vt.value for vt in self.vendor_tags}
+    def validate_vendors(self) -> "VendorResponse":
+        seen = set()
+        has_other = False
+        for entry in self.vendors:
+            tag = entry.vendor.value if hasattr(entry.vendor, "value") else str(entry.vendor)
+            if tag in seen:
+                raise ValueError(f"Duplicate vendor: '{tag}'")
+            seen.add(tag)
+            if entry.signal not in (1, 2, 3):
+                raise ValueError(f"Signal for '{tag}' must be 1, 2, or 3")
+            if tag == "other":
+                has_other = True
 
-        signals = self.vendor_signals.model_dump()
-        for label, signal in signals.items():
-            if signal is not None and label not in tags:
-                raise ValueError(
-                    f"vendor_signals contains '{label}' not listed in vendor_tags"
-                )
-            if signal is not None and signal not in (1, 2, 3):
-                raise ValueError(f"vendor_signals['{label}'] must be 1, 2, or 3")
-
-        missing = [label for label in tags if signals.get(label) is None]
-        if missing:
-            raise ValueError(
-                f"vendor_signals missing required tags: {', '.join(sorted(missing))}"
-            )
+        if has_other and not self.other_vendor:
+            raise ValueError("other_vendor must be set when 'other' is in vendors")
+        if not has_other and self.other_vendor:
+            raise ValueError("other_vendor should only be set when 'other' is in vendors")
         return self
 
 

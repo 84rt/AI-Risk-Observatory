@@ -155,8 +155,8 @@ def _validate_adoption_response(
                     if strict:
                         raise ValidationError(msg, "adoption_confidences")
                     messages.append(msg)
-                conf_valid, conf_msgs = _validate_confidence(score, strict)
-                messages.extend(conf_msgs)
+                signal_valid, signal_msgs = _validate_signal_score(score, strict)
+                messages.extend(signal_msgs)
 
     return len(messages) == 0, messages
 
@@ -248,22 +248,26 @@ def _validate_vendor_response(
     """Validate a vendor classifier response."""
     messages = []
 
-    if "vendor_confidences" not in response:
-        msg = "Missing required field: vendor_confidences"
+    if "vendors" not in response:
+        msg = "Missing required field: vendors"
         if strict:
-            raise ValidationError(msg, "vendor_confidences")
+            raise ValidationError(msg, "vendors")
         messages.append(msg)
     else:
-        vendor_confidences = response["vendor_confidences"]
-        if not isinstance(vendor_confidences, dict):
-            msg = f"vendor_confidences must be a dict, got {type(vendor_confidences)}"
+        vendors = response["vendors"]
+        if not isinstance(vendors, list):
+            msg = f"vendors must be a list, got {type(vendors)}"
             if strict:
-                raise ValidationError(msg, "vendor_confidences")
+                raise ValidationError(msg, "vendors")
             messages.append(msg)
         else:
-            for _, score in vendor_confidences.items():
-                conf_valid, conf_msgs = _validate_confidence(score, strict)
-                messages.extend(conf_msgs)
+            for entry in vendors:
+                if not isinstance(entry, dict):
+                    messages.append(f"vendor entry must be a dict, got {type(entry)}")
+                elif "signal" not in entry:
+                    messages.append("vendor entry missing 'signal' field")
+                elif entry["signal"] not in (1, 2, 3):
+                    messages.append(f"vendor signal must be 1, 2, or 3, got {entry['signal']}")
 
     return len(messages) == 0, messages
 
@@ -334,6 +338,34 @@ def _validate_confidence(confidence: Any, strict: bool) -> Tuple[bool, List[str]
         msg = f"confidence must be between 0.0 and 1.0, got {confidence}"
         if strict:
             raise ValidationError(msg, "confidence")
+        messages.append(msg)
+
+    return len(messages) == 0, messages
+
+
+def _validate_signal_score(score: Any, strict: bool) -> Tuple[bool, List[str]]:
+    """Validate a signal score (integer 0-3)."""
+    messages = []
+
+    if not isinstance(score, (int, float)) or isinstance(score, bool):
+        msg = f"signal score must be numeric, got {type(score)}"
+        if strict:
+            raise ValidationError(msg, "signal_score")
+        messages.append(msg)
+        return len(messages) == 0, messages
+
+    if isinstance(score, float) and not score.is_integer():
+        msg = f"signal score must be an integer 0-3, got {score}"
+        if strict:
+            raise ValidationError(msg, "signal_score")
+        messages.append(msg)
+        return len(messages) == 0, messages
+
+    score_int = int(score)
+    if not 0 <= score_int <= 3:
+        msg = f"signal score must be between 0 and 3, got {score}"
+        if strict:
+            raise ValidationError(msg, "signal_score")
         messages.append(msg)
 
     return len(messages) == 0, messages
@@ -475,4 +507,3 @@ def parse_json_response(response_text: str) -> Tuple[Optional[Dict], Optional[st
         return json.loads(json_text), None
     except json.JSONDecodeError as e:
         return None, f"JSON parse error: {e}"
-

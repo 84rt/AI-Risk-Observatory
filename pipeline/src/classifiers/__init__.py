@@ -25,7 +25,7 @@ from .schemas import (
     RiskConfidenceScores,
     RiskResponse,
     VendorTag,
-    VendorSignalScores,
+    VendorEntry,
     VendorResponse,
     SubstantivenessLevel,
     SubstantivenessScores,
@@ -56,7 +56,7 @@ __all__ = [
     "MentionConfidenceScores",
     "AdoptionConfidenceScores",
     "RiskConfidenceScores",
-    "VendorSignalScores",
+    "VendorEntry",
     "SubstantivenessScores",
     # Schemas - Response models
     "MentionTypeResponse",

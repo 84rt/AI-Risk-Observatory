@@ -44,24 +44,17 @@ class VendorClassifier(BaseClassifier):
     ) -> Tuple[str, float, List[str], str]:
         """Extract classification result from VendorResponse."""
         response: VendorResponse = parsed  # type: ignore
-
         reasoning = response.reasoning or ""
 
-        # Get active vendors from the vendor_tags list
-        active_vendors = [
-            vt.value if hasattr(vt, "value") else str(vt)
-            for vt in response.vendor_tags
-        ]
-        if response.other_vendor:
-            active_vendors = [
-                f"other:{response.other_vendor}" if v == "other" else v
-                for v in active_vendors
-            ]
+        active_vendors = []
+        max_signal = 0
+        for entry in response.vendors:
+            tag = entry.vendor.value if hasattr(entry.vendor, "value") else str(entry.vendor)
+            if tag == "other" and response.other_vendor:
+                tag = f"other:{response.other_vendor}"
+            active_vendors.append(tag)
+            max_signal = max(max_signal, entry.signal)
+
         primary_label = ",".join(sorted(active_vendors)) if active_vendors else "none"
-
-        # Max signal across detected vendors (normalize to 0.0-1.0 for confidence)
-        signals = response.vendor_signals.model_dump(exclude_none=True)
-        scores = [s for s in signals.values() if isinstance(s, int)]
-        confidence = max(scores) / 3.0 if scores else 0.0
-
+        confidence = max_signal / 3.0 if max_signal else 0.0
         return primary_label, confidence, [], reasoning
