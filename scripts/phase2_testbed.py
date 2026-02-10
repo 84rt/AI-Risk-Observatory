@@ -12,13 +12,14 @@ Cell-based workflow:
 4. Configure classifier + run (sync or batch)
 5. Analyze results
 """
-
 #%% SETUP & IMPORTS
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from tqdm import tqdm
 
@@ -128,11 +129,24 @@ RISK_LABEL_ALIASES = {
 }
 
 RISK_SIGNAL_LABEL_THRESHOLD = 2
+RISK_SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
 
 
 def normalize_risk_labels(labels: list[str]) -> list[str]:
     """Map legacy risk label names to current taxonomy."""
     return [RISK_LABEL_ALIASES.get(l, l) for l in labels]
+
+
+def normalize_label_token(value: object) -> str:
+    """Normalize enum/string label tokens to plain taxonomy values."""
+    if hasattr(value, "value"):
+        return str(getattr(value, "value"))
+    token = str(value)
+    if token.startswith("RiskType."):
+        return token.split(".", 1)[1]
+    if token.startswith("AdoptionType."):
+        return token.split(".", 1)[1]
+    return token
 
 
 def normalize_none_equivalent(labels: list[str]) -> list[str]:
@@ -157,12 +171,12 @@ def adoption_signal_map(classification: dict) -> dict[str, int]:
                 key = entry.get("type")
                 val = entry.get("signal")
                 if key is not None and isinstance(val, (int, float)):
-                    out[str(key)] = int(val)
+                    out[normalize_label_token(key)] = int(val)
         return out
     legacy = classification.get("adoption_confidences")
     if isinstance(legacy, dict):
         return {
-            str(k): int(v)
+            normalize_label_token(k): int(v)
             for k, v in legacy.items()
             if isinstance(v, (int, float))
         }
@@ -183,18 +197,52 @@ def risk_signal_map(classification: dict) -> dict[str, int]:
             key = entry.get("type")
             val = entry.get("signal")
             if key is not None and isinstance(val, (int, float)):
-                out[str(key)] = int(val)
+                out[normalize_label_token(key)] = int(val)
         return out
 
     legacy = classification.get("confidence_scores")
     if isinstance(legacy, dict):
         return {
-            str(k): int(v)
+            normalize_label_token(k): int(v)
             for k, v in legacy.items()
             if isinstance(v, (int, float))
         }
 
     return {}
+
+
+def normalize_risk_substantiveness(value: object) -> str | None:
+    """Normalize risk substantiveness labels to canonical enum values."""
+    if value is None:
+        return None
+    token = str(value).strip().lower()
+    if token in RISK_SUBSTANTIVENESS_LEVELS:
+        return token
+    return None
+
+
+def risk_signal_entries(classification: dict) -> list[dict[str, int | str]]:
+    """Return normalized risk_signals as [{type, signal}] with stable typing."""
+    if not isinstance(classification, dict):
+        return []
+    signals_list = classification.get("risk_signals")
+    if not isinstance(signals_list, list):
+        return []
+
+    out: list[dict[str, int | str]] = []
+    seen: set[str] = set()
+    for entry in signals_list:
+        if not isinstance(entry, dict):
+            continue
+        key = normalize_label_token(entry.get("type"))
+        val = entry.get("signal")
+        if not key or not isinstance(val, (int, float)):
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"type": key, "signal": int(val)})
+    return out
 
 
 def extract_risk_labels(
@@ -207,7 +255,7 @@ def extract_risk_labels(
 
     raw_types = []
     for rt in classification.get("risk_types", []):
-        raw = str(rt.value) if hasattr(rt, "value") else str(rt)
+        raw = normalize_label_token(rt)
         if raw and raw != "none":
             raw_types.append(raw)
 
@@ -220,6 +268,31 @@ def extract_risk_labels(
         if int(signals.get(rt, 0)) >= min_signal
     ]
     return sorted(set(labels))
+
+
+def backfill_cached_risk_labels(
+    results: list[dict],
+    min_signal: int = RISK_SIGNAL_LABEL_THRESHOLD,
+) -> list[dict]:
+    """Backfill llm_labels from risk_confidences for stale cached runs."""
+    for row in results:
+        confs = row.get("risk_confidences") or {}
+        if not isinstance(confs, dict):
+            continue
+
+        normalized = {
+            normalize_label_token(k): int(v)
+            for k, v in confs.items()
+            if isinstance(v, (int, float))
+        }
+        row["risk_confidences"] = normalized
+
+        row["llm_labels"] = sorted({
+            label
+            for label, signal in normalized.items()
+            if label != "none" and int(signal) >= min_signal
+        })
+    return results
 
 
 # --- Classifier config ---
@@ -312,6 +385,8 @@ def run_phase2(
 
         llm_labels = []
         llm_conf_map = {}
+        llm_risk_signals = []
+        llm_risk_substantiveness = None
         if result.classification:
             llm_labels = extract_llm_labels(result.classification)
             if classifier_name == "risk":
@@ -322,6 +397,10 @@ def run_phase2(
                         for k, v in confs.items()
                         if isinstance(v, (int, float))
                     }
+                llm_risk_signals = risk_signal_entries(result.classification)
+                llm_risk_substantiveness = normalize_risk_substantiveness(
+                    result.classification.get("substantiveness")
+                )
             elif classifier_name == "adoption_type":
                 confs = adoption_signal_map(result.classification)
                 if isinstance(confs, dict):
@@ -352,6 +431,10 @@ def run_phase2(
             "human_other": chunk.get("vendor_other"),
             "llm_other": llm_other_vendor,
             "risk_confidences": llm_conf_map if classifier_name == "risk" else {},
+            "risk_signals": llm_risk_signals if classifier_name == "risk" else [],
+            "risk_substantiveness": (
+                llm_risk_substantiveness if classifier_name == "risk" else None
+            ),
             "adoption_signals": llm_conf_map if classifier_name == "adoption_type" else {},
         })
 
@@ -489,8 +572,24 @@ def show_details(results: list[dict], indices: list[int] | None = None) -> None:
         llm_other = f" (other: {r['llm_other']})" if r.get("llm_other") else ""
         print(f"    Human: {sorted(r['human_labels'])}{human_other}")
         print(f"    LLM:   {sorted(r['llm_labels'])}{llm_other} (conf: {r['confidence']:.2f})")
+        risk_signals = r.get("risk_confidences") or {}
+        adoption_signals = r.get("adoption_signals") or {}
+        if isinstance(risk_signals, dict) and risk_signals:
+            pretty_risk = {
+                normalize_label_token(k): int(v)
+                for k, v in risk_signals.items()
+                if isinstance(v, (int, float))
+            }
+            print(f"    LLM Risk Signals: {pretty_risk}")
+        if isinstance(adoption_signals, dict) and adoption_signals:
+            pretty_adoption = {
+                normalize_label_token(k): int(v)
+                for k, v in adoption_signals.items()
+                if isinstance(v, (int, float))
+            }
+            print(f"    LLM Adoption Signals: {pretty_adoption}")
         print(f"    Reasoning: {r['reasoning']}")
-        print(f"    Text: {r['chunk_text'][:500]}")
+        print(f"    Text: {r['chunk_text']}")
         print("-" * 80)
 
 
@@ -647,6 +746,89 @@ def parse_batch_results(
     human_field = config["human_field"]
     extract_llm_labels = config["extract_llm_labels"]
 
+    def _try_parse_json(text: str) -> dict | None:
+        """Best-effort JSON parser for occasionally malformed model output."""
+        if not text:
+            return None
+
+        attempts: list[str] = [text]
+
+        # Common wrapper from some model responses.
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+            attempts.append(cleaned.strip())
+
+        # Try parsing only the outermost JSON object span.
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            attempts.append(stripped[start:end + 1])
+
+        # Remove trailing commas before object/array closes.
+        for candidate in list(attempts):
+            attempts.append(re.sub(r",\s*([}\]])", r"\1", candidate))
+
+        for candidate in attempts:
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
+        return None
+
+    def _salvage_risk_payload(text: str) -> dict | None:
+        """Regex salvage for truncated/malformed risk JSON."""
+        if not text:
+            return None
+
+        payload: dict[str, Any] = {}
+
+        # risk_types
+        m_types = re.search(r'"risk_types"\s*:\s*\[(.*?)\]', text, flags=re.DOTALL)
+        risk_types: list[str] = []
+        if m_types:
+            risk_types = re.findall(r'"([a-z_]+)"', m_types.group(1))
+
+        # risk_signals entries
+        risk_signals: list[dict[str, Any]] = []
+        for t, s in re.findall(
+            r'"type"\s*:\s*"([a-z_]+)"\s*,\s*"signal"\s*:\s*([123])',
+            text,
+            flags=re.DOTALL,
+        ):
+            risk_signals.append({"type": t, "signal": int(s)})
+
+        # substantiveness
+        m_sub = re.search(
+            r'"substantiveness"\s*:\s*"([a-z_]+)"',
+            text,
+            flags=re.DOTALL,
+        )
+        substantiveness = m_sub.group(1) if m_sub else None
+        substantiveness = normalize_risk_substantiveness(substantiveness)
+
+        # reasoning (optional)
+        reasoning = ""
+        m_reason = re.search(r'"reasoning"\s*:\s*"([^"]*)"', text, flags=re.DOTALL)
+        if m_reason:
+            reasoning = m_reason.group(1)
+
+        if not risk_types and risk_signals:
+            risk_types = [str(e["type"]) for e in risk_signals]
+
+        if not risk_types:
+            return None
+
+        payload["risk_types"] = risk_types
+        payload["risk_signals"] = risk_signals
+        payload["substantiveness"] = substantiveness or "boilerplate"
+        if reasoning:
+            payload["reasoning"] = reasoning
+        return payload
+
     def _human_labels(chunk: dict) -> list[str]:
         labels = chunk.get(human_field, [])
         return normalize_risk_labels(labels) if classifier_name == "risk" else labels
@@ -662,6 +844,10 @@ def parse_batch_results(
             "reasoning": error,
             "chunk_text": chunk.get("chunk_text", ""),
             "error": error,
+            "risk_confidences": {},
+            "risk_signals": [],
+            "risk_substantiveness": None,
+            "adoption_signals": {},
         }
 
     def _extract_confidence(parsed: dict) -> float:
@@ -748,10 +934,21 @@ def parse_batch_results(
                 results.append(_make_error(chunk, chunk_id, error))
                 continue
 
-            parsed = json.loads(response_text)
+            parsed = _try_parse_json(response_text)
+            if parsed is None and classifier_name == "risk":
+                parsed = _salvage_risk_payload(response_text)
+            if parsed is None:
+                raise ValueError("unable to parse model JSON response")
+
             llm_labels = extract_llm_labels(parsed)
             confidence = _extract_confidence(parsed)
             risk_conf_map = _extract_risk_conf_map(parsed) if classifier_name == "risk" else {}
+            risk_signals = risk_signal_entries(parsed) if classifier_name == "risk" else []
+            risk_substantiveness = (
+                normalize_risk_substantiveness(parsed.get("substantiveness"))
+                if classifier_name == "risk"
+                else None
+            )
             adoption_conf_map = (
                 _extract_adoption_conf_map(parsed) if classifier_name == "adoption_type" else {}
             )
@@ -768,6 +965,8 @@ def parse_batch_results(
                 "human_other": chunk.get("vendor_other"),
                 "llm_other": parsed.get("other_vendor"),
                 "risk_confidences": risk_conf_map,
+                "risk_signals": risk_signals,
+                "risk_substantiveness": risk_substantiveness,
                 "adoption_signals": adoption_conf_map,
             })
             matched += 1
@@ -812,16 +1011,19 @@ print(f"  vendor:        {len(vendor_chunks)} chunks (vendor mention_type)")
 
 #%% NOTE: CONFIG
 # batch_job_name = "batches/x0br8z72xdfmgfyvppna2b9eckxcahpfw0tx"  # adoption_type batch job name
-# batch_job_name = "batches/b1dvgrjr3umit887c5nntsg9k1vxrh80es1x"  # risk batch job name
-# BATCH_RUN_ID = "batch-p2-risk-gemini-3-flash-v2-dict" # Change to "None" to generate a new batch run ID.
+# batch_job_name = "batches/ssdn9wyjh515m0n41xejhyjsn38o1w0jeey6"  # risk batch job name
+# BATCH_RUN_ID = "batch-p2-risk-gemini-3-flash-preview-new-schema"
+batch_job_name = None
+BATCH_RUN_ID = None 
 
 CLASSIFIER_NAME = "risk"  # | adoption_type | risk | vendor
-SUFFIX = "new-schema"
+SUFFIX = "schema-v2.1-full"
 MODEL_NAME = "gemini-3-flash-preview"
 BATCH_MODEL = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0 # I believe that this should be set to 0 for batch mode.
 LIMIT = 0  # 0 = all matching chunks, >0 = first N (for quick iteration)
+FORCE_RERUN = True  # Set True to ignore cached RUN_ID results.
 RUN_ID = f"p2-{CLASSIFIER_NAME}-{MODEL_NAME}-{SUFFIX}"
 if BATCH_RUN_ID is None:
     BATCH_RUN_ID = f"batch-p2-{CLASSIFIER_NAME}-{BATCH_MODEL}-{SUFFIX}"
@@ -833,21 +1035,23 @@ _load_prompt_yaml.cache_clear()
 # print(get_prompt_template(CLASSIFIER_NAME))
 
 #%% XXX: SYNC: Run or load from cache
-cached = load_run(RUN_ID)
+cached = None if FORCE_RERUN else load_run(RUN_ID)
 if cached:
     print(f"Loaded {len(cached)} results from cache: {RUN_ID}")
     sync_results = cached
+    if CLASSIFIER_NAME == "risk":
+        sync_results = backfill_cached_risk_labels(sync_results)
 else:
     print(f"Running {CLASSIFIER_NAME} classifier: {RUN_ID} with {MODEL_NAME}")
-    # sync_results = run_phase2( # Comented out for safety
-    #     RUN_ID,
-    #     CLASSIFIER_NAME,
-    #     chunks,
-    #     MODEL_NAME,
-    #     TEMPERATURE,
-    #     THINKING_BUDGET,
-    #     limit=LIMIT,
-    # )
+    sync_results = run_phase2(  # Comment out for safety if needed
+        RUN_ID,
+        CLASSIFIER_NAME,
+        chunks,
+        MODEL_NAME,
+        TEMPERATURE,
+        THINKING_BUDGET,
+        limit=LIMIT,
+    )
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
 
@@ -867,7 +1071,7 @@ if batch_job_name is None:
 
 #%% BATCH: List all recent jobs
 batch.list_jobs()
-
+batch_job_name = "batches/tyvywxdsd2vigi5jbm0gnxuockvai445yjzn"
 #%% BATCH: Check status (run this periodically)
 batch.check_status(batch_job_name)
 
@@ -884,7 +1088,6 @@ if batch_results:
 
 
 #%% ############################ ANALYSIS ############################
-# Choose which results to analyze: sync_results or batch_results
 
 results = batch_results  # | sync_results | batch_results
 show_summary(results)
@@ -902,7 +1105,4 @@ show_diff_summary(results)
 show_details(results)
 
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
-# show_details(results, indices=[0, 1, 2])
-
-job = batch.client.batches.get(name=batch_job_name)
-print(job.model_dump())
+show_details(results, indices=list[int]([2, 7, 9, 12, 13, 14]))

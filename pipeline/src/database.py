@@ -59,6 +59,29 @@ def _normalize_risk_signals(risk_result: dict) -> dict:
     """Normalize risk signals to a dict for storage."""
     if not isinstance(risk_result, dict):
         return {}
+    signals = risk_result.get("risk_signals") or risk_result.get("confidence_scores") or {}
+    if isinstance(signals, list):
+        out = {}
+        for entry in signals:
+            if isinstance(entry, dict):
+                k = entry.get("type")
+                v = entry.get("signal")
+                if k is not None and isinstance(v, (int, float)):
+                    out[str(k)] = float(v)
+        return out
+    if isinstance(signals, dict):
+        return {
+            str(k): float(v)
+            for k, v in signals.items()
+            if isinstance(v, (int, float))
+        }
+    return {}
+
+
+def _normalize_risk_signals(risk_result: dict) -> dict:
+    """Normalize risk signals to a dict for storage."""
+    if not isinstance(risk_result, dict):
+        return {}
 
     signals = risk_result.get("risk_signals")
     if isinstance(signals, list):

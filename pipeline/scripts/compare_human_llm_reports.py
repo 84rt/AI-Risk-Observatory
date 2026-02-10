@@ -92,7 +92,13 @@ def filter_llm_labels(
                 if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
             }
     elif field == "risk_taxonomy":
-        confs = details.get("risk_confidences") or {}
+        confs = details.get("risk_signals") or details.get("risk_confidences") or {}
+        if isinstance(confs, list):
+            confs = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in confs
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
     elif field == "vendor_tags":
         confs = details.get("vendor_confidences") or {}
     else:

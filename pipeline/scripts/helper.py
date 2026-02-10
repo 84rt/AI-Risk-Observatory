@@ -278,14 +278,26 @@ def inspect_chunk(results: list[tuple[dict, dict]], index: int):
     print(f"Confidence: {llm_result['confidence']:.2f}" if llm_result['confidence'] else "Confidence: N/A")
     confidence_scores = (
         llm_result.get("raw_classification", {}) or {}
+    ).get("risk_signals") or (
+        llm_result.get("raw_classification", {}) or {}
     ).get("confidence_scores", {})
     if confidence_scores:
         print("Confidence scores:")
-        for k, v in confidence_scores.items():
-            if isinstance(v, (int, float)):
-                print(f"  - {k}: {v:.2f}")
-            else:
-                print(f"  - {k}: {v}")
+        if isinstance(confidence_scores, list):
+            for entry in confidence_scores:
+                if isinstance(entry, dict):
+                    k = entry.get("type")
+                    v = entry.get("signal")
+                    if isinstance(v, (int, float)):
+                        print(f"  - {k}: {v:.2f}")
+                    else:
+                        print(f"  - {k}: {v}")
+        else:
+            for k, v in confidence_scores.items():
+                if isinstance(v, (int, float)):
+                    print(f"  - {k}: {v:.2f}")
+                else:
+                    print(f"  - {k}: {v}")
     else:
         print("Confidence scores: N/A")
     print(f"Reasoning: {llm_result.get('reasoning', 'N/A')}")

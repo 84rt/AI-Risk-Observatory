@@ -132,7 +132,14 @@ class RiskClassifier(BaseClassifier):
         risk_types = response.get("risk_types", [])
         evidence_dict = response.get("evidence", {})
         key_snippets = response.get("key_snippets", {})
+        risk_signals_list = response.get("risk_signals")
         confidence_scores = response.get("confidence_scores", {})
+        if isinstance(risk_signals_list, list):
+            confidence_scores = {
+                str(entry.get("type")): entry.get("signal")
+                for entry in risk_signals_list
+                if isinstance(entry, dict)
+            }
         reasoning = response.get("reasoning", "")
 
         # Validate risk types against known categories

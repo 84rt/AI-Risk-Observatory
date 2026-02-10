@@ -348,9 +348,23 @@ def main() -> None:
 
                     # Risk
                     risk_raw = data.get("risk", {})
-                    risk_confidences = risk_raw.get("confidence_scores", {})
+                    risk_signals = risk_raw.get("risk_signals") or risk_raw.get("confidence_scores", {})
+                    risk_map = {}
+                    if isinstance(risk_signals, list):
+                        for entry in risk_signals:
+                            if isinstance(entry, dict):
+                                k = entry.get("type")
+                                v = entry.get("signal")
+                                if k is not None and isinstance(v, (int, float)):
+                                    risk_map[str(k)] = float(v)
+                    elif isinstance(risk_signals, dict):
+                        risk_map = {
+                            str(k): float(v)
+                            for k, v in risk_signals.items()
+                            if isinstance(v, (int, float))
+                        }
                     risk_taxonomy = [
-                        k for k, v in risk_confidences.items()
+                        k for k, v in risk_map.items()
                         if isinstance(v, (int, float)) and v >= args.mention_threshold
                     ]
                     risk_substantiveness = risk_raw.get("substantiveness_score")
@@ -365,7 +379,7 @@ def main() -> None:
                         "adoption_types": adoption_types,
                         "adoption_signals": adoption_signals,
                         "risk_taxonomy": risk_taxonomy,
-                        "risk_confidences": risk_confidences,
+                        "risk_signals": risk_signals,
                         "risk_substantiveness": risk_substantiveness,
                         "vendor_tags": vendor_tags,
                         "vendor_other": None,
@@ -402,7 +416,7 @@ def main() -> None:
                 mt = vr.get("mention_types", [])
                 ac = vr.get("adoption", {}).get("adoption_signals") or vr.get("adoption", {}).get("adoption_confidences", {})
                 rt = vr.get("risk", {}).get("risk_types", [])
-                rc = vr.get("risk", {}).get("confidence_scores", {})
+                rc = vr.get("risk", {}).get("risk_signals") or vr.get("risk", {}).get("confidence_scores", {})
 
                 prefix = f"llm_{model_label}_{variant_label}"
                 row[f"{prefix}_mention_types"] = "|".join(sorted(mt))

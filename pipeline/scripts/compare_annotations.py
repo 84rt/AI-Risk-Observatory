@@ -147,7 +147,13 @@ def print_comparison(
             )
             print(f"    Adoption: {conf_str or '-'}")
 
-        risk_conf = details.get('risk_confidences', {})
+        risk_conf = details.get('risk_signals') or details.get('risk_confidences', {})
+        if isinstance(risk_conf, list):
+            risk_conf = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in risk_conf
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
         if risk_conf:
             conf_str = ", ".join(
                 f"{k}:{v:.2f}" for k, v in risk_conf.items()

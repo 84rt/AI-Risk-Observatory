@@ -12,6 +12,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+RISK_SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
+
+
+def normalize_risk_substantiveness(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    token = str(value).strip().lower()
+    if token in RISK_SUBSTANTIVENESS_LEVELS:
+        return token
+    return None
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -144,6 +155,11 @@ def build_llm_record(
         record["vendor_other"] = testbed.get("llm_other")
     elif classifier_type == "risk":
         record["risk_taxonomy"] = llm_labels
+        # Avoid leaking human baseline values into LLM export rows.
+        record["risk_confidence"] = {}
+        record["risk_substantiveness"] = normalize_risk_substantiveness(
+            testbed.get("risk_substantiveness") or testbed.get("substantiveness")
+        )
     elif classifier_type == "adoption_type":
         record["adoption_types"] = llm_labels
 
@@ -153,7 +169,20 @@ def build_llm_record(
     # Preserve per-label signal/confidence maps when present in testbed output
     if classifier_type == "risk":
         risk_conf = testbed.get("risk_confidences")
-        if isinstance(risk_conf, dict) and risk_conf:
+        risk_signals = testbed.get("risk_signals")
+        risk_substantiveness = normalize_risk_substantiveness(
+            testbed.get("risk_substantiveness") or testbed.get("substantiveness")
+        )
+        if risk_substantiveness is not None:
+            llm_details["risk_substantiveness"] = risk_substantiveness
+        if isinstance(risk_signals, list) and risk_signals:
+            llm_details["risk_signals"] = risk_signals
+            llm_details["risk_confidences"] = {
+                str(entry.get("type")): float(entry.get("signal"))
+                for entry in risk_signals
+                if isinstance(entry, dict) and isinstance(entry.get("signal"), (int, float))
+            }
+        elif isinstance(risk_conf, dict) and risk_conf:
             llm_details["risk_confidences"] = {
                 str(k): float(v)
                 for k, v in risk_conf.items()
@@ -170,15 +199,19 @@ def build_llm_record(
         elif isinstance(adopt_conf, list) and adopt_conf:
             llm_details["adoption_signals"] = adopt_conf
     if confidence_mode == "uniform" and llm_labels:
-        conf_key = {
-            "mention_type": "mention_confidences",
-            "vendor": "vendor_signals",
-            "risk": "risk_confidences",
-            "adoption_type": "adoption_signals",
-        }.get(classifier_type, "confidences")
-        llm_details[conf_key] = {
-            str(label): float(confidence) for label in llm_labels
-        }
+        if classifier_type == "risk":
+            llm_details["risk_signals_uniform"] = {
+                str(label): float(confidence) for label in llm_labels
+            }
+        else:
+            conf_key = {
+                "mention_type": "mention_confidences",
+                "vendor": "vendor_signals",
+                "adoption_type": "adoption_signals",
+            }.get(classifier_type, "confidences")
+            llm_details[conf_key] = {
+                str(label): float(confidence) for label in llm_labels
+            }
     record["llm_details"] = llm_details
 
     return record

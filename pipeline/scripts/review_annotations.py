@@ -180,7 +180,13 @@ def print_chunk_review(
             for e in h_adopt_conf
             if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
         }
-    h_risk_conf = h.get("risk_confidences", {})
+    h_risk_conf = h.get("risk_signals") or h.get("risk_confidences", {})
+    if isinstance(h_risk_conf, list):
+        h_risk_conf = {
+            str(e.get("type")): float(e.get("signal"))
+            for e in h_risk_conf
+            if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+        }
 
     # Mention types
     print(f"  {C.BOLD}Mention Types:{C.RESET}")
@@ -220,7 +226,13 @@ def print_chunk_review(
     for label in variant_labels:
         v = variants[label] or {}
         v_risk = v.get("risk_taxonomy", [])
-        v_risk_conf = v.get("risk_confidences", {})
+        v_risk_conf = v.get("risk_signals") or v.get("risk_confidences", {})
+        if isinstance(v_risk_conf, list):
+            v_risk_conf = {
+                str(e.get("type")): float(e.get("signal"))
+                for e in v_risk_conf
+                if isinstance(e, dict) and isinstance(e.get("signal"), (int, float))
+            }
         v_subst = v.get("risk_substantiveness")
         color = variant_color_map[label]
         subst_str = f"  subst={v_subst}" if v_subst is not None else ""

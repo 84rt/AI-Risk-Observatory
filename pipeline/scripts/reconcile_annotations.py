@@ -32,6 +32,13 @@ ANSI_DIM = "\x1b[2m"
 ANSI_CYAN = "\x1b[36m"
 ANSI_GREEN = "\x1b[32m"
 
+RISK_LABEL_ALIASES = {
+    "strategic_market": "strategic_competitive",
+    "regulatory": "regulatory_compliance",
+    "workforce": "workforce_impacts",
+    "environmental": "environmental_impact",
+}
+
 
 def use_color() -> bool:
     if os.environ.get("NO_COLOR"):
@@ -178,6 +185,22 @@ def normalize_list(value: Any) -> List[str]:
     return []
 
 
+def normalize_risk_label(value: str) -> str:
+    return RISK_LABEL_ALIASES.get(value, value)
+
+
+def normalize_labels_for_field(field: str, labels: List[str]) -> List[str]:
+    if field == "risk_taxonomy":
+        return [normalize_risk_label(label) for label in labels]
+    return labels
+
+
+def normalize_conf_for_field(field: str, conf: Dict[str, float]) -> Dict[str, float]:
+    if field != "risk_taxonomy":
+        return conf
+    return {normalize_risk_label(k): v for k, v in conf.items()}
+
+
 def _signals_list_to_map(value: Any) -> Dict[str, float]:
     if isinstance(value, list):
         out: Dict[str, float] = {}
@@ -243,12 +266,15 @@ def filter_llm_labels(
         if isinstance(confs, list):
             confs = _signals_list_to_map(confs)
     elif field == "risk_taxonomy":
-        confs = details.get("risk_confidences") or {}
+        confs = details.get("risk_signals") or details.get("risk_confidences") or {}
+        if isinstance(confs, list):
+            confs = _signals_list_to_map(confs)
     elif field == "vendor_tags":
         confs = details.get("vendor_confidences") or {}
     else:
         confs = {}
-    return [label for label in labels if float(confs.get(label, 0.0)) >= threshold]
+    filtered = [label for label in labels if float(confs.get(label, 0.0)) >= threshold]
+    return normalize_labels_for_field(field, filtered)
 
 
 def filter_llm_conf_map(conf: Dict[str, float], threshold: float) -> Dict[str, float]:
@@ -310,6 +336,30 @@ def fmt_conf(conf: Dict[str, float]) -> str:
     return ", ".join(f"{k}={v:.2f}" for k, v in sorted(conf.items()))
 
 
+def fmt_risk_signals_raw(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "(none)"
+    parts: List[str] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        t = entry.get("type")
+        s = entry.get("signal")
+        if t is None:
+            continue
+        if isinstance(s, (int, float)):
+            parts.append(f"{t}:{int(s)}")
+        else:
+            parts.append(str(t))
+    return ", ".join(parts) if parts else "(none)"
+
+
+def fmt_substantiveness(value: Any) -> str:
+    if value is None:
+        return "(none)"
+    return str(value)
+
+
 def fmt_vendor_other(value: Optional[str]) -> str:
     if not value:
         return ""
@@ -329,14 +379,17 @@ def extract_labels(
     if not record:
         return []
     if is_llm:
-        return filter_llm_labels(record, field, llm_threshold)
-    return normalize_list(record.get(field))
+        return normalize_labels_for_field(
+            field, filter_llm_labels(record, field, llm_threshold)
+        )
+    return normalize_labels_for_field(field, normalize_list(record.get(field)))
 
 
 def extract_confidence(
     record: Optional[Dict[str, Any]],
     keys: List[str],
     llm_detail_key: str,
+    field: str,
     is_llm: bool,
     llm_threshold: float,
 ) -> Dict[str, float]:
@@ -347,7 +400,7 @@ def extract_confidence(
         conf = extract_llm_conf_map(record, llm_detail_key)
     if is_llm:
         conf = filter_llm_conf_map(conf, llm_threshold)
-    return conf
+    return normalize_conf_for_field(field, conf)
 
 
 def apply_focus_override(
@@ -370,6 +423,7 @@ def apply_focus_override(
             selected,
             ["adoption_confidence", "adoption_confidences", "adoption_signals"],
             "adoption_signals",
+            "adoption_types",
             selected_is_llm,
             llm_threshold,
         )
@@ -380,8 +434,9 @@ def apply_focus_override(
         )
         record["risk_confidence"] = extract_confidence(
             selected,
-            ["risk_confidence", "risk_confidences"],
-            "risk_confidences",
+            ["risk_confidence", "risk_confidences", "risk_signals"],
+            "risk_signals",
+            "risk_taxonomy",
             selected_is_llm,
             llm_threshold,
         )
@@ -430,7 +485,7 @@ def print_annotations(
     h_adoption = normalize_list(h.get("adoption_types"))
     l_adoption = filter_llm_labels(l, "adoption_types", llm_threshold)
 
-    h_risk = normalize_list(h.get("risk_taxonomy"))
+    h_risk = normalize_labels_for_field("risk_taxonomy", normalize_list(h.get("risk_taxonomy")))
     l_risk = filter_llm_labels(l, "risk_taxonomy", llm_threshold)
 
     h_vendor = normalize_list(h.get("vendor_tags"))
@@ -439,20 +494,31 @@ def print_annotations(
     l_vendor_other = (l.get("vendor_other") or "").strip()
 
     h_adopt_conf = extract_conf_map(h, ["adoption_confidence", "adoption_confidences", "adoption_signals"])
-    h_risk_conf = extract_conf_map(h, ["risk_confidence", "risk_confidences"])
+    h_risk_conf = normalize_conf_for_field(
+        "risk_taxonomy",
+        extract_conf_map(h, ["risk_confidence", "risk_confidences", "risk_signals"]),
+    )
+    h_risk_sub = h.get("risk_substantiveness")
 
     l_adopt_conf = filter_llm_conf_map(
         extract_llm_conf_map(l, "adoption_signals") or extract_llm_conf_map(l, "adoption_confidences"),
         llm_threshold,
     )
-    l_risk_conf = filter_llm_conf_map(
-        extract_llm_conf_map(l, "risk_confidences"),
-        llm_threshold,
+    l_risk_conf = normalize_conf_for_field(
+        "risk_taxonomy",
+        filter_llm_conf_map(
+            extract_llm_conf_map(l, "risk_signals") or extract_llm_conf_map(l, "risk_confidences"),
+            llm_threshold,
+        ),
     )
     l_mention_conf = filter_llm_conf_map(
         extract_llm_conf_map(l, "mention_confidences"),
         llm_threshold,
     )
+    l_risk_sub = (l.get("llm_details") or {}).get("risk_substantiveness")
+    if l_risk_sub is None:
+        l_risk_sub = l.get("risk_substantiveness")
+    l_risk_signals_raw = (l.get("llm_details") or {}).get("risk_signals")
 
     print(colorize("Annotations:", ANSI_BOLD))
     if focus_field == "all":
@@ -466,6 +532,12 @@ def print_annotations(
         print(
             colorize(
                 f"  HUMAN risk_taxonomy: {fmt_list(h_risk)}  conf: {fmt_conf(h_risk_conf)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
+                f"  HUMAN risk_substantiveness: {fmt_substantiveness(h_risk_sub)}",
                 ANSI_GREEN,
             )
         )
@@ -491,6 +563,18 @@ def print_annotations(
         print(
             colorize(
                 f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_signals(raw): {fmt_risk_signals_raw(l_risk_signals_raw)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_substantiveness: {fmt_substantiveness(l_risk_sub)}",
                 ANSI_CYAN,
             )
         )
@@ -539,7 +623,25 @@ def print_annotations(
         )
         print(
             colorize(
+                f"  HUMAN risk_substantiveness: {fmt_substantiveness(h_risk_sub)}",
+                ANSI_GREEN,
+            )
+        )
+        print(
+            colorize(
                 f"  LLM   risk_taxonomy: {fmt_list(l_risk)}  conf: {fmt_conf(l_risk_conf)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_signals(raw): {fmt_risk_signals_raw(l_risk_signals_raw)}",
+                ANSI_CYAN,
+            )
+        )
+        print(
+            colorize(
+                f"  LLM   risk_substantiveness: {fmt_substantiveness(l_risk_sub)}",
                 ANSI_CYAN,
             )
         )
@@ -589,7 +691,7 @@ def build_diff_label(
         "vendor": "vendor_tags",
     }
     field = field_map.get(focus_field, "mention_types")
-    h_set = set(normalize_list(human.get(field)))
+    h_set = set(normalize_labels_for_field(field, normalize_list(human.get(field))))
     l_set = set(filter_llm_labels(llm, field, llm_threshold))
     if h_set == l_set:
         if focus_field == "vendor" and "other" in h_set:
@@ -635,7 +737,7 @@ def summarize_disagreements(
         llm = llm_by_id.get(cid)
         if not human or not llm:
             continue
-        h_set = set(normalize_list(human.get(field)))
+        h_set = set(normalize_labels_for_field(field, normalize_list(human.get(field))))
         l_set = set(filter_llm_labels(llm, field, llm_threshold))
         if h_set == l_set:
             continue
@@ -692,7 +794,7 @@ def annotations_match(
             "vendor": "vendor_tags",
         }
         field = field_map.get(focus_field, "mention_types")
-        human_set = set(normalize_list(human.get(field)))
+        human_set = set(normalize_labels_for_field(field, normalize_list(human.get(field))))
         llm_set = set(filter_llm_labels(llm, field, llm_threshold))
         if human_set != llm_set:
             return False
@@ -707,7 +809,7 @@ def annotations_match(
     if include_subtypes:
         fields.extend(["adoption_types", "risk_taxonomy", "vendor_tags"])
     for field in fields:
-        human_set = set(normalize_list(human.get(field)))
+        human_set = set(normalize_labels_for_field(field, normalize_list(human.get(field))))
         llm_set = set(filter_llm_labels(llm, field, llm_threshold))
         if human_set != llm_set:
             return False
@@ -873,13 +975,18 @@ def build_selected_annotation(
     is_llm = source == "llm"
     mention_types = normalize_list(selected.get("mention_types"))
     adoption_types = normalize_list(selected.get("adoption_types"))
-    risk_taxonomy = normalize_list(selected.get("risk_taxonomy"))
+    risk_taxonomy = normalize_labels_for_field(
+        "risk_taxonomy", normalize_list(selected.get("risk_taxonomy"))
+    )
     vendor_tags = normalize_list(selected.get("vendor_tags"))
 
     if is_llm and llm_threshold > 0:
         mention_types = filter_llm_labels(selected, "mention_types", llm_threshold)
         adoption_types = filter_llm_labels(selected, "adoption_types", llm_threshold)
-        risk_taxonomy = filter_llm_labels(selected, "risk_taxonomy", llm_threshold)
+        risk_taxonomy = normalize_labels_for_field(
+            "risk_taxonomy",
+            filter_llm_labels(selected, "risk_taxonomy", llm_threshold),
+        )
         vendor_tags = filter_llm_labels(selected, "vendor_tags", llm_threshold)
 
     record = {
@@ -903,7 +1010,10 @@ def build_selected_annotation(
         "adoption_confidence": extract_conf_map(
             selected, ["adoption_confidence", "adoption_confidences", "adoption_signals"]
         ),
-        "risk_confidence": extract_conf_map(selected, ["risk_confidence", "risk_confidences"]),
+        "risk_confidence": normalize_conf_for_field(
+            "risk_taxonomy",
+            extract_conf_map(selected, ["risk_confidence", "risk_confidences", "risk_signals"]),
+        ),
         "review_source": source,
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
         "source_annotation_id": selected.get("annotation_id"),
@@ -915,7 +1025,11 @@ def build_selected_annotation(
         if not record["adoption_confidence"]:
             record["adoption_confidence"] = extract_llm_conf_map(selected, "adoption_signals") or extract_llm_conf_map(selected, "adoption_confidences")
         if not record["risk_confidence"]:
-            record["risk_confidence"] = extract_llm_conf_map(selected, "risk_confidences")
+            record["risk_confidence"] = normalize_conf_for_field(
+                "risk_taxonomy",
+                extract_llm_conf_map(selected, "risk_signals")
+                or extract_llm_conf_map(selected, "risk_confidences"),
+            )
         if llm_threshold > 0:
             record["adoption_confidence"] = filter_llm_conf_map(
                 record["adoption_confidence"], llm_threshold

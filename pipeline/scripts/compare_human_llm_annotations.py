@@ -94,6 +94,8 @@ def extract_confidence(record: Dict[str, Any], key: str) -> Dict[str, float]:
 def extract_llm_confidence(record: Dict[str, Any], key: str) -> Dict[str, float]:
     details = record.get("llm_details") or {}
     value = details.get(key)
+    if value is None and key.endswith("_signals"):
+        value = details.get(key.replace("_signals", "_confidences"))
     if isinstance(value, dict):
         return {str(k): float(v) for k, v in value.items() if v is not None}
     if isinstance(value, list):
@@ -124,7 +126,9 @@ def filter_llm_labels(
         if isinstance(confs, list):
             confs = extract_llm_confidence({"llm_details": {"adoption_signals": confs}}, "adoption_signals")
     elif field == "risk_taxonomy":
-        confs = details.get("risk_confidences") or {}
+        confs = details.get("risk_signals") or details.get("risk_confidences") or {}
+        if isinstance(confs, list):
+            confs = extract_llm_confidence({"llm_details": {"risk_signals": confs}}, "risk_signals")
     elif field == "vendor_tags":
         confs = details.get("vendor_confidences") or {}
     else:
@@ -271,7 +275,7 @@ def main() -> None:
         paired, "adoption_confidence", "adoption_signals"
     )
     risk_conf_diff, risk_conf_n = compute_confidence_diffs(
-        paired, "risk_confidence", "risk_confidences"
+        paired, "risk_confidence", "risk_signals"
     )
 
     disagreements: List[Dict[str, Any]] = []
@@ -318,7 +322,9 @@ def main() -> None:
                 if isinstance(confs, list):
                     confs = extract_llm_confidence({"llm_details": {"adoption_signals": confs}}, "adoption_signals")
             elif field == "risk_taxonomy":
-                confs = details.get("risk_confidences") or {}
+                confs = details.get("risk_signals") or details.get("risk_confidences") or {}
+                if isinstance(confs, list):
+                    confs = extract_llm_confidence({"llm_details": {"risk_signals": confs}}, "risk_signals")
             elif field == "vendor_tags":
                 confs = details.get("vendor_confidences") or {}
             else:

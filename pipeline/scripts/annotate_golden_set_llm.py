@@ -50,7 +50,21 @@ class DownstreamPhase:
 
 def _build_risk_fields(chunk: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     risk_taxonomy = payload.get("risk_types", []) or []
-    risk_confidences = payload.get("confidence_scores", {}) or {}
+    risk_signals = payload.get("risk_signals") or payload.get("confidence_scores") or {}
+    risk_confidences: Dict[str, float] = {}
+    if isinstance(risk_signals, list):
+        for entry in risk_signals:
+            if isinstance(entry, dict):
+                k = entry.get("type")
+                v = entry.get("signal")
+                if k is not None and isinstance(v, (int, float)):
+                    risk_confidences[str(k)] = float(v)
+    elif isinstance(risk_signals, dict):
+        risk_confidences = {
+            str(k): float(v)
+            for k, v in risk_signals.items()
+            if isinstance(v, (int, float))
+        }
     return {
         "risk_taxonomy": risk_taxonomy,
         "risk_confidences": risk_confidences,

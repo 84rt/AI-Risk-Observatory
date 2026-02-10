@@ -241,6 +241,25 @@ def _validate_risk_response(
                     messages.append(msg)
 
     if "risk_signals" not in response:
+        # Legacy support: accept confidence_scores if present
+        if "confidence_scores" in response:
+            conf_scores = response["confidence_scores"]
+            if not isinstance(conf_scores, dict):
+                msg = f"confidence_scores must be a dict, got {type(conf_scores)}"
+                if strict:
+                    raise ValidationError(msg, "confidence_scores")
+                messages.append(msg)
+            else:
+                for key, value in conf_scores.items():
+                    if key not in VALID_RISK_CATEGORIES:
+                        msg = f"Invalid risk category in confidence_scores: {key}"
+                        if strict:
+                            raise ValidationError(msg, "confidence_scores")
+                        messages.append(msg)
+                    signal_valid, signal_msgs = _validate_signal_score(value, strict)
+                    messages.extend(signal_msgs)
+            # Skip risk_signals validation in legacy mode
+            return len(messages) == 0, messages
         msg = "Missing required field: risk_signals"
         if strict:
             raise ValidationError(msg, "risk_signals")
