@@ -156,21 +156,23 @@ adoption_type: |
 
   ## TASK
   The excerpt has already been classified with the following mention types: {mention_types}.
-  Classify the AI adoption type(s) present. Categories are NOT mutually exclusive.
+  Classify the AI adoped by the company into type(s) into 3 categories. Categories are NOT mutually exclusive.
+  If the mention does not discuss current AI adoption, even indirectly, classify all categories as 0.
   Assign signal scores (0-3) for ALL adoption types. Use 0 for types not present.
   {reasoning_instruction}
 
   ## CATEGORIES
   - non_llm: Traditional AI/ML — everything that is AI but not LLM or Agentic AI (e.g., computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, robotic process automation with ML).
-  - llm: Large Language Models — GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarisation, code generation.
-  - agentic: Autonomous/agentic AI — self-directed AI agents that perform tasks with limited human intervention, AI systems replacing human decision-making workflows end-to-end.
+  - llm: Large Language Models — GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarization, code generation or anything in the GenAI category.
+  - agentic: Autonomous/agentic AI — self-directed AI agents that perform tasks with limited human intervention, or AI systems replacing human decision-making workflows end-to-end. These can often be LLM-based, so when stated explicitly select both.
 
   ## RULES
-  1. A single excerpt can describe multiple adoption types (e.g., LLM + agentic).
-  2. If the excerpt is vague about which type, assign low signals (1) rather than guessing.
-  3. "AI-powered" or "AI tools" without further detail — assign signal 1 to the most likely type based on context.
-  4. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
-  5. Generic "automation" without AI specificity should get very low signal (1) across all types.
+  1. If the mention is falsely classified as adoption—i.e., it does not clearly talk about the company's *current* usage of AI (only talks about plans or opportunities without any evidence for current deployment), or there isn't enough information in the mention to make a proper categorization, set all three signals to 0.
+  2. A single excerpt can describe multiple adoption types (e.g., LLM + agentic). But some can be more evident than others, so make sure to assign the appropriate signal scores to each tag when assigning multiple.
+  3. If the excerpt is vague about which type, assign low signals (1) rather than guessing.
+  4. "AI-powered" or "AI tools" without further detail — assign signal 1 to the most likely type based on context.
+  5. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
+  6. Generic "automation" without AI specificity should get a very low signal (1) across all types.
 
   ## SUBSTANTIVENESS
   How tangible is the AI adoption disclosure?
@@ -190,12 +192,13 @@ adoption_type: |
   - "We are rolling out AI agents to fully automate claims processing end-to-end." → agentic (signal 3), llm (signal 1)
   - "In 2024, our AI platform autonomously handled customer service with no human oversight." → agentic (signal 3), llm (signal 1)
   - "We integrated Microsoft Copilot across our organisation." → llm (signal 3)
-  - "We use AI to improve operations." → assign signal 1 to the most likely type based on context
+  - "We use AI to improve operations." → assign signal 1 to the most likely type based on context 
   - "Our computer vision system detects manufacturing defects on the production line." → non_llm (signal 3)
+  - "We have established a committee to navigate the GenAI change and plan" → this only gives us a slight hint of potential implementation of LLMs, but we don't have enough information to determine that the company has any current deployment of LLM systems (signal 0)
 
   ## OUTPUT CONSTRAINTS
   - Include ALL three adoption_signals entries: one each for non_llm, llm, agentic.
-  - Each entry must be an object with fields: {"type": <label>, "signal": <0-3 integer>}.
+  - Each entry must be an object with fields: {{"type": <label>, "signal": <0-3 integer>}}.
   - substantiveness must be one of: boilerplate, moderate, substantive.
 
   ## EXCERPT CONTEXT
@@ -264,6 +267,319 @@ risk: |
   - risk_signals must include exactly one object per risk_types label: {{"type": <risk_type>, "signal": <1-3 integer>}}.
   - Do NOT include risk_signals entries for labels not present in risk_types.
   - Signal scores must be integers: 1=speculative/highly implicit, 2=hard implicit, 3=explicit.
+  - substantiveness must be one of: boilerplate, moderate, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
+risk_v2: |
+  You are an expert analyst classifying AI-related risk claims in company annual reports.
+
+  ## OBJECTIVE
+  We want conservative, high-precision labels.
+  Only classify risks that are directly attributed to AI in this excerpt.
+  Do NOT maximize recall by adding loosely related tags.
+
+  ## TASK
+  The excerpt has already been classified with mention types: {mention_types}.
+  Identify AI-caused risks and map them to taxonomy categories.
+  Categories are NOT mutually exclusive, but include only those supported by evidence in this excerpt.
+  {reasoning_instruction}
+
+  ## AI-RISK CLAIM TEST (MANDATORY FIRST STEP)
+  A category can be assigned only if the excerpt states or strongly implies:
+  1) an AI capability/system/use, AND
+  2) a specific downside/exposure, AND
+  3) that downside is caused by AI (directly or clearly via nearby context).
+
+  If this test fails, return:
+  - risk_types: ["none"]
+  - risk_signals: [{{"type":"none","signal":<1|2|3>}}]
+
+  ## CATEGORIES
+  - strategic_competitive: AI-driven competitive disadvantage, disruption, failure to adapt.
+  - operational_technical: AI model failure, reliability/accuracy issues, unsafe outputs, model risk.
+  - cybersecurity: AI-enabled cyberattacks/fraud, adversarial AI attacks, AI-linked breach exposure.
+  - workforce_impacts: AI-driven displacement, skills obsolescence, unsafe employee AI use.
+  - regulatory_compliance: AI-specific legal/regulatory/privacy/IP liability or compliance burden.
+  - information_integrity: AI-enabled misinformation/deepfakes/content authenticity harms.
+  - reputational_ethical: AI-linked trust erosion, fairness/bias/ethics concerns, social license risk.
+  - third_party_supply_chain: AI vendor dependency/concentration/downstream third-party AI exposure.
+  - environmental_impact: AI energy/carbon/resource burden.
+  - national_security: AI-linked geopolitical/security destabilization, critical-system exposure, export-control risk.
+  - none: No AI-risk claim present, or too vague to map.
+
+  ## STRICT ATTRIBUTION RULES
+  1. Only tag risks caused by AI in the excerpt.
+  2. If AI is mentioned in one sentence and generic risk appears elsewhere, do NOT connect them unless the text links them.
+  3. Defense/warfare/autonomy context alone is NOT a risk label.
+  4. Governance/policy/compliance frameworks alone are NOT risk labels unless downside/liability is stated.
+  5. Opportunity/adoption language is NOT risk.
+  6. Short/fragmentary chunks (very limited context) should default to conservative scoring; prefer "none" unless attribution is explicit.
+
+  ## SIGNAL GUIDANCE (1-3)
+  - 1: weak implicit attribution; plausible but limited textual support.
+  - 2: strong implicit attribution; clear enough with some interpretation.
+  - 3: explicit attribution; direct statement that AI causes that category risk.
+
+  ## SUBSTANTIVENESS
+  - boilerplate: generic risk/governance language; little concrete detail.
+  - moderate: specific risk area named, limited mechanism/mitigation detail.
+  - substantive: clear risk mechanism and concrete mitigation/actions/commitments.
+
+  ## EXAMPLES (HARD NEGATIVES AND POSITIVES)
+  - "We are investing in AI for autonomous defence capabilities..." -> none (signal 3)
+  - "AI use in defence must comply with legal frameworks." -> none (signal 3)
+  - "AI is increasing phishing and impersonation fraud attempts." -> cybersecurity (signal 3), information_integrity (signal 2)
+  - "GenAI outputs may be unreliable; we expanded model governance to mitigate model risk." -> operational_technical (signal 3)
+  - "EU AI Act and similar rules may increase compliance costs and legal exposure." -> regulatory_compliance (signal 3)
+  - "AI may affect principal risks including cyber, legal, and HR, but impacts remain uncertain." -> use low-signal labels only if AI-causality is stated per risk; otherwise none or sparse 1s
+  - "AI is a growing trend... operations may be disrupted by misinformation." -> information_integrity (1) unless direct causal link is stronger
+  - "Cyber risk is rising. We also use AI in operations." -> none (no causal linkage)
+
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide exactly one risk_signals entry per label in risk_types.
+  - Do NOT include risk_signals for absent labels.
+  - Signal scores must be integers in {{1,2,3}}.
+  - substantiveness must be one of: boilerplate, moderate, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report       Section: {report_section}
+
+risk_v3: |
+  You are an expert analyst classifying AI-related risks in company annual reports.
+
+  ## OBJECTIVE
+  Prioritize precision over recall.
+  We want to detect where the company clearly or credibly frames AI as a source of risk, then map that risk into the best-fit taxonomy buckets.
+
+  ## TASK
+  The excerpt has already been classified with mention types: {mention_types}.
+  Classify AI-caused risks using the buckets below.
+  Buckets are broad and can overlap, but include only those supported by this excerpt.
+  {reasoning_instruction}
+
+  ## CORE PRINCIPLE (ATTRIBUTION FIRST)
+  Assign a risk label only when the text links AI to a downside/exposure.
+  If risk language is present but not attributable to AI in the excerpt, do not label that category.
+  If there is no attributable AI-risk in the excerpt, use "none".
+
+  ## RISK BUCKETS
+  - strategic_competitive: AI changes market structure, customer behavior, pricing power, or competitive position.
+  - operational_technical: AI quality/reliability/model-risk issues (errors, instability, unsafe outputs, decision-quality degradation).
+  - cybersecurity: AI-linked attack or defense exposure (fraud, impersonation, adversarial abuse, breach pathways).
+  - workforce_impacts: AI-driven workforce transition risk (skills gaps, displacement pressure, unsafe employee AI usage).
+  - regulatory_compliance: AI-linked legal/regulatory/privacy/IP exposure, compliance burden, or liability.
+  - information_integrity: AI-enabled misinformation, deepfakes, authenticity erosion, manipulation risk.
+  - reputational_ethical: AI-related trust, fairness, ethics, or stakeholder legitimacy concerns.
+  - third_party_supply_chain: Dependence on external AI vendors, concentration risk, or third-party AI misuse exposure.
+  - environmental_impact: AI energy/carbon/resource-intensity risk.
+  - national_security: AI-linked geopolitical/security instability, critical-system vulnerability, export-control/security-of-state concerns.
+  - none: no attributable AI-risk claim in this excerpt, or too vague to map reliably.
+
+  ## DECISION RULES
+  1. Keep category assignment local to the excerpt. Do not infer from likely broader context.
+  2. AI mention + separate generic risk mention is not enough unless the text links them.
+  3. Defense/autonomy/warfare capability language alone is not a risk category.
+  4. Governance/policy/compliance framework language alone is not a risk category unless downside/exposure is stated.
+  5. Use conservative labeling for short or fragmented chunks; prefer lower signals or "none" when uncertain.
+  6. Do not add categories just because they are adjacent or plausible.
+
+  ## SIGNAL GUIDANCE (1-3)
+  - 1: weak implicit attribution (plausible but lightly supported in text)
+  - 2: strong implicit attribution (clear but still requires interpretation)
+  - 3: explicit attribution (text directly states AI causes that category risk)
+
+  ## SUBSTANTIVENESS
+  - boilerplate: generic risk/governance language; little concrete mechanism.
+  - moderate: identifies a specific AI-risk area, limited mechanism or mitigation detail.
+  - substantive: clear AI-risk mechanism and concrete mitigation/actions/commitments.
+
+  ## EXAMPLES
+  - "We are investing in AI for autonomous defence capabilities." -> none (signal 3)
+  - "AI systems in defence must comply with legal frameworks." -> none (signal 3)
+  - "AI-generated impersonation is increasing fraud attempts against clients." -> cybersecurity (3), information_integrity (2)
+  - "GenAI outputs may be unreliable in decision workflows; we expanded model controls." -> operational_technical (3)
+  - "The EU AI Act may increase compliance burden and legal exposure for our AI systems." -> regulatory_compliance (3)
+  - "AI may affect cyber and HR risks, but impacts remain uncertain." -> use sparse low-signal labels only where AI attribution is present; otherwise none
+  - "AI is a growing trend. Operations can be disrupted by misinformation." -> information_integrity (1) unless attribution is made more direct
+  - "Cyber threats are increasing. We also use AI in operations." -> none
+
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide exactly one risk_signals entry per label in risk_types.
+  - Do NOT include risk_signals entries for labels not in risk_types.
+  - Signal scores must be integers in {{1,2,3}}.
+  - substantiveness must be one of: boilerplate, moderate, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
+risk_v4: |
+  You are an expert analyst classifying AI-risk disclosures in company annual reports.
+
+  ## OBJECTIVE
+  Maximize precision for AI-risk tagging.
+  Tag only what the company explicitly or credibly acknowledges as AI-caused downside exposure.
+  Do not convert AI opportunity/adoption/governance language into risk labels without clear downside evidence.
+
+  ## TASK
+  The excerpt has already been classified with mention types: {mention_types}.
+  Identify AI-caused risks and map them to the taxonomy below.
+  Include only categories directly supported by the excerpt.
+  {reasoning_instruction}
+
+  ## HARD GATE (MUST PASS BEFORE ANY RISK LABEL)
+  A non-"none" risk label is allowed only if ALL three are present in the excerpt:
+  1) AI anchor: explicit AI/GenAI/ML/model/system reference.
+  2) Downside anchor: explicit exposure/harm/liability/failure mention (not just "change", "transform", "trend", or "uncertainty").
+  3) Causal link: the downside is attributed to AI (directly or in tightly linked local context).
+
+  If any anchor is missing, output:
+  - risk_types: ["none"]
+  - risk_signals: [{{"type":"none","signal":3}}]
+
+  ## RISK TAXONOMY
+  - strategic_competitive: AI-driven competitive disadvantage, displacement, pricing/margin pressure, strategic erosion from AI.
+  - operational_technical: AI reliability/accuracy/safety/model-risk failures that could degrade decisions or operations.
+  - cybersecurity: AI-enabled attacks/fraud/breach pathways/adversarial abuse.
+  - workforce_impacts: AI-driven displacement pressure, skills gaps, or unsafe employee AI usage.
+  - regulatory_compliance: AI-specific legal/regulatory/privacy/IP liability, compliance burden, or enforcement exposure.
+  - information_integrity: AI-enabled misinformation/deepfakes/authenticity manipulation.
+  - reputational_ethical: AI-linked trust/ethics/fairness/human-rights legitimacy risk.
+  - third_party_supply_chain: dependency/concentration/downstream exposure from external AI vendors/providers.
+  - environmental_impact: AI-related energy/carbon/resource burden framed as downside risk.
+  - national_security: AI-linked geopolitical/security destabilization or critical-systems exposure.
+  - none: no attributable AI-risk claim in this excerpt, or evidence too weak/vague to map.
+
+  ## DISQUALIFIERS (DEFAULT TO "none")
+  1. Pure opportunity/adoption language ("transform", "improve", "enable", "megatrend") without explicit downside.
+  2. Governance/process language alone (roadmaps, committees, principles, frameworks, strategy integration) without stated risk mechanism or liability.
+  3. AI mention and generic enterprise risk in separate statements with no explicit connection.
+  4. High-level "AI may pose risks" with no category-specific evidence; use "none" unless a concrete risk mechanism is named.
+  5. Short/fragmentary text where attribution is uncertain; prefer "none".
+
+  ## CATEGORY DECISION RULES
+  1. Keep mapping local to this excerpt only; do not import assumptions from broader report context.
+  2. Assign the minimum number of categories required by textual evidence.
+  3. Do not assign adjacent/plausible categories unless each has direct support.
+  4. If multiple categories are truly evidenced, include all supported categories.
+  5. If "none" is selected, it must be the only risk type.
+
+  ## SIGNAL GUIDANCE (1-3)
+  - 1: weak implicit AI-to-risk attribution; limited textual support.
+  - 2: strong implicit attribution; clear but still inferential.
+  - 3: explicit attribution; excerpt directly states AI causes that category risk.
+
+  ## SUBSTANTIVENESS
+  - boilerplate: generic AI-risk language; no specific mechanism or concrete action.
+  - moderate: specific AI-risk area identified but limited mechanism or mitigation detail.
+  - substantive: specific AI-risk mechanism plus tangible mitigation actions/commitments.
+
+  ## EXAMPLES (PRECISION-ORIENTED)
+  - "AI and digitalization are long-term megatrends; we updated technology roadmaps." -> none (3)
+  - "AI may affect our business; we monitor developments." -> none (3)
+  - "We use AI and face growing cyber threats." -> none (3) unless AI is linked to the threat mechanism
+  - "GenAI-enabled impersonation is increasing fraud attempts against our clients." -> cybersecurity (3), information_integrity (2)
+  - "Our AI models can produce unreliable outputs in credit decisions." -> operational_technical (3)
+  - "EU AI Act obligations may increase compliance costs and liability for our AI systems." -> regulatory_compliance (3)
+  - "Dependence on a small number of AI model providers could disrupt service continuity." -> third_party_supply_chain (3)
+
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide exactly one risk_signals entry per label in risk_types.
+  - Do NOT include risk_signals entries for labels not in risk_types.
+  - Signal scores must be integers in {{1,2,3}}.
+  - substantiveness must be one of: boilerplate, moderate, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
+risk_v5: |
+  You are an expert analyst classifying AI-related risks in company annual reports.
+
+  ## OBJECTIVE
+  Classify AI-caused or AI-linked risks with calibrated signal strength.
+  Use the full signal range (1-3) to capture how directly AI is attributed as the risk source.
+  Prioritize precision: do not invent risk categories the text does not support.
+  But do not discard plausible risk signals — use low signal scores (1) for indirect or implicit mentions rather than omitting them entirely.
+
+  ## TASK
+  The excerpt has already been classified with mention types: {mention_types}.
+  Identify risks that are caused by, linked to, or exacerbated by AI, and map them to the taxonomy below.
+  Categories are NOT mutually exclusive; include all that are supported by the excerpt.
+  {{reasoning_instruction}}
+
+  ## ATTRIBUTION FRAMEWORK (MAPS DIRECTLY TO SIGNAL SCORES)
+  Before assigning any risk category, assess the strength of AI-to-risk attribution:
+
+  Signal 3 — EXPLICIT: The text directly states that AI causes, creates, or exposes the company to this specific category of risk. AI and the downside appear in the same statement with clear causal language.
+    Example: "AI-generated deepfakes are increasing fraud attempts against our clients." -> cybersecurity (3)
+
+  Signal 2 — STRONG IMPLICIT: AI and a specific downside are both clearly present and linked, but the causal connection requires modest interpretation. The reader can confidently infer the risk category.
+    Example: "AI is increasing the possibility of data breaches and fraud." -> cybersecurity (2)
+
+  Signal 1 — WEAK IMPLICIT: AI is mentioned in a risk context and a specific risk category is plausible, but the attribution is indirect or requires significant interpretation. The text hints at the risk rather than stating it.
+    Example: "The board established new governance standards for AI and cybersecurity risk." -> cybersecurity (1)
+
+  None — NO ATTRIBUTION: AI is not mentioned in connection with risk, or the excerpt contains only generic risk language, or only opportunity/adoption/governance language without any downside framing.
+
+  ## RISK TAXONOMY
+  - strategic_competitive: AI-driven competitive disadvantage, displacement, failure to adapt, pricing/margin erosion.
+  - operational_technical: AI reliability/accuracy/safety/model-risk failures that degrade decisions or operations.
+  - cybersecurity: AI-enabled attacks, fraud, breach pathways, adversarial abuse of AI systems.
+  - workforce_impacts: AI-driven displacement, skills gaps, unsafe employee AI usage (shadow AI).
+  - regulatory_compliance: AI-specific legal/regulatory/privacy/IP liability, compliance burden, enforcement exposure.
+  - information_integrity: AI-enabled misinformation, deepfakes, content authenticity manipulation.
+  - reputational_ethical: AI-linked trust erosion, fairness/bias/ethics concerns, human rights implications.
+  - third_party_supply_chain: Dependency on AI vendors, concentration risk, downstream AI misuse exposure.
+  - environmental_impact: AI energy/carbon/resource burden framed as downside risk.
+  - national_security: AI-linked geopolitical/security destabilization, critical-systems exposure.
+  - none: No attributable AI-risk in this excerpt, or attribution too weak even for signal 1.
+
+  ## DECISION RULES
+  1. If the excerpt vaguely connects AI to a risk area, assign the relevant category with signal 1 rather than omitting it. Reserve "none" for excerpts with genuinely no AI-risk content.
+  2. Keep category assignment local to this excerpt; do not import assumptions from broader report context.
+  3. Include categories at low signal when there is indirect support rather than dropping them — but do not add categories with no textual basis.
+  4. Opportunity/adoption language alone is NOT risk. But if the same excerpt frames AI adoption as creating exposure (e.g., "rapid AI adoption creates skills gaps"), that IS risk.
+  5. Governance/framework language alone is NOT risk at signal 3. But if governance is mentioned in response to a stated AI risk concern, assign the relevant category at signal 1 or 2.
+  6. AI mention + separate generic risk mention with no textual link between them = "none".
+  7. If "none" is selected, it must be the only risk type.
+  8. For short/fragmentary chunks where AI-risk attribution is plausible but uncertain, prefer signal 1 over "none".
+
+  ## SUBSTANTIVENESS
+  - boilerplate: Generic AI-risk language; no specific mechanism or concrete action.
+  - moderate: Specific AI-risk area identified but limited mechanism or mitigation detail.
+  - substantive: Specific AI-risk mechanism plus tangible mitigation actions/commitments.
+
+  ## EXAMPLES (SIGNAL-CALIBRATED)
+  - "AI and digitalization are long-term megatrends; we updated technology roadmaps." -> none (no downside framing)
+  - "AI may affect our business; we monitor developments." -> none (too vague, no specific risk category)
+  - "We use AI and face growing cyber threats." -> none (no causal link between AI and the cyber threats)
+  - "Increasing risk from new technologies such as AI is a major concern." -> none (too vague to assign a specific category despite downside framing)
+  - "AI is an emerging risk. Data privacy is an increasing priority for us." -> regulatory_compliance (1); AI flagged as risk, privacy concern nearby but link is indirect
+  - "The board created a new standard for AI and cybersecurity risk." -> cybersecurity (1); co-occurrence in governance context, no causal claim
+  - "Rapid advances in AI bring stakeholder scrutiny on data ethics, reskilling, and supply chain risks." -> workforce_impacts (2), reputational_ethical (2), third_party_supply_chain (1)
+  - "AI is increasing the possibility of data breaches and fraud." -> cybersecurity (2); implies AI-caused cyber risk without stating it directly
+  - "GenAI-enabled impersonation is increasing fraud attempts against our clients." -> cybersecurity (3), information_integrity (2)
+  - "Our AI models can produce unreliable outputs in credit decisions." -> operational_technical (3)
+  - "EU AI Act obligations may increase compliance costs and liability for our AI systems." -> regulatory_compliance (3)
+  - "Dependence on a small number of AI model providers could disrupt service continuity." -> third_party_supply_chain (3)
+  - "We might fail to adopt AI in a timely manner, putting us at a competitive disadvantage." -> strategic_competitive (3)
+  - "Deepfakes and GenAI can cause misinformation and damage to our reputation." -> information_integrity (3), reputational_ethical (2)
+  - "GenAI outputs may be unreliable; we expanded model governance to mitigate model risk." -> operational_technical (3)
+  - "AI may affect principal risks including cyber, legal, and HR, but impacts remain uncertain." -> cybersecurity (1), regulatory_compliance (1), workforce_impacts (1); AI attribution stated per risk area but uncertain
+
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - Provide exactly one risk_signals entry per label in risk_types.
+  - Do NOT include risk_signals entries for labels not in risk_types.
+  - Signal scores must be integers in {{1,2,3}}.
   - substantiveness must be one of: boilerplate, moderate, substantive.
 
   ## EXCERPT CONTEXT

@@ -76,7 +76,7 @@ class RiskClassifier(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            "risk",
+            "risk_v5", # risk | risk_v2 | risk_v3 | risk_v4 | risk_v5
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,

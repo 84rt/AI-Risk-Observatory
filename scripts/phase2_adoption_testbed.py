@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Phase 2 Classifier Testbed - Test downstream classifiers against reconciled human baseline.
+Phase 2 Adoption Testbed - Adoption-focused clone of phase2_testbed.
 
 Downstream classifiers: adoption_type, risk, vendor.
 Uses reconciled human mention_types to filter chunks (isolates phase 2 accuracy from phase 1).
@@ -41,7 +41,7 @@ print(f"Available prompts: {', '.join(_load_prompt_yaml().keys())}")
 
 #%% VIEW PROMPT (change key as needed, re-run to inspect)
 _load_prompt_yaml.cache_clear()
-PROMPT_KEY = "risk_v5"  # adoption_type | risk | vendor | mention_type_v3
+PROMPT_KEY = "adoption_type"  # adoption_type | risk | vendor | mention_type_v3
 print(f"\n{'='*60}\nPROMPT: {PROMPT_KEY}\n{'='*60}")
 print(get_prompt_template(PROMPT_KEY))
 
@@ -132,7 +132,7 @@ RISK_LABEL_ALIASES = {
     "environmental": "environmental_impact",
 }
 
-RISK_SIGNAL_LABEL_THRESHOLD = 0
+RISK_SIGNAL_LABEL_THRESHOLD = 2
 RISK_SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
 
 
@@ -1038,19 +1038,18 @@ print(f"  vendor:        {len(vendor_chunks)} chunks (vendor mention_type)")
 
 #%% NOTE: CONFIG
 # batch_job_name = "batches/x0br8z72xdfmgfyvppna2b9eckxcahpfw0tx"  # adoption_type batch job name
-# batch_job_name = "batches/ssdn9wyjh515m0n41xejhyjsn38o1w0jeey6"  # risk batch job name
-# BATCH_RUN_ID = "batch-p2-risk-gemini-3-flash-preview-new-schema"
+# BATCH_RUN_ID = "batch-p2-adoption_type-gemini-3-flash-preview-my-suffix"
 batch_job_name = None
-BATCH_RUN_ID = None 
+BATCH_RUN_ID = None
 
-CLASSIFIER_NAME = "risk"  # | adoption_type | risk | vendor
-SUFFIX = "Tu-risk_v5-test10"
+CLASSIFIER_NAME = "adoption_type"  # | adoption_type | risk | vendor
+SUFFIX = "prompt_v1-full"
 MODEL_NAME = "gemini-3-flash-preview"
 BATCH_MODEL = "gemini-3-flash-preview"
 TEMPERATURE = 0.0
 THINKING_BUDGET = 0 # I believe that this should be set to 0 for batch mode.
-LIMIT = 8 # 0 = all matching chunks, >0 = first N (for quick iteration)
-OFFSET = 10  # 0 = start from beginning, >0 = skip first N matching chunks
+LIMIT = 0  # 0 = all matching chunks, >0 = first N (for quick iteration)
+OFFSET = 0  # 0 = start from beginning, >0 = skip first N matching chunks
 FORCE_RERUN = True  # Set True to ignore cached RUN_ID results.
 RUN_ID = f"p2-{CLASSIFIER_NAME}-{MODEL_NAME}-{SUFFIX}"
 if BATCH_RUN_ID is None:
@@ -1084,7 +1083,7 @@ else:
     print(f"Done. Saved to {get_run_path(RUN_ID)}")
 
 
-#%% BATCH: Initialize & filter ########### BATCH MODE ############################
+#%% BATCH: Initialize & filter ############################ BATCH MODE ############################
 batch = BatchClient(runs_dir=RUNS_DIR)
 
 # Filter chunks for this classifier (always re-run this before submit OR parse)
@@ -1105,7 +1104,7 @@ if batch_job_name is None:
 
 #%% BATCH: List all recent jobs
 batch.list_jobs()
-batch_job_name = "batches/tyvywxdsd2vigi5jbm0gnxuockvai445yjzn"
+# batch_job_name = "batches/..."  # paste a job name here to reconnect
 #%% BATCH: Check status (run this periodically)
 batch.check_status(batch_job_name)
 
@@ -1122,6 +1121,7 @@ if batch_results:
 
 
 #%% ############################ ANALYSIS ############################
+
 results = sync_results  # | sync_results | batch_results
 show_summary(results)
 
@@ -1139,3 +1139,5 @@ show_details(results)
 
 #%% INSPECT SPECIFIC CHUNK(S) - change indices as needed
 show_details(results, diff_only=True)
+
+# %%
