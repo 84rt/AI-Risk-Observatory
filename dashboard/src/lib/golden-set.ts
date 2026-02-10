@@ -10,11 +10,14 @@ type GoldenAnnotation = {
   adoption_confidence: Record<string, number> | number | null;
   risk_taxonomy: string[];
   risk_confidence: Record<string, number> | null;
-  risk_substantiveness: number | null;
+  risk_substantiveness: string | number | null;
+  risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number> | null;
   vendor_tags: string[];
   llm_details?: {
     adoption_confidences?: Record<string, number>;
     risk_confidences?: Record<string, number>;
+    risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number>;
+    risk_substantiveness?: string | number | null;
   };
 };
 
@@ -60,8 +63,8 @@ export type GoldenDashboardData = {
     adoptionTypes: string[];
     riskLabels: string[];
     vendorTags: string[];
-    confidenceBands: string[];
     substantivenessBands: string[];
+    riskSignalLevels: string[];
   };
   datasets: {
     human: GoldenDataset;
@@ -87,7 +90,7 @@ export type GoldenDataset = {
   riskBySector: { x: string; y: string; value: number }[];
   adoptionBySector: { x: string; y: string; value: number }[];
   vendorBySector: { x: string; y: string; value: number }[];
-  confidenceHeatmap: { x: number; y: string; value: number }[];
+  riskSignalHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
 };
 
@@ -138,19 +141,27 @@ const adoptionTypes = ['non_llm', 'llm', 'agentic'];
 const riskLabels = [
   'cybersecurity',
   'operational_technical',
-  'regulatory',
+  'regulatory_compliance',
   'reputational_ethical',
   'information_integrity',
   'third_party_supply_chain',
   'strategic_competitive',
-  'workforce',
-  'environmental',
+  'workforce_impacts',
+  'environmental_impact',
+  'national_security',
 ];
 
 const vendorTags = ['openai', 'microsoft', 'google', 'internal', 'other', 'undisclosed'];
 
-const confidenceBands = ['High', 'Medium', 'Low'];
-const substantivenessBands = ['High', 'Medium', 'Low'];
+const substantivenessBands = ['substantive', 'moderate', 'boilerplate'];
+const riskSignalLevels = ['3-explicit', '2-strong_implicit', '1-weak_implicit'];
+
+const RISK_LABEL_ALIASES: Record<string, string> = {
+  strategic_market: 'strategic_competitive',
+  regulatory: 'regulatory_compliance',
+  workforce: 'workforce_impacts',
+  environmental: 'environmental_impact',
+};
 
 const toKey = (value: string) => value.trim().toLowerCase();
 
@@ -285,12 +296,6 @@ const addCount = (
   row[key] = (row[key] || 0) + 1;
 };
 
-const bucketize = (value: number) => {
-  if (value >= 0.67) return 'High';
-  if (value >= 0.34) return 'Medium';
-  return 'Low';
-};
-
 const CONFIDENCE_THRESHOLD = 0.2;
 
 const resolveConfidenceMap = (
@@ -315,6 +320,70 @@ const resolveConfidenceMap = (
   return item.llm_details?.risk_confidences ?? {};
 };
 
+const normalizeRiskLabel = (label: string): string => {
+  const cleaned = (label || '').trim();
+  if (!cleaned) return cleaned;
+  return RISK_LABEL_ALIASES[cleaned] || cleaned;
+};
+
+const normalizeRiskSignalValue = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 1) {
+    if (value >= 0.67) return 3;
+    if (value >= 0.34) return 2;
+    if (value > 0) return 1;
+    return 0;
+  }
+  return Math.max(1, Math.min(3, Math.round(value)));
+};
+
+const normalizeRiskSubstantiveness = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value >= 0.67) return 'substantive';
+    if (value >= 0.34) return 'moderate';
+    return 'boilerplate';
+  }
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase();
+  if (key === 'substantive' || key === 'moderate' || key === 'boilerplate') return key;
+  return null;
+};
+
+const extractRiskSignalMap = (item: GoldenAnnotation): Record<string, number> => {
+  const map: Record<string, number> = {};
+  const addEntry = (type: unknown, signal: unknown) => {
+    if (typeof type !== 'string') return;
+    const label = normalizeRiskLabel(type);
+    if (!label) return;
+    const n = Number(signal);
+    if (!Number.isFinite(n)) return;
+    const normalized = normalizeRiskSignalValue(n);
+    if (normalized <= 0) return;
+    map[label] = normalized;
+  };
+
+  const candidates = [
+    item.risk_signals,
+    item.llm_details?.risk_signals,
+    item.risk_confidence,
+    item.llm_details?.risk_confidences,
+  ];
+
+  candidates.forEach(candidate => {
+    if (!candidate) return;
+    if (Array.isArray(candidate)) {
+      candidate.forEach(entry => addEntry(entry?.type, entry?.signal));
+      return;
+    }
+    if (typeof candidate === 'object') {
+      Object.entries(candidate).forEach(([k, v]) => addEntry(k, v));
+    }
+  });
+
+  return map;
+};
+
 type ReportData = {
   company_name: string;
   report_year: number;
@@ -325,7 +394,8 @@ type ReportData = {
   vendorTags: Set<string>;
   adoptionConfidences: Map<string, number[]>;
   riskConfidences: Map<string, number[]>;
-  substantivenessValues: number[];
+  riskSignalValues: number[];
+  riskSubstantivenessValues: string[];
 };
 
 const aggregateToReports = (
@@ -348,7 +418,8 @@ const aggregateToReports = (
         vendorTags: new Set(),
         adoptionConfidences: new Map(),
         riskConfidences: new Map(),
-        substantivenessValues: [],
+        riskSignalValues: [],
+        riskSubstantivenessValues: [],
       });
     }
 
@@ -375,8 +446,11 @@ const aggregateToReports = (
 
     // Risk labels - check confidence threshold
     const riskConfMap = resolveConfidenceMap(item, 'risk');
-    (item.risk_taxonomy || []).forEach(label => {
-      const confidence = riskConfMap?.[label] ?? 0;
+    const riskSignalMap = extractRiskSignalMap(item);
+    (item.risk_taxonomy || []).forEach(rawLabel => {
+      const label = normalizeRiskLabel(rawLabel);
+      if (!label || label === 'none') return;
+      const confidence = riskConfMap?.[rawLabel] ?? riskConfMap?.[label] ?? 0;
       if (confidence >= CONFIDENCE_THRESHOLD) {
         report.riskLabels.add(label);
       }
@@ -388,14 +462,19 @@ const aggregateToReports = (
         report.riskConfidences.get(label)!.push(confidence);
       }
     });
+    Object.entries(riskSignalMap).forEach(([label, signal]) => {
+      if (label !== 'none') report.riskLabels.add(label);
+      if (signal > 0) report.riskSignalValues.push(signal);
+    });
 
     // Vendor tags - no confidence, just presence
     (item.vendor_tags || []).forEach(tag => report.vendorTags.add(tag));
 
     // Substantiveness
-    if (item.risk_substantiveness !== null && item.risk_substantiveness !== undefined) {
-      report.substantivenessValues.push(item.risk_substantiveness);
-    }
+    const riskSubstantiveness = normalizeRiskSubstantiveness(
+      item.risk_substantiveness ?? item.llm_details?.risk_substantiveness
+    );
+    if (riskSubstantiveness) report.riskSubstantivenessValues.push(riskSubstantiveness);
   });
 
   return Array.from(reportMap.values());
@@ -421,7 +500,7 @@ const buildDataset = (
   const riskBySectorCounts = new Map<string, number>();
   const adoptionBySectorCounts = new Map<string, number>();
   const vendorBySectorCounts = new Map<string, number>();
-  const confidenceCounts = new Map<string, number>();
+  const riskSignalCounts = new Map<string, number>();
   const substantivenessCounts = new Map<string, number>();
 
   const companies = new Set<string>();
@@ -463,26 +542,33 @@ const buildDataset = (
       vendorBySectorCounts.set(key, (vendorBySectorCounts.get(key) || 0) + 1);
     });
 
-    const allConfidences: number[] = [];
-    report.adoptionConfidences.forEach(values => {
-      const avg = averageConfidence(values);
-      if (avg > 0) allConfidences.push(avg);
-    });
-    report.riskConfidences.forEach(values => {
-      const avg = averageConfidence(values);
-      if (avg > 0) allConfidences.push(avg);
-    });
-
-    if (allConfidences.length > 0) {
-      const avgConfidence = averageConfidence(allConfidences);
-      const band = bucketize(avgConfidence);
-      const key = `${year}|||${band}`;
-      confidenceCounts.set(key, (confidenceCounts.get(key) || 0) + 1);
+    if (report.riskSignalValues.length > 0) {
+      const avgRiskSignal = averageConfidence(report.riskSignalValues);
+      const level =
+        avgRiskSignal >= 2.5
+          ? '3-explicit'
+          : avgRiskSignal >= 1.5
+            ? '2-strong_implicit'
+            : '1-weak_implicit';
+      const key = `${year}|||${level}`;
+      riskSignalCounts.set(key, (riskSignalCounts.get(key) || 0) + 1);
     }
 
-    if (report.substantivenessValues.length > 0) {
-      const avgSubstantiveness = averageConfidence(report.substantivenessValues);
-      const band = bucketize(avgSubstantiveness);
+    if (report.riskSubstantivenessValues.length > 0) {
+      const counts: Record<string, number> = {
+        substantive: 0,
+        moderate: 0,
+        boilerplate: 0,
+      };
+      report.riskSubstantivenessValues.forEach(v => {
+        counts[v] = (counts[v] || 0) + 1;
+      });
+      const band =
+        counts.substantive >= counts.moderate && counts.substantive >= counts.boilerplate
+          ? 'substantive'
+          : counts.moderate >= counts.boilerplate
+            ? 'moderate'
+            : 'boilerplate';
       const key = `${year}|||${band}`;
       substantivenessCounts.set(key, (substantivenessCounts.get(key) || 0) + 1);
     }
@@ -503,13 +589,13 @@ const buildDataset = (
     return { x: tag, y: sector, value };
   });
 
-  const confidenceHeatmap: { x: number; y: string; value: number }[] = [];
+  const riskSignalHeatmap: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
-    confidenceBands.forEach(band => {
-      confidenceHeatmap.push({
+    riskSignalLevels.forEach(level => {
+      riskSignalHeatmap.push({
         x: year,
-        y: band,
-        value: confidenceCounts.get(`${year}|||${band}`) || 0,
+        y: level,
+        value: riskSignalCounts.get(`${year}|||${level}`) || 0,
       });
     });
   });
@@ -542,7 +628,7 @@ const buildDataset = (
     riskBySector,
     adoptionBySector,
     vendorBySector,
-    confidenceHeatmap,
+    riskSignalHeatmap,
     substantivenessHeatmap,
   };
 };
@@ -568,8 +654,8 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       adoptionTypes,
       riskLabels,
       vendorTags,
-      confidenceBands,
       substantivenessBands,
+      riskSignalLevels,
     },
     datasets: {
       human: buildDataset(humanAnnotations, sectorMap, years),

@@ -62,13 +62,14 @@ const vendorColors: Record<string, string> = {
 const riskColors: Record<string, string> = {
   cybersecurity: '#ef4444',
   operational_technical: '#f97316',
-  regulatory: '#f59e0b',
+  regulatory_compliance: '#f59e0b',
   reputational_ethical: '#14b8a6',
   information_integrity: '#0ea5e9',
   third_party_supply_chain: '#22c55e',
   strategic_competitive: '#84cc16',
-  workforce: '#0f766e',
-  environmental: '#10b981',
+  workforce_impacts: '#0f766e',
+  environmental_impact: '#10b981',
+  national_security: '#7c3aed',
 };
 
 const formatNumber = (value: number) =>
@@ -82,8 +83,15 @@ const formatLabel = (val: string | number) => {
     general_ambiguous: 'General / Ambiguous',
     third_party_supply_chain: 'Third-Party Supply Chain',
     operational_technical: 'Operational / Technical',
+    regulatory_compliance: 'Regulatory / Compliance',
     reputational_ethical: 'Reputational / Ethical',
     information_integrity: 'Information Integrity',
+    workforce_impacts: 'Workforce Impacts',
+    environmental_impact: 'Environmental Impact',
+    national_security: 'National Security',
+    '3-explicit': '3: Explicit',
+    '2-strong_implicit': '2: Strong Implicit',
+    '1-weak_implicit': '1: Weak Implicit',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -345,7 +353,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </ul>
               <p className="mt-3 leading-relaxed">
                 <span className="font-medium text-slate-800">Heatmaps:</span> Show distribution across CNI sectors.
-                Striped cells indicate no reports (potential blind spots in vendor disclosure).
+                Striped cells indicate no reports (potential blind spots).
               </p>
             </div>
           </div>
@@ -407,13 +415,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <ul className="mt-2 space-y-1 leading-relaxed text-xs">
                 <li><span className="font-medium text-slate-800">Cybersecurity:</span> Data breaches, AI-enabled attacks, security vulnerabilities.</li>
                 <li><span className="font-medium text-slate-800">Operational/Technical:</span> System failures, integration issues, performance degradation.</li>
-                <li><span className="font-medium text-slate-800">Regulatory:</span> Compliance obligations, legal liability, regulatory uncertainty.</li>
+                <li><span className="font-medium text-slate-800">Regulatory/Compliance:</span> Compliance obligations, legal liability, regulatory uncertainty.</li>
                 <li><span className="font-medium text-slate-800">Reputational/Ethical:</span> Brand damage, bias concerns, ethical considerations.</li>
                 <li><span className="font-medium text-slate-800">Information Integrity:</span> Misinformation, hallucinations, data quality issues.</li>
                 <li><span className="font-medium text-slate-800">Third-Party Supply Chain:</span> Vendor dependencies, API reliance, supplier risks.</li>
-                <li><span className="font-medium text-slate-800">Strategic/Market:</span> Competitive displacement, market disruption, innovation pressure.</li>
-                <li><span className="font-medium text-slate-800">Workforce:</span> Job displacement, skills gaps, labor relations.</li>
-                <li><span className="font-medium text-slate-800">Environmental:</span> Energy consumption, carbon footprint, resource usage.</li>
+                <li><span className="font-medium text-slate-800">Strategic/Competitive:</span> Competitive displacement, market disruption, innovation pressure.</li>
+                <li><span className="font-medium text-slate-800">Workforce Impacts:</span> Job displacement, skills gaps, labor relations.</li>
+                <li><span className="font-medium text-slate-800">Environmental Impact:</span> Energy consumption, carbon footprint, resource usage.</li>
+                <li><span className="font-medium text-slate-800">National Security:</span> Critical systems, geopolitical exposure, security-of-state concerns.</li>
               </ul>
               <p className="mt-3 leading-relaxed">
                 <span className="font-medium text-slate-800">Heatmap:</span> Rows are CNI sectors, columns are risk categories.
@@ -426,15 +435,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 4 && (
           <div className="grid gap-8 lg:grid-cols-2">
             <GenericHeatmap
-              data={activeData.confidenceHeatmap}
+              data={activeData.riskSignalHeatmap}
               xLabels={data.years}
-              yLabels={data.labels.confidenceBands}
+              yLabels={data.labels.riskSignalLevels}
               baseColor="#0ea5e9"
               valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={false}
-              title="Confidence Distribution"
+              title="Risk Signal Level Distribution"
             />
             <GenericHeatmap
               data={activeData.substantivenessHeatmap}
@@ -451,27 +460,26 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <p className="font-semibold text-slate-900">Quality Metric Definitions</p>
               <div className="mt-2 grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="font-medium text-slate-800">Confidence (left heatmap):</p>
+                  <p className="font-medium text-slate-800">Risk Signal Level (left heatmap):</p>
                   <p className="mt-1 leading-relaxed">
-                    Average classifier confidence across adoption and risk labels per report.
-                    Higher confidence indicates stronger classifier certainty in label assignment.
+                    Distribution of per-report AI-risk signal strength derived from risk signal scores.
+                    Higher levels indicate more explicit AI-to-risk attribution.
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs">
-                    <li><span className="font-medium">High:</span> ≥67% average confidence</li>
-                    <li><span className="font-medium">Medium:</span> 34-66% average confidence</li>
-                    <li><span className="font-medium">Low:</span> &lt;34% average confidence</li>
+                    <li><span className="font-medium">3 Explicit:</span> direct AI-caused risk statement</li>
+                    <li><span className="font-medium">2 Strong implicit:</span> clear but inferential AI-risk link</li>
+                    <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported AI-risk link</li>
                   </ul>
                 </div>
                 <div>
                   <p className="font-medium text-slate-800">Substantiveness (right heatmap):</p>
                   <p className="mt-1 leading-relaxed">
-                    Measures disclosure depth—distinguishing concrete AI disclosures from
-                    boilerplate or vague references.
+                    Categorical disclosure quality for AI-risk language.
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs">
-                    <li><span className="font-medium">High:</span> Specific, actionable AI details</li>
-                    <li><span className="font-medium">Medium:</span> Some concrete information</li>
-                    <li><span className="font-medium">Low:</span> Generic or boilerplate mentions</li>
+                    <li><span className="font-medium">Substantive:</span> concrete mechanism + tangible mitigation/action</li>
+                    <li><span className="font-medium">Moderate:</span> specific risk area, limited mechanism/mitigation detail</li>
+                    <li><span className="font-medium">Boilerplate:</span> generic risk language without concrete detail</li>
                   </ul>
                 </div>
               </div>
