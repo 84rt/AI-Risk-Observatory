@@ -53,6 +53,12 @@ from src.classifiers.base_classifier import _clean_schema_for_gemini
 from src.classifiers.risk_classifier import RiskClassifier
 from src.classifiers.vendor_classifier import VendorClassifier
 from src.utils.batch_api import BatchClient
+from src.utils.normalization import (
+    normalize_risk_labels as normalize_risk_labels_shared,
+    normalize_risk_substantiveness as normalize_risk_substantiveness_shared,
+    normalize_signal_to_unit_interval,
+    risk_signals_from_payload,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -80,14 +86,7 @@ CLASSIFIER_CONFIG: dict[str, dict[str, Any]] = {
     },
 }
 
-RISK_LABEL_ALIASES = {
-    "strategic_market": "strategic_competitive",
-    "regulatory": "regulatory_compliance",
-    "workforce": "workforce_impacts",
-    "environmental": "environmental_impact",
-}
-
-RISK_SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
+PIPELINE_SCHEMA_VERSION = "phase2_testbed_v2_2"
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -202,36 +201,20 @@ def normalize_label_token(value: object) -> str:
 
 
 def normalize_risk_labels(labels: list[str]) -> list[str]:
-    return [RISK_LABEL_ALIASES.get(l, l) for l in labels]
+    return normalize_risk_labels_shared(labels)
 
 
 def normalize_risk_substantiveness(value: object) -> str | None:
-    if value is None:
-        return None
-    token = str(value).strip().lower()
-    return token if token in RISK_SUBSTANTIVENESS_LEVELS else None
+    return normalize_risk_substantiveness_shared(value)
 
 
 def risk_signal_map(parsed: dict) -> dict[str, int]:
-    signals_list = parsed.get("risk_signals")
-    if isinstance(signals_list, list):
-        out: dict[str, int] = {}
-        for entry in signals_list:
-            if not isinstance(entry, dict):
-                continue
-            key = entry.get("type")
-            val = entry.get("signal")
-            if key is not None and isinstance(val, (int, float)):
-                out[normalize_label_token(key)] = int(val)
-        return out
-    legacy = parsed.get("confidence_scores")
-    if isinstance(legacy, dict):
-        return {
-            normalize_label_token(k): int(v)
-            for k, v in legacy.items()
-            if isinstance(v, (int, float))
-        }
-    return {}
+    raw = risk_signals_from_payload(parsed)
+    return {
+        normalize_label_token(k): int(v)
+        for k, v in raw.items()
+        if isinstance(v, (int, float))
+    }
 
 
 def risk_signal_entries(parsed: dict) -> list[dict[str, int | str]]:
@@ -436,17 +419,18 @@ def _salvage_risk_payload(text: str) -> dict | None:
 
 
 def _extract_confidence(parsed: dict) -> float:
+    """Return a normalized confidence score on a 0.0-1.0 scale."""
     if "adoption_signals" in parsed or "adoption_confidences" in parsed:
         scores = adoption_signal_map(parsed)
         valid = [v for v in scores.values() if isinstance(v, (int, float))]
-        return max(valid) if valid else 0.0
+        return normalize_signal_to_unit_interval(max(valid), 3.0) if valid else 0.0
     if "risk_signals" in parsed or "confidence_scores" in parsed:
         scores = risk_signal_map(parsed)
         valid = [v for v in scores.values() if isinstance(v, (int, float))]
-        return max(valid) if valid else 0.0
+        return normalize_signal_to_unit_interval(max(valid), 3.0) if valid else 0.0
     if "vendors" in parsed and isinstance(parsed["vendors"], list):
         signals = [v.get("signal", 0) for v in parsed["vendors"] if isinstance(v, dict)]
-        return max(signals) / 3.0 if signals else 0.0
+        return normalize_signal_to_unit_interval(max(signals), 3.0) if signals else 0.0
     return 0.0
 
 
@@ -875,6 +859,18 @@ def main() -> None:
                 "batch_mode": True,
                 "num_filtered": len(filtered[name]),
                 "job_name": job_name,
+                "schema_version": PIPELINE_SCHEMA_VERSION,
+                "prompt_key": getattr(CLASSIFIER_CONFIG[name]["cls"], "PROMPT_KEY", None),
+                "response_schema": getattr(
+                    getattr(CLASSIFIER_CONFIG[name]["cls"], "RESPONSE_MODEL", None),
+                    "__name__",
+                    None,
+                ),
+                "classifier_contract_version": getattr(
+                    CLASSIFIER_CONFIG[name]["cls"],
+                    "SCHEMA_VERSION",
+                    None,
+                ),
             },
         )
 

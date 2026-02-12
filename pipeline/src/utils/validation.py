@@ -11,19 +11,26 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .normalization import (
+    CLASSIFIER_TYPE_ALIASES,
+    RISK_SUBSTANTIVENESS_ALIASES,
+    RISK_SUBSTANTIVENESS_LEVELS,
+    normalize_classifier_type,
+)
+
 # Valid values for classification fields
 VALID_CLASSIFIER_TYPES = {
     "harms",
     "adoption",
+    "adoption_type",
     "substantiveness",
     "risk",
     "vendor",
     "mention_type",
+    "mention_type_v2",
 }
 
 VALID_ADOPTION_TYPES = {"non_llm", "llm", "agentic"}
-
-VALID_SUBSTANTIVENESS_LEVELS = {"boilerplate", "contextual", "moderate", "substantive"}
 
 VALID_RISK_CATEGORIES = {
     "strategic_competitive",
@@ -66,8 +73,11 @@ def validate_classification_response(
     """
     messages = []
 
+    raw_classifier_type = classifier_type
+    classifier_type = normalize_classifier_type(classifier_type)
+
     # Check classifier type is valid
-    if classifier_type not in VALID_CLASSIFIER_TYPES:
+    if raw_classifier_type not in VALID_CLASSIFIER_TYPES and classifier_type not in VALID_CLASSIFIER_TYPES:
         msg = f"Unknown classifier type: {classifier_type}"
         if strict:
             raise ValidationError(msg, "classifier_type")
@@ -199,6 +209,8 @@ def _validate_substantiveness_response(
         messages.append(msg)
     else:
         level = response["substantiveness"]
+        if isinstance(level, str):
+            level = RISK_SUBSTANTIVENESS_ALIASES.get(level.strip().lower(), level.strip().lower())
         if level not in VALID_SUBSTANTIVENESS_LEVELS:
             msg = f"Invalid substantiveness level: {level}. Valid: {VALID_SUBSTANTIVENESS_LEVELS}"
             if strict:
@@ -325,11 +337,30 @@ def _validate_risk_response(
                         raise ValidationError(msg, "risk_signals")
                     messages.append(msg)
 
-    if "substantiveness_score" in response:
+    # Canonical schema: categorical substantiveness
+    if "substantiveness" in response:
+        level = response["substantiveness"]
+        if isinstance(level, str):
+            level = RISK_SUBSTANTIVENESS_ALIASES.get(level.strip().lower(), level.strip().lower())
+        if level not in VALID_SUBSTANTIVENESS_LEVELS:
+            msg = (
+                f"Invalid risk substantiveness: {response['substantiveness']}. "
+                f"Valid: {VALID_SUBSTANTIVENESS_LEVELS}"
+            )
+            if strict:
+                raise ValidationError(msg, "substantiveness")
+            messages.append(msg)
+    elif "substantiveness_score" in response:
+        # Legacy compatibility path
         signal_valid, signal_msgs = _validate_signal_score(
             response["substantiveness_score"], strict
         )
         messages.extend(signal_msgs)
+    else:
+        msg = "Missing required field: substantiveness"
+        if strict:
+            raise ValidationError(msg, "substantiveness")
+        messages.append(msg)
 
     return len(messages) == 0, messages
 
@@ -559,7 +590,8 @@ def validate_run_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
             messages.append("classifiers must be a non-empty list")
         else:
             for clf in classifiers:
-                if clf not in VALID_CLASSIFIER_TYPES:
+                canonical = CLASSIFIER_TYPE_ALIASES.get(clf, clf)
+                if clf not in VALID_CLASSIFIER_TYPES and canonical not in VALID_CLASSIFIER_TYPES:
                     messages.append(f"Invalid classifier: {clf}")
 
     return len(messages) == 0, messages

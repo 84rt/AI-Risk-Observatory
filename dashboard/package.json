@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:data": "./scripts/sync-dashboard-data.sh"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

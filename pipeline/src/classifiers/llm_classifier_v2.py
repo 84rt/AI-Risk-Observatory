@@ -29,6 +29,8 @@ class LLMClassifierV2(BaseClassifier):
 
     CLASSIFIER_TYPE = "mention_type_v2"
     RESPONSE_MODEL = MentionTypeResponseV2
+    PROMPT_KEY = "mention_type_v3"
+    SCHEMA_VERSION = "mention_type_v2"
 
     def __init__(
         self,
@@ -61,7 +63,7 @@ class LLMClassifierV2(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            "mention_type_v3",
+            self.PROMPT_KEY,
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,

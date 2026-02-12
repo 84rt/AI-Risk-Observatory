@@ -8,20 +8,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-RISK_SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
+SCRIPT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = SCRIPT_DIR.parent
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PIPELINE_ROOT))
+
+from src.utils.normalization import (
+    normalize_risk_substantiveness as normalize_risk_substantiveness_shared,
+)
 
 
 def normalize_risk_substantiveness(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    token = str(value).strip().lower()
-    if token in RISK_SUBSTANTIVENESS_LEVELS:
-        return token
-    return None
+    return normalize_risk_substantiveness_shared(value)
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,6 +124,8 @@ def build_llm_record(
     testbed: Dict[str, Any],
     base: Optional[Dict[str, Any]],
     model_name: Optional[str],
+    schema_version: Optional[str],
+    prompt_key: Optional[str],
     confidence_mode: str,
     classifier_type: str = "mention_type",
 ) -> Dict[str, Any]:
@@ -144,6 +149,8 @@ def build_llm_record(
             "classifier_id": f"llm_testbed_{classifier_type}",
             "classifier_version": "v2",
             "model_name": model_name,
+            "schema_version": schema_version,
+            "prompt_key": prompt_key,
         }
     )
 
@@ -166,6 +173,10 @@ def build_llm_record(
     llm_details: Dict[str, Any] = {
         "reasoning": testbed.get("reasoning", ""),
     }
+    if schema_version:
+        llm_details["schema_version"] = schema_version
+    if prompt_key:
+        llm_details["prompt_key"] = prompt_key
     # Preserve per-label signal/confidence maps when present in testbed output
     if classifier_type == "risk":
         risk_conf = testbed.get("risk_confidences")
@@ -229,7 +240,10 @@ def main() -> None:
 
     meta = load_meta(args.testbed_run)
     run_id = args.run_id or meta.get("run_id") or args.testbed_run.stem
-    model_name = (meta.get("config") or {}).get("model_name")
+    config = meta.get("config") or {}
+    model_name = config.get("model_name")
+    schema_version = config.get("schema_version")
+    prompt_key = config.get("prompt_key")
 
     output_dir = args.output_dir
     output_path = output_dir / "annotations.jsonl"
@@ -251,6 +265,8 @@ def main() -> None:
                 testbed=record,
                 base=base,
                 model_name=model_name,
+                schema_version=schema_version,
+                prompt_key=prompt_key,
                 confidence_mode=args.confidence_mode,
                 classifier_type=args.classifier_type,
             )

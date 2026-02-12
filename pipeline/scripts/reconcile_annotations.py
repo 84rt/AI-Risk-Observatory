@@ -17,12 +17,18 @@ from pathlib import Path
 from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = SCRIPT_DIR.parent
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PIPELINE_ROOT))
+
 from annotate_golden_set import (
     ADOPTION_TYPES,
     MENTION_TYPES,
     RISK_TAXONOMY,
     VENDOR_TAGS,
 )
+from src.utils.normalization import normalize_risk_label as normalize_risk_label_shared
 
 
 ANSI_HIGHLIGHT = "\x1b[93m"
@@ -31,13 +37,6 @@ ANSI_BOLD = "\x1b[1m"
 ANSI_DIM = "\x1b[2m"
 ANSI_CYAN = "\x1b[36m"
 ANSI_GREEN = "\x1b[32m"
-
-RISK_LABEL_ALIASES = {
-    "strategic_market": "strategic_competitive",
-    "regulatory": "regulatory_compliance",
-    "workforce": "workforce_impacts",
-    "environmental": "environmental_impact",
-}
 
 
 def use_color() -> bool:
@@ -186,7 +185,7 @@ def normalize_list(value: Any) -> List[str]:
 
 
 def normalize_risk_label(value: str) -> str:
-    return RISK_LABEL_ALIASES.get(value, value)
+    return normalize_risk_label_shared(value)
 
 
 def normalize_labels_for_field(field: str, labels: List[str]) -> List[str]:

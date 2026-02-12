@@ -20,6 +20,8 @@ class AdoptionTypeClassifier(BaseClassifier):
 
     CLASSIFIER_TYPE = "adoption"
     RESPONSE_MODEL = AdoptionTypeResponse
+    PROMPT_KEY = "adoption_type"
+    SCHEMA_VERSION = "adoption_type_v2"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
         """Generate the classification prompts for adoption type detection."""
@@ -33,7 +35,7 @@ class AdoptionTypeClassifier(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            "adoption_type",
+            self.PROMPT_KEY,
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,

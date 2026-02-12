@@ -4,16 +4,20 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Float, ForeignKey, ForeignKeyConstraint,
-    Integer, String, Text, create_engine
+    Integer, String, Text, create_engine, text
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 
 from .config import get_settings
+from .utils.normalization import (
+    normalize_risk_substantiveness as _normalize_risk_substantiveness_shared,
+    risk_signals_from_payload,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -55,55 +59,14 @@ def _normalize_adoption_signals(adoption_result: dict) -> dict:
     return {}
 
 
-def _normalize_risk_signals(risk_result: dict) -> dict:
-    """Normalize risk signals to a dict for storage."""
-    if not isinstance(risk_result, dict):
-        return {}
-    signals = risk_result.get("risk_signals") or risk_result.get("confidence_scores") or {}
-    if isinstance(signals, list):
-        out = {}
-        for entry in signals:
-            if isinstance(entry, dict):
-                k = entry.get("type")
-                v = entry.get("signal")
-                if k is not None and isinstance(v, (int, float)):
-                    out[str(k)] = float(v)
-        return out
-    if isinstance(signals, dict):
-        return {
-            str(k): float(v)
-            for k, v in signals.items()
-            if isinstance(v, (int, float))
-        }
-    return {}
+def _normalize_risk_substantiveness(value: Any) -> Optional[str]:
+    """Compatibility wrapper for shared normalization helper."""
+    return _normalize_risk_substantiveness_shared(value)
 
 
 def _normalize_risk_signals(risk_result: dict) -> dict:
-    """Normalize risk signals to a dict for storage."""
-    if not isinstance(risk_result, dict):
-        return {}
-
-    signals = risk_result.get("risk_signals")
-    if isinstance(signals, list):
-        out = {}
-        for entry in signals:
-            if not isinstance(entry, dict):
-                continue
-            k = entry.get("type")
-            v = entry.get("signal")
-            if k is not None and isinstance(v, (int, float)):
-                out[str(k)] = float(v)
-        return out
-
-    legacy = risk_result.get("confidence_scores")
-    if isinstance(legacy, dict):
-        return {
-            str(k): float(v)
-            for k, v in legacy.items()
-            if isinstance(v, (int, float))
-        }
-
-    return {}
+    """Compatibility wrapper for shared normalization helper."""
+    return risk_signals_from_payload(risk_result)
 
 
 class Company(Base):
@@ -321,7 +284,8 @@ class Mention(Base):
     risk_confidences = Column(Text, default="{}")  # JSON dict
     risk_evidence = Column(Text, default="{}")  # JSON dict
     risk_key_snippets = Column(Text, default="{}")  # JSON dict
-    risk_substantiveness = Column(Float)
+    # Canonical categorical enum: boilerplate | moderate | substantive
+    risk_substantiveness = Column(String)
     risk_reasoning = Column(Text)
 
     # Adoption Classification
@@ -617,10 +581,42 @@ class Database:
         # Create tables
         Base.metadata.create_all(self.engine)
 
+        # Fail fast if runtime schema is stale/incompatible with current code.
+        self._ensure_schema_compatibility(db_path)
+
         # Create session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
 
         logger.info(f"Database initialized at {db_path}")
+
+    def _ensure_schema_compatibility(self, db_path: Path) -> None:
+        """Validate critical schema assumptions required by current code."""
+        # Guard applies to SQLite only.
+        if not str(self.engine.url).startswith("sqlite"):
+            return
+
+        with self.engine.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info('mentions')")).fetchall()
+        if not rows:
+            return
+
+        # PRAGMA columns: cid, name, type, notnull, dflt_value, pk
+        column = next((r for r in rows if str(r[1]) == "risk_substantiveness"), None)
+        if column is None:
+            return
+
+        declared_type = (str(column[2]) if column[2] is not None else "").upper().strip()
+        is_text_type = any(token in declared_type for token in ("TEXT", "CHAR", "CLOB"))
+        if not is_text_type:
+            migration_cmd = (
+                f"python3 pipeline/scripts/migrate_mentions_risk_substantiveness.py "
+                f"--db-path \"{db_path}\""
+            )
+            raise RuntimeError(
+                "Incompatible schema detected: mentions.risk_substantiveness is "
+                f"declared as '{declared_type or 'UNKNOWN'}', expected TEXT-like.\n"
+                f"Run migration first:\n  {migration_cmd}"
+            )
 
     def get_session(self) -> Session:
         """Get a new database session.
@@ -866,7 +862,11 @@ class Database:
             risk_confidences=json.dumps(_normalize_risk_signals(risk_result)),
             risk_evidence=json.dumps(risk_result.get("evidence", {})),
             risk_key_snippets=json.dumps(risk_result.get("key_snippets", {})),
-            risk_substantiveness=risk_result.get("substantiveness_score"),
+            risk_substantiveness=_normalize_risk_substantiveness(
+                risk_result.get("substantiveness")
+                or risk_result.get("risk_substantiveness")
+                or risk_result.get("substantiveness_score")
+            ),
             risk_reasoning=risk_result.get("reasoning", ""),
             adoption_confidences=json.dumps(
                 _normalize_adoption_signals(adoption_result)

@@ -12,6 +12,8 @@
 
 # data
 data/
+!dashboard/data/
+!dashboard/data/**
 !data/golden_set/
 !data/reference/
 !data/reference/**
@@ -25,6 +27,7 @@ data/annotations/
 *.pdf
 *.xhtml
 !data/golden_set/**/*.jsonl
+!dashboard/data/**/*.jsonl
 
 
 # testing

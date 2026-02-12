@@ -58,18 +58,13 @@ export type GoldenDataset = {
 
 const ANNOTATIONS_PATH = path.join(
   process.cwd(),
-  '..',
   'data',
-  'golden_set',
-  'phase2_annotated',
   'annotations.jsonl'
 );
 
 const COMPANIES_PATH = path.join(
   process.cwd(),
-  '..',
   'data',
-  'reference',
   'golden_set_companies.csv'
 );
 
