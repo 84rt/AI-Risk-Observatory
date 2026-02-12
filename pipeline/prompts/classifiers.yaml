@@ -650,10 +650,10 @@ vendor: |
     Example: “We deployed OpenAI's GPT-4 for document review”
 
   ## EXAMPLES
-  - "We deployed OpenAI's GPT-4 for document review." -> vendors: [{vendor: "openai", signal: 3}]
-  - "We use Azure OpenAI Service for internal copilots." -> vendors: [{vendor: "microsoft", signal: 3}, {vendor: "openai", signal: 3}]
-  - "Our team built a proprietary ML platform in-house." -> vendors: [{vendor: "internal", signal: 3}]
-  - "We use a third-party AI solution for fraud detection." -> vendors: [{vendor: "undisclosed", signal: 2}]
+  - "We deployed OpenAI's GPT-4 for document review." -> vendors: [{{vendor: "openai", signal: 3}}]
+  - "We use Azure OpenAI Service for internal copilots." -> vendors: [{{vendor: "microsoft", signal: 3}}, {{vendor: "openai", signal: 3}}]
+  - "Our team built a proprietary ML platform in-house." -> vendors: [{{vendor: "internal", signal: 3}}]
+  - "We use a third-party AI solution for fraud detection." -> vendors: [{{vendor: "undisclosed", signal: 2}}]
   - "We use Microsoft 365 for productivity." -> vendors: [] (not an AI vendor mention)
 
   ## OUTPUT CONSTRAINTS

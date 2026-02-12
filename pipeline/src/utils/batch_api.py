@@ -408,6 +408,58 @@ class BatchClient:
             "error": error,
         }
 
+    def poll_until_complete(
+        self,
+        jobs: dict[str, str],
+        interval: int = 30,
+        max_time: int = 7200,
+    ) -> dict[str, dict]:
+        """Poll multiple batch jobs until all reach a terminal state.
+
+        Args:
+            jobs: Mapping of label (e.g. classifier name) to job_name.
+            interval: Seconds between polling rounds.
+            max_time: Maximum total wait time in seconds (default 2h).
+
+        Returns:
+            Dict of {label: final_status_dict} for every job.
+        """
+        import time as _time
+
+        start = _time.time()
+        terminal_states = {"JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED"}
+        completed: dict[str, dict] = {}
+
+        while True:
+            pending = []
+            for label, job_name in jobs.items():
+                if label in completed:
+                    continue
+                status = self.check_status(job_name)
+                if status["state"] in terminal_states:
+                    completed[label] = status
+                else:
+                    pending.append(label)
+
+            if not pending:
+                print(f"\nAll {len(jobs)} jobs complete.")
+                break
+
+            elapsed = _time.time() - start
+            if elapsed > max_time:
+                print(f"\nTimeout after {elapsed:.0f}s. Still pending: {pending}")
+                for label in pending:
+                    completed[label] = {"state": "TIMEOUT", "job_name": jobs[label]}
+                break
+
+            print(
+                f"\nWaiting {interval}s... "
+                f"({len(pending)} pending, {len(completed)} done, {elapsed:.0f}s elapsed)"
+            )
+            _time.sleep(interval)
+
+        return completed
+
     def cancel(self, job_name: str) -> None:
         """Cancel a running batch job."""
         self.client.batches.cancel(name=job_name)

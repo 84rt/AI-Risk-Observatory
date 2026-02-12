@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = [".env.local", ".env"]  # Check .env.local first, then .env
         case_sensitive = False
+        extra = "ignore"
 
 
 # Global settings instance
