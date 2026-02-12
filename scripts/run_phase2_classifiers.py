@@ -621,6 +621,17 @@ def download_and_parse(
                 if classifier_name == "adoption_type"
                 else {}
             )
+            vendor_sigs = {}
+            if classifier_name == "vendor" and isinstance(parsed.get("vendors"), list):
+                for v in parsed["vendors"]:
+                    if isinstance(v, dict):
+                        tag = v.get("vendor", "")
+                        if hasattr(tag, "value"):
+                            tag = tag.value
+                        tag = str(tag).strip().lower()
+                        sig = v.get("signal", 0)
+                        if isinstance(sig, (int, float)) and sig > 0:
+                            vendor_sigs[tag] = max(vendor_sigs.get(tag, 0), int(sig))
 
             results.append(
                 {
@@ -638,6 +649,7 @@ def download_and_parse(
                     "risk_signals": r_signals,
                     "risk_substantiveness": r_substantiveness,
                     "adoption_signals": adopt_conf,
+                    "vendor_signals": vendor_sigs,
                 }
             )
             matched += 1

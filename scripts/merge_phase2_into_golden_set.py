@@ -112,7 +112,7 @@ def main() -> None:
             if risk_result:
                 record["risk_taxonomy"] = risk_result.get("llm_labels", [])
                 record["risk_signals"] = risk_result.get("risk_signals", [])
-                record["risk_confidences"] = risk_result.get("risk_confidences", {})
+                record["risk_confidence"] = risk_result.get("risk_confidences", {})
                 record["risk_substantiveness"] = risk_result.get("risk_substantiveness")
                 merged_count["risk"] += 1
 
@@ -121,7 +121,7 @@ def main() -> None:
             adopt_result = classifier_data["adoption_type"].get(chunk_id)
             if adopt_result:
                 record["adoption_types"] = adopt_result.get("llm_labels", [])
-                record["adoption_signals"] = adopt_result.get("adoption_signals", {})
+                record["adoption_confidence"] = adopt_result.get("adoption_signals", {})
                 merged_count["adoption_type"] += 1
 
         # Vendor
@@ -130,6 +130,7 @@ def main() -> None:
             if vendor_result:
                 record["vendor_tags"] = vendor_result.get("llm_labels", [])
                 record["vendor_other"] = vendor_result.get("llm_other")
+                record["vendor_confidence"] = vendor_result.get("vendor_signals", {})
                 merged_count["vendor"] += 1
 
         output_records.append(record)

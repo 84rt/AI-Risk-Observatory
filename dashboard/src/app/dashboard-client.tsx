@@ -100,16 +100,16 @@ const formatLabel = (val: string | number) => {
     .join(' ');
 };
 
-type DatasetKey = 'human' | 'llm';
+type DatasetKey = 'perReport' | 'perChunk';
 
 const datasetLabels: Record<DatasetKey, string> = {
-  human: 'Human Annotations',
-  llm: 'LLM Annotations',
+  perReport: 'Per Report',
+  perChunk: 'Per Chunk',
 };
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
-  const [datasetKey, setDatasetKey] = useState<DatasetKey>('human');
+  const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
@@ -159,17 +159,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 </span>
               </div>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-                AI Risk Observatory Calibration Dashboard
+                AI Risk Observatory
               </h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
-                Live view of the golden set used to calibrate the taxonomy choices in the report.
-                Charts display per-report aggregated labels across the priority CNI sample.
+                LLM-classified annotations across the priority CNI sample.
+                Toggle between per-report aggregation and individual chunk-level detail.
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-2">
                 <label htmlFor="dataset-select" className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                  Display Dataset
+                  View Mode
                 </label>
                 <select
                   id="dataset-select"
@@ -177,8 +177,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   onChange={event => setDatasetKey(event.target.value as DatasetKey)}
                   className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
                 >
-                  <option value="human">Human Annotations</option>
-                  <option value="llm">LLM Annotations</option>
+                  <option value="perReport">Per Report</option>
+                  <option value="perChunk">Per Chunk</option>
                 </select>
               </div>
               <div className="animate-rise animate-rise-delay-1 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
@@ -198,7 +198,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
             <p>
-              Switch between human and LLM outputs to audit model drift and over-tagging.
+              Switch between per-report aggregation and per-chunk detail views.
             </p>
           </div>
 
@@ -433,18 +433,45 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         )}
 
         {activeView === 4 && (
-          <div className="grid gap-8 lg:grid-cols-2">
-            <GenericHeatmap
-              data={activeData.riskSignalHeatmap}
-              xLabels={data.years}
-              yLabels={data.labels.riskSignalLevels}
-              baseColor="#0ea5e9"
-              valueFormatter={value => `${value}`}
-              yLabelFormatter={formatLabel}
-              showTotals={true}
-              showBlindSpots={false}
-              title="Risk Signal Level Distribution"
-            />
+          <div className="space-y-8">
+            <div className="grid gap-8 lg:grid-cols-3">
+              <GenericHeatmap
+                data={activeData.riskSignalHeatmap}
+                xLabels={data.years}
+                yLabels={data.labels.riskSignalLevels}
+                baseColor="#f97316"
+                valueFormatter={value => `${value}`}
+                yLabelFormatter={formatLabel}
+                showTotals={true}
+                showBlindSpots={false}
+                title="Risk Signal Strength (mentions)"
+                compact={true}
+              />
+              <GenericHeatmap
+                data={activeData.adoptionSignalHeatmap}
+                xLabels={data.years}
+                yLabels={data.labels.riskSignalLevels}
+                baseColor="#0ea5e9"
+                valueFormatter={value => `${value}`}
+                yLabelFormatter={formatLabel}
+                showTotals={true}
+                showBlindSpots={false}
+                title="Adoption Signal Strength (mentions)"
+                compact={true}
+              />
+              <GenericHeatmap
+                data={activeData.vendorSignalHeatmap}
+                xLabels={data.years}
+                yLabels={data.labels.riskSignalLevels}
+                baseColor="#14b8a6"
+                valueFormatter={value => `${value}`}
+                yLabelFormatter={formatLabel}
+                showTotals={true}
+                showBlindSpots={false}
+                title="Vendor Signal Strength (mentions)"
+                compact={true}
+              />
+            </div>
             <GenericHeatmap
               data={activeData.substantivenessHeatmap}
               xLabels={data.years}
@@ -454,38 +481,36 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={false}
-              title="Substantiveness Distribution"
+              title="Risk Substantiveness Distribution"
             />
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm lg:col-span-2">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
               <p className="font-semibold text-slate-900">Quality Metric Definitions</p>
               <div className="mt-2 grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="font-medium text-slate-800">Risk Signal Level (left heatmap):</p>
+                  <p className="font-medium text-slate-800">Signal Strength (Risk / Adoption / Vendor):</p>
                   <p className="mt-1 leading-relaxed">
-                    Distribution of per-report AI-risk signal strength derived from risk signal scores.
-                    Higher levels indicate more explicit AI-to-risk attribution.
+                    How explicitly each mention evidences its classification.
+                    Each cell counts individual label mentions across all chunks.
+                    Per label per chunk, the strongest signal from any source wins.
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs">
-                    <li><span className="font-medium">3 Explicit:</span> direct AI-caused risk statement</li>
-                    <li><span className="font-medium">2 Strong implicit:</span> clear but inferential AI-risk link</li>
-                    <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported AI-risk link</li>
+                    <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>
+                    <li><span className="font-medium">2 Strong implicit:</span> clear but inferential link</li>
+                    <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported</li>
                   </ul>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-800">Substantiveness (right heatmap):</p>
+                  <p className="font-medium text-slate-800">Substantiveness:</p>
                   <p className="mt-1 leading-relaxed">
-                    Categorical disclosure quality for AI-risk language.
+                    Disclosure quality for AI-risk language per report.
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs">
                     <li><span className="font-medium">Substantive:</span> concrete mechanism + tangible mitigation/action</li>
-                    <li><span className="font-medium">Moderate:</span> specific risk area, limited mechanism/mitigation detail</li>
+                    <li><span className="font-medium">Moderate:</span> specific risk area, limited detail</li>
                     <li><span className="font-medium">Boilerplate:</span> generic risk language without concrete detail</li>
                   </ul>
                 </div>
               </div>
-              <p className="mt-3 leading-relaxed">
-                <span className="font-medium text-slate-800">Data source:</span> Scores computed from annotation metadata averaged per report.
-              </p>
             </div>
           </div>
         )}

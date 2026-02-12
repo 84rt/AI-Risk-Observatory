@@ -13,46 +13,7 @@ type GoldenAnnotation = {
   risk_substantiveness: string | number | null;
   risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number> | null;
   vendor_tags: string[];
-  llm_details?: {
-    adoption_confidences?: Record<string, number>;
-    risk_confidences?: Record<string, number>;
-    risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number>;
-    risk_substantiveness?: string | number | null;
-  };
-};
-
-export type LabelMetric = {
-  label: string;
-  tp: number;
-  fp: number;
-  fn: number;
-  precision: number;
-  recall: number;
-  f1: number;
-};
-
-export type ComparisonMetrics = {
-  coverage: {
-    humanChunks: number;
-    llmChunks: number;
-    commonChunks: number;
-  };
-  mentionTypes: {
-    avgJaccard: number;
-    metrics: LabelMetric[];
-  };
-  adoptionTypes: {
-    avgJaccard: number;
-    metrics: LabelMetric[];
-  };
-  riskTaxonomy: {
-    avgJaccard: number;
-    metrics: LabelMetric[];
-  };
-  vendorTags: {
-    avgJaccard: number;
-    metrics: LabelMetric[];
-  };
+  vendor_confidence?: Record<string, number> | null;
 };
 
 export type GoldenDashboardData = {
@@ -67,10 +28,9 @@ export type GoldenDashboardData = {
     riskSignalLevels: string[];
   };
   datasets: {
-    human: GoldenDataset;
-    llm: GoldenDataset;
+    perReport: GoldenDataset;
+    perChunk: GoldenDataset;
   };
-  comparison: ComparisonMetrics;
 };
 
 export type GoldenDataset = {
@@ -91,24 +51,17 @@ export type GoldenDataset = {
   adoptionBySector: { x: string; y: string; value: number }[];
   vendorBySector: { x: string; y: string; value: number }[];
   riskSignalHeatmap: { x: number; y: string; value: number }[];
+  adoptionSignalHeatmap: { x: number; y: string; value: number }[];
+  vendorSignalHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
 };
 
-const GOLDEN_SET_PATH = path.join(
+const ANNOTATIONS_PATH = path.join(
   process.cwd(),
   '..',
   'data',
   'golden_set',
-  'human',
-  'annotations.jsonl'
-);
-
-const LLM_SET_PATH = path.join(
-  process.cwd(),
-  '..',
-  'data',
-  'golden_set',
-  'llm',
+  'phase2_annotated',
   'annotations.jsonl'
 );
 
@@ -118,14 +71,6 @@ const COMPANIES_PATH = path.join(
   'data',
   'reference',
   'golden_set_companies.csv'
-);
-
-const COMPARE_DIR = path.join(
-  process.cwd(),
-  '..',
-  'data',
-  'golden_set',
-  'compare'
 );
 
 const mentionTypes = [
@@ -201,81 +146,6 @@ const parseAnnotations = (filepath: string) => {
   return content.split(/\r?\n/).map(line => JSON.parse(line) as GoldenAnnotation);
 };
 
-const parseMetricsCsv = (filename: string): LabelMetric[] => {
-  const filepath = path.join(COMPARE_DIR, filename);
-  if (!fs.existsSync(filepath)) return [];
-
-  const content = fs.readFileSync(filepath, 'utf8').trim();
-  const lines = content.split(/\r?\n/);
-  lines.shift(); // Remove header
-
-  return lines.map(line => {
-    const [label, tp, fp, fn, precision, recall, f1] = line.split(',');
-    return {
-      label,
-      tp: parseInt(tp, 10),
-      fp: parseInt(fp, 10),
-      fn: parseInt(fn, 10),
-      precision: parseFloat(precision),
-      recall: parseFloat(recall),
-      f1: parseFloat(f1),
-    };
-  });
-};
-
-const parseComparisonMetrics = (): ComparisonMetrics => {
-  const mentionMetrics = parseMetricsCsv('mention_types_metrics.csv');
-  const adoptionMetrics = parseMetricsCsv('adoption_types_metrics.csv');
-  const riskMetrics = parseMetricsCsv('risk_taxonomy_metrics.csv');
-  const vendorMetrics = parseMetricsCsv('vendor_tags_metrics.csv');
-
-  // Parse coverage from comparison_report.md
-  let humanChunks = 474;
-  let llmChunks = 470;
-  let commonChunks = 470;
-
-  const reportPath = path.join(COMPARE_DIR, 'comparison_report.md');
-  if (fs.existsSync(reportPath)) {
-    const reportContent = fs.readFileSync(reportPath, 'utf8');
-    const humanMatch = reportContent.match(/Human chunks:\s*(\d+)/);
-    const llmMatch = reportContent.match(/LLM chunks:\s*(\d+)/);
-    const commonMatch = reportContent.match(/Common chunks:\s*(\d+)/);
-    if (humanMatch) humanChunks = parseInt(humanMatch[1], 10);
-    if (llmMatch) llmChunks = parseInt(llmMatch[1], 10);
-    if (commonMatch) commonChunks = parseInt(commonMatch[1], 10);
-  }
-
-  // Calculate average Jaccard from report or use defaults
-  const avgJaccardMention = 0.3196;
-  const avgJaccardAdoption = 0.5702;
-  const avgJaccardRisk = 0.7914;
-  const avgJaccardVendor = 0.928;
-
-  return {
-    coverage: {
-      humanChunks,
-      llmChunks,
-      commonChunks,
-    },
-    mentionTypes: {
-      avgJaccard: avgJaccardMention,
-      metrics: mentionMetrics.filter(m => m.label !== 'none'),
-    },
-    adoptionTypes: {
-      avgJaccard: avgJaccardAdoption,
-      metrics: adoptionMetrics.filter(m => m.label !== 'none'),
-    },
-    riskTaxonomy: {
-      avgJaccard: avgJaccardRisk,
-      metrics: riskMetrics.filter(m => m.label !== 'none' && m.f1 > 0),
-    },
-    vendorTags: {
-      avgJaccard: avgJaccardVendor,
-      metrics: vendorMetrics.filter(m => m.f1 > 0),
-    },
-  };
-};
-
 const initYearSeries = (years: number[], keys: string[]) => {
   return years.map(year => {
     const row: Record<string, number> = { year };
@@ -311,13 +181,13 @@ const resolveConfidenceMap = (
         (item.adoption_types || []).map(label => [label, item.adoption_confidence as number])
       );
     }
-    return item.llm_details?.adoption_confidences ?? {};
+    return {};
   }
 
   if (item.risk_confidence && typeof item.risk_confidence === 'object') {
     return item.risk_confidence;
   }
-  return item.llm_details?.risk_confidences ?? {};
+  return {};
 };
 
 const normalizeRiskLabel = (label: string): string => {
@@ -328,7 +198,7 @@ const normalizeRiskLabel = (label: string): string => {
 
 const normalizeRiskSignalValue = (value: number): number => {
   if (!Number.isFinite(value)) return 0;
-  if (value <= 1) {
+  if (value < 1) {
     if (value >= 0.67) return 3;
     if (value >= 0.34) return 2;
     if (value > 0) return 1;
@@ -360,14 +230,12 @@ const extractRiskSignalMap = (item: GoldenAnnotation): Record<string, number> =>
     if (!Number.isFinite(n)) return;
     const normalized = normalizeRiskSignalValue(n);
     if (normalized <= 0) return;
-    map[label] = normalized;
+    map[label] = Math.max(map[label] ?? 0, normalized);
   };
 
   const candidates = [
     item.risk_signals,
-    item.llm_details?.risk_signals,
     item.risk_confidence,
-    item.llm_details?.risk_confidences,
   ];
 
   candidates.forEach(candidate => {
@@ -394,7 +262,9 @@ type ReportData = {
   vendorTags: Set<string>;
   adoptionConfidences: Map<string, number[]>;
   riskConfidences: Map<string, number[]>;
+  adoptionSignalValues: number[];
   riskSignalValues: number[];
+  vendorSignalValues: number[];
   riskSubstantivenessValues: string[];
 };
 
@@ -418,7 +288,9 @@ const aggregateToReports = (
         vendorTags: new Set(),
         adoptionConfidences: new Map(),
         riskConfidences: new Map(),
+        adoptionSignalValues: [],
         riskSignalValues: [],
+        vendorSignalValues: [],
         riskSubstantivenessValues: [],
       });
     }
@@ -428,8 +300,9 @@ const aggregateToReports = (
     // Mention types - no confidence, just presence
     (item.mention_types || []).forEach(type => report.mentionTypes.add(type));
 
-    // Adoption types - check confidence threshold
+    // Adoption types - check confidence threshold, collect signal values
     const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
+    const adoptionSignalMap: Record<string, number> = {};
     (item.adoption_types || []).forEach(type => {
       const confidence = adoptionConfMap?.[type] ?? 0;
       if (confidence >= CONFIDENCE_THRESHOLD) {
@@ -441,8 +314,13 @@ const aggregateToReports = (
       }
       if (confidence > 0) {
         report.adoptionConfidences.get(type)!.push(confidence);
+        const normalized = normalizeRiskSignalValue(confidence);
+        if (normalized > 0) {
+          adoptionSignalMap[type] = Math.max(adoptionSignalMap[type] ?? 0, normalized);
+        }
       }
     });
+    report.adoptionSignalValues.push(...Object.values(adoptionSignalMap));
 
     // Risk labels - check confidence threshold
     const riskConfMap = resolveConfidenceMap(item, 'risk');
@@ -467,17 +345,98 @@ const aggregateToReports = (
       if (signal > 0) report.riskSignalValues.push(signal);
     });
 
-    // Vendor tags - no confidence, just presence
+    // Vendor tags + signals
     (item.vendor_tags || []).forEach(tag => report.vendorTags.add(tag));
+    if (item.vendor_confidence && typeof item.vendor_confidence === 'object') {
+      const vendorSignalMap: Record<string, number> = {};
+      Object.entries(item.vendor_confidence).forEach(([tag, v]) => {
+        const n = Number(v);
+        if (Number.isFinite(n) && n > 0) {
+          const normalized = normalizeRiskSignalValue(n);
+          if (normalized > 0) {
+            vendorSignalMap[tag] = Math.max(vendorSignalMap[tag] ?? 0, normalized);
+          }
+        }
+      });
+      report.vendorSignalValues.push(...Object.values(vendorSignalMap));
+    }
 
     // Substantiveness
-    const riskSubstantiveness = normalizeRiskSubstantiveness(
-      item.risk_substantiveness ?? item.llm_details?.risk_substantiveness
-    );
+    const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
     if (riskSubstantiveness) report.riskSubstantivenessValues.push(riskSubstantiveness);
   });
 
   return Array.from(reportMap.values());
+};
+
+const annotationsAsChunks = (
+  annotations: GoldenAnnotation[],
+  sectorMap: Map<string, string>
+): ReportData[] => {
+  return annotations.map(item => {
+    const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
+    const riskConfMap = resolveConfidenceMap(item, 'risk');
+    const riskSignalMap = extractRiskSignalMap(item);
+
+    const filteredAdoption = new Set<string>();
+    const adoptionSignalMap: Record<string, number> = {};
+    (item.adoption_types || []).forEach(type => {
+      const confidence = adoptionConfMap?.[type] ?? 0;
+      if (confidence >= CONFIDENCE_THRESHOLD) {
+        filteredAdoption.add(type);
+      }
+      if (confidence > 0) {
+        const normalized = normalizeRiskSignalValue(confidence);
+        if (normalized > 0) {
+          adoptionSignalMap[type] = Math.max(adoptionSignalMap[type] ?? 0, normalized);
+        }
+      }
+    });
+
+    const filteredRisk = new Set<string>();
+    (item.risk_taxonomy || []).forEach(rawLabel => {
+      const label = normalizeRiskLabel(rawLabel);
+      if (!label || label === 'none') return;
+      const confidence = riskConfMap?.[rawLabel] ?? riskConfMap?.[label] ?? 0;
+      if (confidence >= CONFIDENCE_THRESHOLD) {
+        filteredRisk.add(label);
+      }
+    });
+    Object.entries(riskSignalMap).forEach(([label]) => {
+      if (label !== 'none') filteredRisk.add(label);
+    });
+
+    const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
+
+    const vendorSignalMap: Record<string, number> = {};
+    if (item.vendor_confidence && typeof item.vendor_confidence === 'object') {
+      Object.entries(item.vendor_confidence).forEach(([tag, v]) => {
+        const n = Number(v);
+        if (Number.isFinite(n) && n > 0) {
+          const normalized = normalizeRiskSignalValue(n);
+          if (normalized > 0) {
+            vendorSignalMap[tag] = Math.max(vendorSignalMap[tag] ?? 0, normalized);
+          }
+        }
+      });
+    }
+
+    return {
+      company_name: item.company_name,
+      report_year: item.report_year,
+      sector: sectorMap.get(toKey(item.company_name)) || 'Unknown',
+      mentionTypes: new Set(item.mention_types || []),
+      adoptionTypes: filteredAdoption,
+      riskLabels: filteredRisk,
+      vendorTags: new Set(item.vendor_tags || []),
+      adoptionConfidences: new Map(),
+      riskConfidences: new Map(),
+      adoptionSignalValues: Object.values(adoptionSignalMap),
+      riskSignalValues: Object.values(riskSignalMap),
+      vendorSignalValues: Object.values(vendorSignalMap),
+      riskSubstantivenessValues: riskSubstantiveness ? [riskSubstantiveness] : [],
+    };
+  });
 };
 
 const averageConfidence = (values: number[]): number => {
@@ -486,12 +445,9 @@ const averageConfidence = (values: number[]): number => {
 };
 
 const buildDataset = (
-  annotations: GoldenAnnotation[],
-  sectorMap: Map<string, string>,
+  reports: ReportData[],
   years: number[]
 ): GoldenDataset => {
-  const reports = aggregateToReports(annotations, sectorMap);
-
   const mentionTrend = initYearSeries(years, mentionTypes);
   const adoptionTrend = initYearSeries(years, adoptionTypes);
   const riskTrend = initYearSeries(years, riskLabels);
@@ -500,7 +456,9 @@ const buildDataset = (
   const riskBySectorCounts = new Map<string, number>();
   const adoptionBySectorCounts = new Map<string, number>();
   const vendorBySectorCounts = new Map<string, number>();
+  const adoptionSignalCounts = new Map<string, number>();
   const riskSignalCounts = new Map<string, number>();
+  const vendorSignalCounts = new Map<string, number>();
   const substantivenessCounts = new Map<string, number>();
 
   const companies = new Set<string>();
@@ -542,17 +500,38 @@ const buildDataset = (
       vendorBySectorCounts.set(key, (vendorBySectorCounts.get(key) || 0) + 1);
     });
 
-    if (report.riskSignalValues.length > 0) {
-      const avgRiskSignal = averageConfidence(report.riskSignalValues);
+    report.adoptionSignalValues.forEach(signal => {
       const level =
-        avgRiskSignal >= 2.5
+        signal >= 3
           ? '3-explicit'
-          : avgRiskSignal >= 1.5
+          : signal >= 2
+            ? '2-strong_implicit'
+            : '1-weak_implicit';
+      const key = `${year}|||${level}`;
+      adoptionSignalCounts.set(key, (adoptionSignalCounts.get(key) || 0) + 1);
+    });
+
+    report.riskSignalValues.forEach(signal => {
+      const level =
+        signal >= 3
+          ? '3-explicit'
+          : signal >= 2
             ? '2-strong_implicit'
             : '1-weak_implicit';
       const key = `${year}|||${level}`;
       riskSignalCounts.set(key, (riskSignalCounts.get(key) || 0) + 1);
-    }
+    });
+
+    report.vendorSignalValues.forEach(signal => {
+      const level =
+        signal >= 3
+          ? '3-explicit'
+          : signal >= 2
+            ? '2-strong_implicit'
+            : '1-weak_implicit';
+      const key = `${year}|||${level}`;
+      vendorSignalCounts.set(key, (vendorSignalCounts.get(key) || 0) + 1);
+    });
 
     if (report.riskSubstantivenessValues.length > 0) {
       const counts: Record<string, number> = {
@@ -589,6 +568,17 @@ const buildDataset = (
     return { x: tag, y: sector, value };
   });
 
+  const adoptionSignalHeatmap: { x: number; y: string; value: number }[] = [];
+  years.forEach(year => {
+    riskSignalLevels.forEach(level => {
+      adoptionSignalHeatmap.push({
+        x: year,
+        y: level,
+        value: adoptionSignalCounts.get(`${year}|||${level}`) || 0,
+      });
+    });
+  });
+
   const riskSignalHeatmap: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
     riskSignalLevels.forEach(level => {
@@ -596,6 +586,17 @@ const buildDataset = (
         x: year,
         y: level,
         value: riskSignalCounts.get(`${year}|||${level}`) || 0,
+      });
+    });
+  });
+
+  const vendorSignalHeatmap: { x: number; y: string; value: number }[] = [];
+  years.forEach(year => {
+    riskSignalLevels.forEach(level => {
+      vendorSignalHeatmap.push({
+        x: year,
+        y: level,
+        value: vendorSignalCounts.get(`${year}|||${level}`) || 0,
       });
     });
   });
@@ -629,22 +630,22 @@ const buildDataset = (
     adoptionBySector,
     vendorBySector,
     riskSignalHeatmap,
+    adoptionSignalHeatmap,
+    vendorSignalHeatmap,
     substantivenessHeatmap,
   };
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   const { sectorMap, sectors } = parseCompanySectors();
-  const humanAnnotations = parseAnnotations(GOLDEN_SET_PATH);
-  const llmAnnotations = parseAnnotations(LLM_SET_PATH);
-  const comparison = parseComparisonMetrics();
+  const annotations = parseAnnotations(ANNOTATIONS_PATH);
 
   const years = Array.from(
-    new Set([
-      ...humanAnnotations.map(item => item.report_year),
-      ...llmAnnotations.map(item => item.report_year),
-    ])
+    new Set(annotations.map(item => item.report_year))
   ).sort();
+
+  const perReportData = aggregateToReports(annotations, sectorMap);
+  const perChunkData = annotationsAsChunks(annotations, sectorMap);
 
   return {
     years,
@@ -658,9 +659,8 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       riskSignalLevels,
     },
     datasets: {
-      human: buildDataset(humanAnnotations, sectorMap, years),
-      llm: buildDataset(llmAnnotations, sectorMap, years),
+      perReport: buildDataset(perReportData, years),
+      perChunk: buildDataset(perChunkData, years),
     },
-    comparison,
   };
 };
