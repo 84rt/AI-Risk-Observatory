@@ -18,6 +18,9 @@ from .normalization import (
     normalize_classifier_type,
 )
 
+# Alias used throughout this module for readability in a validation context.
+VALID_SUBSTANTIVENESS_LEVELS = RISK_SUBSTANTIVENESS_LEVELS
+
 # Valid values for classification fields
 VALID_CLASSIFIER_TYPES = {
     "harms",

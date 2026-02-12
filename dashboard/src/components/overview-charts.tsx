@@ -140,9 +140,12 @@ export function GenericHeatmap({
   const labelCol = compact ? 130 : 180;
   const valueCol = compact ? 64 : 70;
   const totalCol = compact ? 52 : 60;
+  const minGridWidth = showTotals
+    ? labelCol + (xLabels.length * valueCol) + totalCol
+    : labelCol + (xLabels.length * valueCol);
   const gridCols = showTotals
-    ? `${labelCol}px repeat(${xLabels.length}, ${valueCol}px) ${totalCol}px`
-    : `${labelCol}px repeat(${xLabels.length}, ${valueCol}px)`;
+    ? `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr)) ${totalCol}px`
+    : `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr))`;
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
@@ -152,8 +155,8 @@ export function GenericHeatmap({
         </h3>
       )}
       <div
-        className="inline-grid gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden"
-        style={{ gridTemplateColumns: gridCols }}
+        className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
+        style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}
         <div className="bg-slate-50 p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-center">
