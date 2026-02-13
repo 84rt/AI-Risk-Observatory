@@ -7,11 +7,13 @@ This script compares, per company-year:
 3) Keyword/section distributions from chunking
 4) Coverage against reconciled human AI mentions (precision/recall proxy)
 5) Cross-source chunk overlap (our->FR and FR->our)
+6) Mention-unit overlap (sentence-level AI units to control for split/merge bias)
 
 Outputs:
 - per_document_metrics.csv
 - keyword_metrics.csv
 - mention_type_coverage.csv
+- mention_unit_type_coverage.csv
 - summary.json
 - report.md
 """
@@ -37,11 +39,14 @@ PIPELINE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PIPELINE_ROOT))
 
 from src.markdown_chunker import chunk_markdown  # noqa: E402
+from src.utils.keywords import AI_KEYWORD_PATTERNS, compile_keyword_patterns  # noqa: E402
 
 
 NON_WORD_RE = re.compile(r"[^a-z0-9]+")
 WORD_RE = re.compile(r"[a-z0-9]{3,}")
 TITLE_YEAR_RE = re.compile(r"(?<!\d)(20\d{2})(?!\d)")
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+COMPILED_KEYWORDS = compile_keyword_patterns(AI_KEYWORD_PATTERNS)
 
 
 @dataclass
@@ -118,6 +123,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=2,
         help="chunk_markdown context_after.",
+    )
+    parser.add_argument(
+        "--max-chunk-words",
+        type=int,
+        default=600,
+        help="Hard cap for chunk size in words; oversized chunks are split.",
+    )
+    parser.add_argument(
+        "--overlap-sentences",
+        type=int,
+        default=1,
+        help="Sentence overlap between split subchunks.",
     )
     parser.add_argument(
         "--match-threshold",
@@ -462,6 +479,177 @@ def best_match_indices(
     return assignments, reverse
 
 
+def split_sentences(text: str) -> list[str]:
+    raw = re.sub(r"\s+", " ", text or "").strip()
+    if not raw:
+        return []
+    parts = [p.strip() for p in SENTENCE_SPLIT_RE.split(raw) if p.strip()]
+    if not parts:
+        return [raw]
+    return parts
+
+
+def sentence_keyword_hits(sentence: str) -> list[str]:
+    hits: set[str] = set()
+    for name, pattern in COMPILED_KEYWORDS:
+        if pattern.search(sentence):
+            hits.add(name)
+    return sorted(hits)
+
+
+def extract_mention_units_from_chunks(
+    chunks: list[dict[str, Any]],
+    context_window: int = 1,
+) -> list[dict[str, Any]]:
+    units: list[dict[str, Any]] = []
+    seen_norm_texts: set[str] = set()
+
+    for chunk in chunks:
+        chunk_text = str(chunk.get("chunk_text") or "")
+        sentences = split_sentences(chunk_text)
+        if not sentences:
+            continue
+
+        for idx, sent in enumerate(sentences):
+            kw_hits = sentence_keyword_hits(sent)
+            if not kw_hits:
+                continue
+
+            start = max(0, idx - context_window)
+            end = min(len(sentences) - 1, idx + context_window)
+            unit_text = " ".join(sentences[start:end + 1]).strip()
+            norm_unit = normalize_text(unit_text)
+            if not norm_unit or norm_unit in seen_norm_texts:
+                continue
+            seen_norm_texts.add(norm_unit)
+
+            units.append(
+                {
+                    "unit_text": unit_text,
+                    "matched_keywords": kw_hits,
+                    "source_chunk_id": str(chunk.get("chunk_id") or ""),
+                }
+            )
+    return units
+
+
+def extract_mention_units_from_refs(
+    ref_chunks: list[dict[str, Any]],
+    context_window: int = 1,
+) -> list[dict[str, Any]]:
+    units: list[dict[str, Any]] = []
+    seen_norm_texts: set[str] = set()
+
+    for ref in ref_chunks:
+        chunk_text = str(ref.get("chunk_text") or "")
+        mention_types = [str(x) for x in (ref.get("mention_types") or []) if str(x).strip()]
+        sentences = split_sentences(chunk_text)
+
+        found_any = False
+        for idx, sent in enumerate(sentences):
+            kw_hits = sentence_keyword_hits(sent)
+            if not kw_hits:
+                continue
+            found_any = True
+            start = max(0, idx - context_window)
+            end = min(len(sentences) - 1, idx + context_window)
+            unit_text = " ".join(sentences[start:end + 1]).strip()
+            norm_unit = normalize_text(unit_text)
+            if not norm_unit or norm_unit in seen_norm_texts:
+                continue
+            seen_norm_texts.add(norm_unit)
+            units.append(
+                {
+                    "unit_text": unit_text,
+                    "matched_keywords": kw_hits,
+                    "mention_types": mention_types,
+                    "source_chunk_id": str(ref.get("chunk_id") or ""),
+                }
+            )
+
+        # Fallback: keep whole labeled ref chunk if no keyword sentence was found.
+        if not found_any and chunk_text:
+            norm_chunk = normalize_text(chunk_text)
+            if norm_chunk and norm_chunk not in seen_norm_texts:
+                seen_norm_texts.add(norm_chunk)
+                units.append(
+                    {
+                        "unit_text": chunk_text,
+                        "matched_keywords": [],
+                        "mention_types": mention_types,
+                        "source_chunk_id": str(ref.get("chunk_id") or ""),
+                    }
+                )
+
+    return units
+
+
+def _as_text_items(items: list[dict[str, Any]], text_key: str) -> list[dict[str, Any]]:
+    return [{"chunk_text": str(item.get(text_key) or "")} for item in items]
+
+
+def mention_unit_coverage(
+    source_units: list[dict[str, Any]],
+    ref_units: list[dict[str, Any]],
+    threshold: float,
+) -> dict[str, Any]:
+    assignments, reverse = best_match_indices(
+        _as_text_items(source_units, "unit_text"),
+        _as_text_items(ref_units, "unit_text"),
+        threshold,
+    )
+
+    type_totals: Counter[str] = Counter()
+    type_hits: Counter[str] = Counter()
+    for j, ref in enumerate(ref_units):
+        mention_types = [str(x) for x in ref.get("mention_types") or [] if str(x).strip()]
+        for mt in mention_types:
+            type_totals[mt] += 1
+            if j in reverse:
+                type_hits[mt] += 1
+
+    matched_scores = [score for _, score in assignments.values()]
+    return {
+        "source_matched_units": len(assignments),
+        "ref_covered_units": len(reverse),
+        "ref_unit_recall": safe_ratio(len(reverse), len(ref_units)),
+        "unit_precision_proxy": safe_ratio(len(assignments), len(source_units)),
+        "avg_match_score": mean(matched_scores) if matched_scores else 0.0,
+        "type_totals": type_totals,
+        "type_hits": type_hits,
+    }
+
+
+def mention_unit_cross_overlap(
+    our_units: list[dict[str, Any]],
+    fr_units: list[dict[str, Any]],
+    threshold: float,
+) -> dict[str, float]:
+    our_items = _as_text_items(our_units, "unit_text")
+    fr_items = _as_text_items(fr_units, "unit_text")
+    our_to_fr, fr_reverse = best_match_indices(our_items, fr_items, threshold)
+    fr_to_our, our_reverse = best_match_indices(fr_items, our_items, threshold)
+
+    our_scores = [score for _, score in our_to_fr.values()]
+    fr_scores = [score for _, score in fr_to_our.values()]
+
+    our_units_per_matched_fr_unit = (
+        mean([len(v) for v in fr_reverse.values()]) if fr_reverse else 0.0
+    )
+    fr_units_per_matched_our_unit = (
+        mean([len(v) for v in our_reverse.values()]) if our_reverse else 0.0
+    )
+
+    return {
+        "our_to_fr_unit_overlap": safe_ratio(len(our_to_fr), len(our_units)),
+        "fr_to_our_unit_overlap": safe_ratio(len(fr_to_our), len(fr_units)),
+        "our_to_fr_unit_avg_score": mean(our_scores) if our_scores else 0.0,
+        "fr_to_our_unit_avg_score": mean(fr_scores) if fr_scores else 0.0,
+        "our_units_per_matched_fr_unit": our_units_per_matched_fr_unit,
+        "fr_units_per_matched_our_unit": fr_units_per_matched_our_unit,
+    }
+
+
 def chunk_stats(chunks: list[dict[str, Any]]) -> dict[str, Any]:
     char_lengths = [len(str(c.get("chunk_text") or "")) for c in chunks]
     word_lengths = [len(str(c.get("chunk_text") or "").split()) for c in chunks]
@@ -615,6 +803,7 @@ def main() -> None:
     per_doc_rows: list[dict[str, Any]] = []
     keyword_rows: list[dict[str, Any]] = []
     mention_rows: list[dict[str, Any]] = []
+    mention_unit_rows: list[dict[str, Any]] = []
 
     for lei, year in all_keys:
         company_name = golden_by_lei[lei]["company_name"]
@@ -634,6 +823,8 @@ def main() -> None:
                 report_year=year,
                 context_before=args.context_before,
                 context_after=args.context_after,
+                max_chunk_words=args.max_chunk_words,
+                overlap_sentences=args.overlap_sentences,
             )
             if our_text
             else []
@@ -647,6 +838,8 @@ def main() -> None:
                 report_year=year,
                 context_before=args.context_before,
                 context_after=args.context_after,
+                max_chunk_words=args.max_chunk_words,
+                overlap_sentences=args.overlap_sentences,
             )
             if fr_text
             else []
@@ -658,6 +851,12 @@ def main() -> None:
         our_cov = mention_type_coverage(our_chunks, refs, args.match_threshold)
         fr_cov = mention_type_coverage(fr_chunks, refs, args.match_threshold)
         overlap = cross_source_overlap(our_chunks, fr_chunks, args.match_threshold)
+        our_units = extract_mention_units_from_chunks(our_chunks)
+        fr_units = extract_mention_units_from_chunks(fr_chunks)
+        ref_units = extract_mention_units_from_refs(refs)
+        our_unit_cov = mention_unit_coverage(our_units, ref_units, args.match_threshold)
+        fr_unit_cov = mention_unit_coverage(fr_units, ref_units, args.match_threshold)
+        unit_overlap = mention_unit_cross_overlap(our_units, fr_units, args.match_threshold)
 
         row = {
             "company_name": company_name,
@@ -703,6 +902,22 @@ def main() -> None:
             "fr_to_our_overlap": round(overlap["b_to_a_overlap"], 4),
             "our_to_fr_avg_score": round(overlap["a_to_b_avg_score"], 4),
             "fr_to_our_avg_score": round(overlap["b_to_a_avg_score"], 4),
+            "our_mention_unit_count": len(our_units),
+            "fr_mention_unit_count": len(fr_units),
+            "fr_minus_our_mention_units": len(fr_units) - len(our_units),
+            "our_units_per_chunk": round(safe_ratio(len(our_units), our_stats["chunk_count"]), 4),
+            "fr_units_per_chunk": round(safe_ratio(len(fr_units), fr_stats["chunk_count"]), 4),
+            "ref_positive_units": len(ref_units),
+            "our_ref_unit_recall": round(our_unit_cov["ref_unit_recall"], 4),
+            "fr_ref_unit_recall": round(fr_unit_cov["ref_unit_recall"], 4),
+            "our_unit_precision_proxy": round(our_unit_cov["unit_precision_proxy"], 4),
+            "fr_unit_precision_proxy": round(fr_unit_cov["unit_precision_proxy"], 4),
+            "our_to_fr_unit_overlap": round(unit_overlap["our_to_fr_unit_overlap"], 4),
+            "fr_to_our_unit_overlap": round(unit_overlap["fr_to_our_unit_overlap"], 4),
+            "our_to_fr_unit_avg_score": round(unit_overlap["our_to_fr_unit_avg_score"], 4),
+            "fr_to_our_unit_avg_score": round(unit_overlap["fr_to_our_unit_avg_score"], 4),
+            "our_units_per_matched_fr_unit": round(unit_overlap["our_units_per_matched_fr_unit"], 4),
+            "fr_units_per_matched_our_unit": round(unit_overlap["fr_units_per_matched_our_unit"], 4),
         }
         per_doc_rows.append(row)
 
@@ -747,6 +962,28 @@ def main() -> None:
                     "fr_covered": fr_cov["type_hits"].get(mt, 0),
                     "our_recall": round(safe_ratio(our_cov["type_hits"].get(mt, 0), total), 4),
                     "fr_recall": round(safe_ratio(fr_cov["type_hits"].get(mt, 0), total), 4),
+                }
+            )
+
+        all_unit_types = sorted(
+            set(our_unit_cov["type_totals"].keys()) | set(fr_unit_cov["type_totals"].keys())
+        )
+        for mt in all_unit_types:
+            total = max(
+                our_unit_cov["type_totals"].get(mt, 0),
+                fr_unit_cov["type_totals"].get(mt, 0),
+            )
+            mention_unit_rows.append(
+                {
+                    "company_name": company_name,
+                    "lei": lei,
+                    "year": year,
+                    "mention_type": mt,
+                    "ref_unit_total": total,
+                    "our_unit_covered": our_unit_cov["type_hits"].get(mt, 0),
+                    "fr_unit_covered": fr_unit_cov["type_hits"].get(mt, 0),
+                    "our_unit_recall": round(safe_ratio(our_unit_cov["type_hits"].get(mt, 0), total), 4),
+                    "fr_unit_recall": round(safe_ratio(fr_unit_cov["type_hits"].get(mt, 0), total), 4),
                 }
             )
 
@@ -797,6 +1034,22 @@ def main() -> None:
             "fr_to_our_overlap",
             "our_to_fr_avg_score",
             "fr_to_our_avg_score",
+            "our_mention_unit_count",
+            "fr_mention_unit_count",
+            "fr_minus_our_mention_units",
+            "our_units_per_chunk",
+            "fr_units_per_chunk",
+            "ref_positive_units",
+            "our_ref_unit_recall",
+            "fr_ref_unit_recall",
+            "our_unit_precision_proxy",
+            "fr_unit_precision_proxy",
+            "our_to_fr_unit_overlap",
+            "fr_to_our_unit_overlap",
+            "our_to_fr_unit_avg_score",
+            "fr_to_our_unit_avg_score",
+            "our_units_per_matched_fr_unit",
+            "fr_units_per_matched_our_unit",
         ],
     )
 
@@ -830,6 +1083,22 @@ def main() -> None:
         ],
     )
 
+    write_csv(
+        out_dir / "mention_unit_type_coverage.csv",
+        mention_unit_rows,
+        [
+            "company_name",
+            "lei",
+            "year",
+            "mention_type",
+            "ref_unit_total",
+            "our_unit_covered",
+            "fr_unit_covered",
+            "our_unit_recall",
+            "fr_unit_recall",
+        ],
+    )
+
     docs_with_both = [r for r in per_doc_rows if r["our_doc_found"] and r["fr_doc_found"]]
     summary = {
         "run_id_inferred": run_id,
@@ -841,12 +1110,22 @@ def main() -> None:
         "pairs_with_both_docs": len(docs_with_both),
         "our_total_chunks": sum(r["our_chunk_count"] for r in docs_with_both),
         "fr_total_chunks": sum(r["fr_chunk_count"] for r in docs_with_both),
+        "our_total_mention_units": sum(r["our_mention_unit_count"] for r in docs_with_both),
+        "fr_total_mention_units": sum(r["fr_mention_unit_count"] for r in docs_with_both),
         "avg_our_ref_recall": round(mean([r["our_ref_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_fr_ref_recall": round(mean([r["fr_ref_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_our_precision_proxy": round(mean([r["our_precision_proxy"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_fr_precision_proxy": round(mean([r["fr_precision_proxy"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_our_to_fr_overlap": round(mean([r["our_to_fr_overlap"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_fr_to_our_overlap": round(mean([r["fr_to_our_overlap"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_our_ref_unit_recall": round(mean([r["our_ref_unit_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_fr_ref_unit_recall": round(mean([r["fr_ref_unit_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_our_unit_precision_proxy": round(mean([r["our_unit_precision_proxy"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_fr_unit_precision_proxy": round(mean([r["fr_unit_precision_proxy"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_our_to_fr_unit_overlap": round(mean([r["our_to_fr_unit_overlap"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_fr_to_our_unit_overlap": round(mean([r["fr_to_our_unit_overlap"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_our_units_per_matched_fr_unit": round(mean([r["our_units_per_matched_fr_unit"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
+        "avg_fr_units_per_matched_our_unit": round(mean([r["fr_units_per_matched_our_unit"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "output_dir": str(out_dir),
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
@@ -876,6 +1155,19 @@ def main() -> None:
         f"- Avg overlap our->fr: {summary['avg_our_to_fr_overlap']}",
         f"- Avg overlap fr->our: {summary['avg_fr_to_our_overlap']}",
         "",
+        "## Mention Units",
+        "",
+        f"- Total mention units (our): {summary['our_total_mention_units']}",
+        f"- Total mention units (fr): {summary['fr_total_mention_units']}",
+        f"- Avg reference unit recall (our): {summary['avg_our_ref_unit_recall']}",
+        f"- Avg reference unit recall (fr): {summary['avg_fr_ref_unit_recall']}",
+        f"- Avg unit precision proxy (our): {summary['avg_our_unit_precision_proxy']}",
+        f"- Avg unit precision proxy (fr): {summary['avg_fr_unit_precision_proxy']}",
+        f"- Avg unit overlap our->fr: {summary['avg_our_to_fr_unit_overlap']}",
+        f"- Avg unit overlap fr->our: {summary['avg_fr_to_our_unit_overlap']}",
+        f"- Avg our units per matched FR unit (fragmentation): {summary['avg_our_units_per_matched_fr_unit']}",
+        f"- Avg FR units per matched our unit (merge index): {summary['avg_fr_units_per_matched_our_unit']}",
+        "",
         "## Largest Chunk Count Deltas (FR - Our)",
         "",
         "| Company | Year | Our Chunks | FR Chunks | Delta |",
@@ -893,6 +1185,7 @@ def main() -> None:
             "- `per_document_metrics.csv`",
             "- `keyword_metrics.csv`",
             "- `mention_type_coverage.csv`",
+            "- `mention_unit_type_coverage.csv`",
             "- `summary.json`",
         ]
     )
@@ -911,8 +1204,11 @@ def main() -> None:
         "Avg reference recall -> "
         f"our: {summary['avg_our_ref_recall']} | fr: {summary['avg_fr_ref_recall']}"
     )
+    print(
+        "Avg reference unit recall -> "
+        f"our: {summary['avg_our_ref_unit_recall']} | fr: {summary['avg_fr_ref_unit_recall']}"
+    )
 
 
 if __name__ == "__main__":
     main()
-

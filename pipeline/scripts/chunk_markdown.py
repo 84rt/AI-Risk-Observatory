@@ -34,6 +34,18 @@ def parse_args() -> argparse.Namespace:
         help="Paragraphs of context after a match",
     )
     parser.add_argument(
+        "--max-chunk-words",
+        type=int,
+        default=600,
+        help="Hard cap for chunk size in words; oversized chunks are split.",
+    )
+    parser.add_argument(
+        "--overlap-sentences",
+        type=int,
+        default=1,
+        help="Sentence overlap between split subchunks of oversized chunks.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -85,6 +97,8 @@ def main() -> None:
                 report_year=report_year,
                 context_before=args.context_before,
                 context_after=args.context_after,
+                max_chunk_words=args.max_chunk_words,
+                overlap_sentences=args.overlap_sentences,
             )
             all_chunks.extend(chunks)
 

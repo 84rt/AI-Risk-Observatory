@@ -48,8 +48,11 @@ export type GoldenDataset = {
   riskTrend: Record<string, number>[];
   vendorTrend: Record<string, number>[];
   riskBySector: { x: string; y: string; value: number }[];
+  riskBySectorYear: { year: number; x: string; y: string; value: number }[];
   adoptionBySector: { x: string; y: string; value: number }[];
+  adoptionBySectorYear: { year: number; x: string; y: string; value: number }[];
   vendorBySector: { x: string; y: string; value: number }[];
+  vendorBySectorYear: { year: number; x: string; y: string; value: number }[];
   riskSignalHeatmap: { x: number; y: string; value: number }[];
   adoptionSignalHeatmap: { x: number; y: string; value: number }[];
   vendorSignalHeatmap: { x: number; y: string; value: number }[];
@@ -449,8 +452,11 @@ const buildDataset = (
   const vendorTrend = initYearSeries(years, vendorTags);
 
   const riskBySectorCounts = new Map<string, number>();
+  const riskBySectorYearCounts = new Map<string, number>();
   const adoptionBySectorCounts = new Map<string, number>();
+  const adoptionBySectorYearCounts = new Map<string, number>();
   const vendorBySectorCounts = new Map<string, number>();
+  const vendorBySectorYearCounts = new Map<string, number>();
   const adoptionSignalCounts = new Map<string, number>();
   const riskSignalCounts = new Map<string, number>();
   const vendorSignalCounts = new Map<string, number>();
@@ -483,16 +489,22 @@ const buildDataset = (
     report.riskLabels.forEach(label => {
       const key = `${label}|||${report.sector}`;
       riskBySectorCounts.set(key, (riskBySectorCounts.get(key) || 0) + 1);
+      const yearKey = `${year}|||${label}|||${report.sector}`;
+      riskBySectorYearCounts.set(yearKey, (riskBySectorYearCounts.get(yearKey) || 0) + 1);
     });
 
     report.adoptionTypes.forEach(type => {
       const key = `${type}|||${report.sector}`;
       adoptionBySectorCounts.set(key, (adoptionBySectorCounts.get(key) || 0) + 1);
+      const yearKey = `${year}|||${type}|||${report.sector}`;
+      adoptionBySectorYearCounts.set(yearKey, (adoptionBySectorYearCounts.get(yearKey) || 0) + 1);
     });
 
     report.vendorTags.forEach(tag => {
       const key = `${tag}|||${report.sector}`;
       vendorBySectorCounts.set(key, (vendorBySectorCounts.get(key) || 0) + 1);
+      const yearKey = `${year}|||${tag}|||${report.sector}`;
+      vendorBySectorYearCounts.set(yearKey, (vendorBySectorYearCounts.get(yearKey) || 0) + 1);
     });
 
     report.adoptionSignalValues.forEach(signal => {
@@ -563,6 +575,21 @@ const buildDataset = (
     return { x: tag, y: sector, value };
   });
 
+  const riskBySectorYear = Array.from(riskBySectorYearCounts.entries()).map(([key, value]) => {
+    const [year, label, sector] = key.split('|||');
+    return { year: Number(year), x: label, y: sector, value };
+  });
+
+  const adoptionBySectorYear = Array.from(adoptionBySectorYearCounts.entries()).map(([key, value]) => {
+    const [year, type, sector] = key.split('|||');
+    return { year: Number(year), x: type, y: sector, value };
+  });
+
+  const vendorBySectorYear = Array.from(vendorBySectorYearCounts.entries()).map(([key, value]) => {
+    const [year, tag, sector] = key.split('|||');
+    return { year: Number(year), x: tag, y: sector, value };
+  });
+
   const adoptionSignalHeatmap: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
     riskSignalLevels.forEach(level => {
@@ -622,8 +649,11 @@ const buildDataset = (
     riskTrend,
     vendorTrend,
     riskBySector,
+    riskBySectorYear,
     adoptionBySector,
+    adoptionBySectorYear,
     vendorBySector,
+    vendorBySectorYear,
     riskSignalHeatmap,
     adoptionSignalHeatmap,
     vendorSignalHeatmap,

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
 } from 'recharts';
 
@@ -31,17 +31,35 @@ const formatLabel = (val: string) => {
 
 // --- Component: Stacked Bar Chart ---
 interface StackedBarChartProps {
-  data: any[];
+  data: Array<Record<string, string | number | null | undefined>>;
   xAxisKey: string;
   stackKeys: string[];
   colors?: Record<string, string>;
   allowLineChart?: boolean;
   title?: string;
   subtitle?: string;
+  legendPosition?: 'bottom' | 'right';
+  legendKeys?: string[];
+  activeLegendKey?: string | null;
+  onLegendItemClick?: (key: string) => void;
 }
 
-export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS, allowLineChart = false, title, subtitle }: StackedBarChartProps) {
+export function StackedBarChart({
+  data,
+  xAxisKey,
+  stackKeys,
+  colors = COLORS,
+  allowLineChart = false,
+  title,
+  subtitle,
+  legendPosition = 'bottom',
+  legendKeys,
+  activeLegendKey = null,
+  onLegendItemClick,
+}: StackedBarChartProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
+  const showSideLegend = legendPosition === 'right';
+  const visibleLegendKeys = legendKeys ?? stackKeys;
 
   const sharedAxisProps = {
     xAxis: {
@@ -105,46 +123,92 @@ export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS, al
           </button>
         </div>
       )}
-      <div className="h-[460px]">
-      <ResponsiveContainer width="100%" height="100%">
-        {chartType === 'line' ? (
-          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis {...sharedAxisProps.xAxis} />
-            <YAxis {...sharedAxisProps.yAxis} />
-            <Tooltip {...tooltipProps} />
-            <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-            {stackKeys.map((key) => (
-              <Line
-                key={key}
-                type="monotone"
-                dataKey={key}
-                stroke={colors[key] || colors.default}
-                strokeWidth={2}
-                dot={{ r: 4, fill: colors[key] || colors.default }}
-                name={formatLabel(key)}
-              />
-            ))}
-          </LineChart>
-        ) : (
-          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis {...sharedAxisProps.xAxis} />
-            <YAxis {...sharedAxisProps.yAxis} />
-            <Tooltip {...tooltipProps} />
-            <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-            {stackKeys.map((key) => (
-              <Bar
-                key={key}
-                dataKey={key}
-                stackId="a"
-                fill={colors[key] || colors.default}
-                name={formatLabel(key)}
-              />
-            ))}
-          </BarChart>
+      <div className={showSideLegend ? 'flex flex-col gap-4 lg:flex-row lg:items-start' : ''}>
+        <div className={showSideLegend ? 'h-[460px] w-full lg:flex-1' : 'h-[460px]'}>
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' ? (
+              <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis {...sharedAxisProps.xAxis} />
+                <YAxis {...sharedAxisProps.yAxis} />
+                <Tooltip {...tooltipProps} />
+                {!showSideLegend && <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />}
+                {stackKeys.map((key) => (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={colors[key] || colors.default}
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: colors[key] || colors.default }}
+                    name={formatLabel(key)}
+                  />
+                ))}
+              </LineChart>
+            ) : (
+              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis {...sharedAxisProps.xAxis} />
+                <YAxis {...sharedAxisProps.yAxis} />
+                <Tooltip {...tooltipProps} />
+                {!showSideLegend && <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />}
+                {stackKeys.map((key) => (
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    stackId="a"
+                    fill={colors[key] || colors.default}
+                    name={formatLabel(key)}
+                  />
+                ))}
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+        {showSideLegend && (
+          <div className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 lg:mt-4 lg:w-60">
+            <div className="space-y-1">
+              {visibleLegendKeys.map((key) => {
+                const isSelected = activeLegendKey === key;
+                const isDimmed = !!activeLegendKey && !isSelected;
+                const itemClass = [
+                  'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+                  isSelected ? 'border-slate-300 bg-white font-semibold text-slate-900' : 'border-transparent',
+                  isDimmed ? 'text-slate-400' : 'text-slate-700',
+                  onLegendItemClick ? 'hover:border-slate-200 hover:bg-white cursor-pointer' : '',
+                ].join(' ');
+
+                if (!onLegendItemClick) {
+                  return (
+                    <div key={key} className={itemClass}>
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colors[key] || colors.default }}
+                      />
+                      <span className="truncate">{formatLabel(key)}</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={itemClass}
+                    onClick={() => onLegendItemClick(key)}
+                    title={isSelected ? `Show all risk types` : `Filter to ${formatLabel(key)}`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: colors[key] || colors.default }}
+                    />
+                    <span className="truncate">{formatLabel(key)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
-      </ResponsiveContainer>
       </div>
     </div>
   );

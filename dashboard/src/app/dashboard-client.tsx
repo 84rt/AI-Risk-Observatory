@@ -102,11 +102,6 @@ const formatLabel = (val: string | number) => {
 
 type DatasetKey = 'perReport' | 'perChunk';
 
-const datasetLabels: Record<DatasetKey, string> = {
-  perReport: 'Per Report',
-  perChunk: 'Per Chunk',
-};
-
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
@@ -114,26 +109,189 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const activeData = data.datasets[datasetKey];
+  const availableYears = activeData.years;
+  const maxYearIndex = Math.max(availableYears.length - 1, 0);
 
   const mentionStackKeys = useMemo(() => data.labels.mentionTypes, [data.labels.mentionTypes]);
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const vendorStackKeys = useMemo(() => data.labels.vendorTags, [data.labels.vendorTags]);
   const riskStackKeys = useMemo(() => data.labels.riskLabels, [data.labels.riskLabels]);
 
+  const [yearRangeIndices, setYearRangeIndices] = useState(() => ({
+    start: 0,
+    end: Math.max(data.years.length - 1, 0),
+  }));
+
+  const startIndex = Math.min(yearRangeIndices.start, maxYearIndex);
+  const endIndex = Math.min(Math.max(yearRangeIndices.end, startIndex), maxYearIndex);
+
+  const selectedStartYear = availableYears[startIndex] ?? 0;
+  const selectedEndYear = availableYears[endIndex] ?? selectedStartYear;
+
+  const filteredYears = useMemo(
+    () => availableYears.slice(startIndex, endIndex + 1),
+    [availableYears, startIndex, endIndex]
+  );
+
+  const selectedLeftPct =
+    availableYears.length <= 1 ? 0 : (startIndex / maxYearIndex) * 100;
+  const selectedRightPct =
+    availableYears.length <= 1 ? 0 : 100 - (endIndex / maxYearIndex) * 100;
+
+  const updateYearRangeFromTrackClick = (clientX: number, element: HTMLDivElement) => {
+    if (maxYearIndex <= 0) return;
+    const rect = element.getBoundingClientRect();
+    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    const clickedIndex = Math.round(ratio * maxYearIndex);
+
+    setYearRangeIndices(prev => {
+      if (prev.start === prev.end) {
+        if (clickedIndex <= prev.start) {
+          return { start: clickedIndex, end: prev.end };
+        }
+        return { start: prev.start, end: clickedIndex };
+      }
+
+      const startDistance = Math.abs(clickedIndex - prev.start);
+      const endDistance = Math.abs(clickedIndex - prev.end);
+
+      if (startDistance <= endDistance) {
+        return { start: Math.min(clickedIndex, prev.end), end: prev.end };
+      }
+      return { start: prev.start, end: Math.max(clickedIndex, prev.start) };
+    });
+  };
+
+  const mentionTrendInRange = useMemo(
+    () =>
+      activeData.mentionTrend.filter(row => {
+        const year = Number(row.year);
+        return year >= selectedStartYear && year <= selectedEndYear;
+      }),
+    [activeData.mentionTrend, selectedStartYear, selectedEndYear]
+  );
+
+  const adoptionTrendInRange = useMemo(
+    () =>
+      activeData.adoptionTrend.filter(row => {
+        const year = Number(row.year);
+        return year >= selectedStartYear && year <= selectedEndYear;
+      }),
+    [activeData.adoptionTrend, selectedStartYear, selectedEndYear]
+  );
+
+  const riskTrendInRange = useMemo(
+    () =>
+      activeData.riskTrend.filter(row => {
+        const year = Number(row.year);
+        return year >= selectedStartYear && year <= selectedEndYear;
+      }),
+    [activeData.riskTrend, selectedStartYear, selectedEndYear]
+  );
+
+  const vendorTrendInRange = useMemo(
+    () =>
+      activeData.vendorTrend.filter(row => {
+        const year = Number(row.year);
+        return year >= selectedStartYear && year <= selectedEndYear;
+      }),
+    [activeData.vendorTrend, selectedStartYear, selectedEndYear]
+  );
+
+  const riskBySectorInRange = useMemo(
+    () => {
+      const counts = new Map<string, number>();
+      activeData.riskBySectorYear.forEach(cell => {
+        if (cell.year < selectedStartYear || cell.year > selectedEndYear) return;
+        const key = `${cell.x}|||${cell.y}`;
+        counts.set(key, (counts.get(key) || 0) + cell.value);
+      });
+      return Array.from(counts.entries()).map(([key, value]) => {
+        const [x, y] = key.split('|||');
+        return { x, y, value };
+      });
+    },
+    [activeData.riskBySectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const adoptionBySectorInRange = useMemo(
+    () => {
+      const counts = new Map<string, number>();
+      activeData.adoptionBySectorYear.forEach(cell => {
+        if (cell.year < selectedStartYear || cell.year > selectedEndYear) return;
+        const key = `${cell.x}|||${cell.y}`;
+        counts.set(key, (counts.get(key) || 0) + cell.value);
+      });
+      return Array.from(counts.entries()).map(([key, value]) => {
+        const [x, y] = key.split('|||');
+        return { x, y, value };
+      });
+    },
+    [activeData.adoptionBySectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const vendorBySectorInRange = useMemo(
+    () => {
+      const counts = new Map<string, number>();
+      activeData.vendorBySectorYear.forEach(cell => {
+        if (cell.year < selectedStartYear || cell.year > selectedEndYear) return;
+        const key = `${cell.x}|||${cell.y}`;
+        counts.set(key, (counts.get(key) || 0) + cell.value);
+      });
+      return Array.from(counts.entries()).map(([key, value]) => {
+        const [x, y] = key.split('|||');
+        return { x, y, value };
+      });
+    },
+    [activeData.vendorBySectorYear, selectedStartYear, selectedEndYear]
+  );
+
   // Filter risk data by selected risk type
   const filteredRiskBySector = useMemo(() => {
-    if (riskFilter === 'all') return activeData.riskBySector;
-    return activeData.riskBySector.filter(d => d.x === riskFilter);
-  }, [activeData.riskBySector, riskFilter]);
+    if (riskFilter === 'all') return riskBySectorInRange;
+    return riskBySectorInRange.filter(d => d.x === riskFilter);
+  }, [riskBySectorInRange, riskFilter]);
 
   // Filter risk trend for single risk type view
   const filteredRiskTrend = useMemo(() => {
-    if (riskFilter === 'all') return activeData.riskTrend;
-    return activeData.riskTrend.map(row => ({
+    if (riskFilter === 'all') return riskTrendInRange;
+    return riskTrendInRange.map(row => ({
       year: row.year,
       [riskFilter]: row[riskFilter] || 0,
     }));
-  }, [activeData.riskTrend, riskFilter]);
+  }, [riskTrendInRange, riskFilter]);
+
+  const riskSignalHeatmapInRange = useMemo(
+    () =>
+      activeData.riskSignalHeatmap.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.riskSignalHeatmap, selectedStartYear, selectedEndYear]
+  );
+
+  const adoptionSignalHeatmapInRange = useMemo(
+    () =>
+      activeData.adoptionSignalHeatmap.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.adoptionSignalHeatmap, selectedStartYear, selectedEndYear]
+  );
+
+  const vendorSignalHeatmapInRange = useMemo(
+    () =>
+      activeData.vendorSignalHeatmap.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.vendorSignalHeatmap, selectedStartYear, selectedEndYear]
+  );
+
+  const substantivenessHeatmapInRange = useMemo(
+    () =>
+      activeData.substantivenessHeatmap.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.substantivenessHeatmap, selectedStartYear, selectedEndYear]
+  );
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
@@ -161,7 +319,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   {activeData.summary.totalReports} Reports
                 </span>
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {data.years[0]}–{data.years[data.years.length - 1]}
+                  {selectedStartYear}–{selectedEndYear}
                 </span>
               </div>
             </div>
@@ -185,33 +343,105 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
       {/* Sticky control bar — only interactive controls */}
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          {/* View tabs */}
-          <div className="flex items-center gap-1">
-            {VIEWS.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setActiveView(item.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                  activeView === item.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-white hover:text-slate-900'
-                }`}
-              >
-                {item.title}
-              </button>
-            ))}
-          </div>
+        <div className="mx-auto max-w-7xl px-6 py-2">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-2">
+              {/* View tabs */}
+              <div className="flex items-center gap-1">
+                {VIEWS.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveView(item.id)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                      activeView === item.id
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                    }`}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+              </div>
 
-          {/* Dataset toggle */}
-          <select
-            value={datasetKey}
-            onChange={event => setDatasetKey(event.target.value as DatasetKey)}
-            className="rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm"
-          >
-            <option value="perReport">Per Report</option>
-            <option value="perChunk">Per Chunk</option>
-          </select>
+              <div className="w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
+                <div className="mb-0.5 flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                  <span>{availableYears[0] ?? '-'}</span>
+                  <span>{selectedStartYear}–{selectedEndYear}</span>
+                  <span>{availableYears[availableYears.length - 1] ?? '-'}</span>
+                </div>
+                <div
+                  className="relative h-4"
+                  onMouseDown={event => {
+                    if (maxYearIndex === 0) return;
+                    if (event.target instanceof HTMLInputElement) return;
+                    updateYearRangeFromTrackClick(event.clientX, event.currentTarget);
+                  }}
+                  onTouchStart={event => {
+                    if (maxYearIndex === 0) return;
+                    if (event.target instanceof HTMLInputElement) return;
+                    const touch = event.touches[0];
+                    if (!touch) return;
+                    updateYearRangeFromTrackClick(touch.clientX, event.currentTarget);
+                  }}
+                >
+                  <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-200" />
+                  <div
+                    className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-amber-500"
+                    style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={maxYearIndex}
+                    step={1}
+                    value={startIndex}
+                    onChange={event => {
+                      const nextStart = Number(event.target.value);
+                      setYearRangeIndices(prev => ({
+                        start: Math.min(nextStart, prev.end),
+                        end: prev.end,
+                      }));
+                    }}
+                    className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
+                    aria-label="Start year"
+                    disabled={maxYearIndex === 0}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={maxYearIndex}
+                    step={1}
+                    value={endIndex}
+                    onChange={event => {
+                      const nextEnd = Number(event.target.value);
+                      setYearRangeIndices(prev => ({
+                        start: prev.start,
+                        end: Math.max(nextEnd, prev.start),
+                      }));
+                    }}
+                    className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
+                    aria-label="End year"
+                    disabled={maxYearIndex === 0}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dataset toggle */}
+            <select
+              value={datasetKey}
+              onChange={event => {
+                const nextDatasetKey = event.target.value as DatasetKey;
+                setDatasetKey(nextDatasetKey);
+                const nextYears = data.datasets[nextDatasetKey].years;
+                setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
+              }}
+              className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+            >
+              <option value="perReport">Per Report</option>
+              <option value="perChunk">Per Chunk</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -258,6 +488,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
               colors={riskColors}
               allowLineChart
+              legendPosition="right"
+              legendKeys={riskStackKeys}
+              activeLegendKey={riskFilter === 'all' ? null : riskFilter}
+              onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="Risk Trend Over Time"
               subtitle={`Each bar shows the total ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year mentioning a given risk category. A single ${datasetKey === 'perReport' ? 'report' : 'chunk'} can appear in multiple categories.`}
             />
@@ -298,7 +532,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-4">
               <StackedBarChart
-                data={activeData.mentionTrend}
+                data={mentionTrendInRange}
                 xAxisKey="year"
                 stackKeys={mentionStackKeys}
                 colors={mentionColors}
@@ -358,7 +592,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="space-y-8">
             {/* Adoption Trends */}
             <StackedBarChart
-              data={activeData.adoptionTrend}
+              data={adoptionTrendInRange}
               xAxisKey="year"
               stackKeys={adoptionStackKeys}
               colors={adoptionColors}
@@ -369,7 +603,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {/* Adoption by Sector Heatmap */}
             <GenericHeatmap
-              data={activeData.adoptionBySector}
+              data={adoptionBySectorInRange}
               xLabels={data.labels.adoptionTypes}
               yLabels={data.sectors}
               baseColor="#0ea5e9"
@@ -383,7 +617,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {/* Vendor Trends */}
             <StackedBarChart
-              data={activeData.vendorTrend}
+              data={vendorTrendInRange}
               xAxisKey="year"
               stackKeys={vendorStackKeys}
               colors={vendorColors}
@@ -394,7 +628,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {/* Vendor by Sector Heatmap */}
             <GenericHeatmap
-              data={activeData.vendorBySector}
+              data={vendorBySectorInRange}
               xLabels={data.labels.vendorTags}
               yLabels={data.sectors}
               baseColor="#14b8a6"
@@ -412,8 +646,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="space-y-8">
             <div className="grid gap-8 lg:grid-cols-3">
               <GenericHeatmap
-                data={activeData.riskSignalHeatmap}
-                xLabels={data.years}
+                data={riskSignalHeatmapInRange}
+                xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
                 baseColor="#f97316"
                 valueFormatter={value => `${value}`}
@@ -425,8 +659,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 compact={true}
               />
               <GenericHeatmap
-                data={activeData.adoptionSignalHeatmap}
-                xLabels={data.years}
+                data={adoptionSignalHeatmapInRange}
+                xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
                 baseColor="#0ea5e9"
                 valueFormatter={value => `${value}`}
@@ -438,8 +672,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 compact={true}
               />
               <GenericHeatmap
-                data={activeData.vendorSignalHeatmap}
-                xLabels={data.years}
+                data={vendorSignalHeatmapInRange}
+                xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
                 baseColor="#14b8a6"
                 valueFormatter={value => `${value}`}
@@ -452,8 +686,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               />
             </div>
             <GenericHeatmap
-              data={activeData.substantivenessHeatmap}
-              xLabels={data.years}
+              data={substantivenessHeatmapInRange}
+              xLabels={filteredYears}
               yLabels={data.labels.substantivenessBands}
               baseColor="#14b8a6"
               valueFormatter={value => `${value}`}

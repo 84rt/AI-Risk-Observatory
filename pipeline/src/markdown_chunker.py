@@ -162,6 +162,112 @@ def _stable_chunk_id(document_id: str, start_idx: int, end_idx: int) -> str:
     return f"{document_id}-chunk-{digest[:12]}"
 
 
+def _stable_subchunk_id(
+    document_id: str,
+    start_idx: int,
+    end_idx: int,
+    subchunk_index: int,
+) -> str:
+    payload = f"{document_id}:{start_idx}:{end_idx}:{subchunk_index}"
+    digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()
+    return f"{document_id}-chunk-{digest[:12]}"
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"\S+", text or ""))
+
+
+def _split_text_by_word_limit(
+    text: str,
+    max_words: int,
+    overlap_sentences: int = 1,
+) -> List[str]:
+    """Split long text by natural boundaries while preserving content."""
+    if max_words <= 0 or _word_count(text) <= max_words:
+        return [text]
+
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if not paragraphs:
+        paragraphs = [text.strip()]
+
+    def split_long_sentence(sentence: str) -> List[str]:
+        words = sentence.split()
+        if len(words) <= max_words:
+            return [sentence.strip()]
+        out: List[str] = []
+        cursor = 0
+        overlap_words = min(40, max_words // 10)
+        while cursor < len(words):
+            end = min(cursor + max_words, len(words))
+            out.append(" ".join(words[cursor:end]).strip())
+            if end == len(words):
+                break
+            cursor = max(end - overlap_words, cursor + 1)
+        return [x for x in out if x]
+
+    def split_long_paragraph(paragraph: str) -> List[str]:
+        if _word_count(paragraph) <= max_words:
+            return [paragraph.strip()]
+
+        sentence_candidates = [
+            s.strip()
+            for s in re.split(r"(?<=[.!?])\s+", paragraph)
+            if s.strip()
+        ]
+        if not sentence_candidates:
+            return split_long_sentence(paragraph)
+
+        segments: List[str] = []
+        current: List[str] = []
+        current_words = 0
+
+        for sent in sentence_candidates:
+            sent_words = _word_count(sent)
+            sent_parts = split_long_sentence(sent) if sent_words > max_words else [sent]
+
+            for part in sent_parts:
+                part_words = _word_count(part)
+                if current and current_words + part_words > max_words:
+                    segments.append(" ".join(current).strip())
+                    if overlap_sentences > 0 and current:
+                        overlap = current[-overlap_sentences:]
+                        current = overlap.copy()
+                        current_words = _word_count(" ".join(current))
+                    else:
+                        current = []
+                        current_words = 0
+                    if current_words + part_words > max_words:
+                        current = []
+                        current_words = 0
+                current.append(part)
+                current_words += part_words
+
+        if current:
+            segments.append(" ".join(current).strip())
+        return [s for s in segments if s]
+
+    units: List[str] = []
+    for para in paragraphs:
+        units.extend(split_long_paragraph(para))
+
+    segments: List[str] = []
+    current_parts: List[str] = []
+    current_words = 0
+    for unit in units:
+        unit_words = _word_count(unit)
+        if current_parts and current_words + unit_words > max_words:
+            segments.append("\n\n".join(current_parts).strip())
+            current_parts = [unit]
+            current_words = unit_words
+        else:
+            current_parts.append(unit)
+            current_words += unit_words
+
+    if current_parts:
+        segments.append("\n\n".join(current_parts).strip())
+    return [s for s in segments if s]
+
+
 def chunk_markdown(
     markdown: str,
     document_id: str,
@@ -170,6 +276,8 @@ def chunk_markdown(
     report_year: int,
     context_before: int = 2,
     context_after: int = 2,
+    max_chunk_words: Optional[int] = None,
+    overlap_sentences: int = 1,
     keyword_patterns: Optional[List[KeywordPattern]] = None,
 ) -> List[Dict]:
     """Chunk markdown into AI keyword spans with paragraph context."""
@@ -215,26 +323,66 @@ def chunk_markdown(
             if section:
                 report_sections.add(section)
 
-        chunk_id = _stable_chunk_id(document_id, start_idx, end_idx)
-        chunk = {
-            "chunk_id": chunk_id,
-            "document_id": document_id,
-            "company_id": company_id,
-            "company_name": company_name,
-            "report_year": report_year,
-            "report_sections": sorted(report_sections),
-            "paragraph_start": start_idx,
-            "paragraph_end": end_idx,
-            "block_start": start_block_idx,
-            "block_end": end_block_idx,
-            "char_start": blocks[start_block_idx].start_offset,
-            "char_end": blocks[end_block_idx].end_offset,
-            "context_before": context_before,
-            "context_after": context_after,
-            "chunk_text": chunk_text,
-            "matched_keywords": sorted(matched_keywords),
-            "keyword_matches": keyword_matches,
-        }
-        chunks.append(chunk)
+        parent_chunk_id = _stable_chunk_id(document_id, start_idx, end_idx)
+        sub_texts = _split_text_by_word_limit(
+            chunk_text,
+            max_words=max_chunk_words or 0,
+            overlap_sentences=overlap_sentences,
+        )
+
+        search_pos = 0
+        for sub_idx, sub_text in enumerate(sub_texts):
+            if len(sub_texts) == 1:
+                chunk_id = parent_chunk_id
+            else:
+                chunk_id = _stable_subchunk_id(
+                    document_id, start_idx, end_idx, sub_idx
+                )
+
+            local_start = chunk_text.find(sub_text, search_pos)
+            if local_start >= 0:
+                local_end = local_start + len(sub_text)
+                search_pos = max(local_start + 1, local_end - 1)
+            else:
+                local_start = 0
+                local_end = len(sub_text)
+
+            sub_matches = _find_matches(sub_text, patterns)
+            if sub_matches:
+                sub_keyword_matches = [
+                    {
+                        "paragraph_index": start_idx,
+                        "matches": sub_matches,
+                    }
+                ]
+                sub_matched_keywords = sorted({m["keyword"] for m in sub_matches})
+            else:
+                # Keep traceability for context-only subchunks produced by splitting.
+                sub_keyword_matches = keyword_matches
+                sub_matched_keywords = sorted(matched_keywords)
+
+            chunk = {
+                "chunk_id": chunk_id,
+                "parent_chunk_id": parent_chunk_id if len(sub_texts) > 1 else None,
+                "subchunk_index": sub_idx,
+                "subchunk_count": len(sub_texts),
+                "document_id": document_id,
+                "company_id": company_id,
+                "company_name": company_name,
+                "report_year": report_year,
+                "report_sections": sorted(report_sections),
+                "paragraph_start": start_idx,
+                "paragraph_end": end_idx,
+                "block_start": start_block_idx,
+                "block_end": end_block_idx,
+                "char_start": blocks[start_block_idx].start_offset + local_start,
+                "char_end": blocks[start_block_idx].start_offset + local_end,
+                "context_before": context_before,
+                "context_after": context_after,
+                "chunk_text": sub_text,
+                "matched_keywords": sub_matched_keywords,
+                "keyword_matches": sub_keyword_matches,
+            }
+            chunks.append(chunk)
 
     return chunks

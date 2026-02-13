@@ -1,7 +1,9 @@
+import { ClassificationFlowDiagram } from '@/components/classification-flow';
+
 export default function MethodologyPage() {
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-6xl px-6 py-16">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
           Methodology
         </h1>
@@ -13,18 +15,22 @@ export default function MethodologyPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900">Data Collection</h2>
             <p className="mt-2">
-              We collect annual reports from UK Critical National Infrastructure (CNI) companies across sectors like energy, water, telecoms, and finance.
-              An LLM reads each report and classifies every AI-related text passage (&ldquo;chunk&rdquo;) into categories: mention type, adoption maturity, risk taxonomy, and vendor references.
+              We source annual reports from UK Critical National Infrastructure (CNI) companies across sectors like energy, water, telecoms, and finance.
+              Inputs come from PDF filings (FinancialReports database) and iXBRL/HTML filings (Companies House API), which are then normalized into structured text for downstream chunking and model analysis.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-slate-900">Classification &amp; Confidence</h2>
             <p className="mt-2">
-              Each classification carries a confidence score (0&ndash;1). Only labels with confidence &ge; 0.2 are included.
+              Chunks are classified by an LLM pipeline (for example GPT-4 or Gemini via the <code>run_llm_classifier</code> scripts) for AI mention presence, risk vs opportunity framing, and disclosure substantiveness.
+              Each prediction carries a confidence score (0&ndash;1), and only labels with confidence &ge; 0.2 are included.
               <strong> Per Report</strong> aggregates all chunks from one company-year into a single row.
               <strong> Per Chunk</strong> treats every individual text passage as its own data point &mdash; giving you finer-grained detail but higher counts.
             </p>
+            <div className="mt-5">
+              <ClassificationFlowDiagram />
+            </div>
           </section>
 
           <section>
