@@ -16,23 +16,23 @@ type View = {
 const VIEWS: View[] = [
   {
     id: 1,
-    title: 'Signal Mix',
-    description: 'AI-related mention types extracted from annual reports in the golden set sample.',
+    title: 'Risk Distribution',
+    description: 'Which AI risk categories appear most often in each CNI sector — and where the blind spots are.',
   },
   {
     id: 2,
-    title: 'Adoption & Vendors',
-    description: 'AI adoption maturity levels and vendor references identified in disclosures.',
+    title: 'Mention Types',
+    description: 'How each AI-related text chunk was classified: adoption, risk, vendor reference, general/ambiguous, or harm.',
   },
   {
     id: 3,
-    title: 'Risk Taxonomy',
-    description: 'Risk categories by sector, showing how AI-related risks cluster across CNI industries.',
+    title: 'Adoption & Vendors',
+    description: 'AI adoption maturity (non-LLM, LLM, agentic) and which technology vendors companies name in their reports.',
   },
   {
     id: 4,
     title: 'Quality Signals',
-    description: 'Confidence and substantiveness scores measuring annotation reliability and disclosure depth.',
+    description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
 ];
 
@@ -137,9 +137,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
-      <div className="border-b border-amber-300/60 bg-amber-100/80 px-6 py-4 text-center text-sm font-semibold uppercase tracking-[0.2em] text-amber-900">
-        WIP — Data and labels are in active iteration. Do not treat as final.
-      </div>
+      {/* Hero section */}
       <header className="relative overflow-hidden border-b border-slate-200/70">
         <div className="absolute inset-0">
           <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-amber-200/70 blur-3xl" />
@@ -149,38 +147,25 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         <div className="relative mx-auto max-w-7xl px-6 py-12">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="animate-rise">
-              <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500">
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">Golden Set</span>
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {datasetLabels[datasetKey]}
-                </span>
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {data.years[0]}-{data.years[data.years.length - 1]}
-                </span>
-              </div>
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
                 AI Risk Observatory
               </h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
-                LLM-classified annotations across the priority CNI sample.
-                Toggle between per-report aggregation and individual chunk-level detail.
+                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their annual reports.
               </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
+                  {activeData.summary.totalCompanies} Companies
+                </span>
+                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
+                  {activeData.summary.totalReports} Reports
+                </span>
+                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
+                  {data.years[0]}–{data.years[data.years.length - 1]}
+                </span>
+              </div>
             </div>
             <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="dataset-select" className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                  View Mode
-                </label>
-                <select
-                  id="dataset-select"
-                  value={datasetKey}
-                  onChange={event => setDatasetKey(event.target.value as DatasetKey)}
-                  className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
-                >
-                  <option value="perReport">Per Report</option>
-                  <option value="perChunk">Per Chunk</option>
-                </select>
-              </div>
               <div className="animate-rise animate-rise-delay-1 rounded-2xl border border-slate-900/10 bg-white/90 px-5 py-4 shadow-sm">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Reports</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-900">
@@ -195,32 +180,40 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
-            <p>
-              Switch between per-report aggregation and per-chunk detail views.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Sticky control bar — only interactive controls */}
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+          {/* View tabs */}
+          <div className="flex items-center gap-1">
             {VIEWS.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveView(item.id)}
-                className={`animate-rise rounded-2xl border px-5 py-[18px] text-left transition-all ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                   activeView === item.id
-                    ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
-                    : 'border-slate-200 bg-white/80 text-slate-700 hover:-translate-y-0.5 hover:border-slate-400'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                <p className="text-xs uppercase tracking-[0.2em] opacity-70">View {item.id}</p>
-                <p className="mt-2 text-lg font-semibold">{item.title}</p>
-                <p className="mt-2 text-sm leading-relaxed opacity-70">{item.description}</p>
+                {item.title}
               </button>
             ))}
           </div>
+
+          {/* Dataset toggle */}
+          <select
+            value={datasetKey}
+            onChange={event => setDatasetKey(event.target.value as DatasetKey)}
+            className="rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm"
+          >
+            <option value="perReport">Per Report</option>
+            <option value="perChunk">Per Chunk</option>
+          </select>
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto max-w-7xl px-6 py-12">
         <div className="mb-10">
@@ -229,137 +222,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </div>
 
         {activeView === 1 && (
-          <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-            <StackedBarChart
-              data={activeData.mentionTrend}
-              xAxisKey="year"
-              stackKeys={mentionStackKeys}
-              colors={mentionColors}
-            />
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Signal Coverage
-                </h3>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">
-                  {formatNumber(activeData.summary.adoptionReports + activeData.summary.riskReports)}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Reports with adoption or risk signals in the golden set.
-                </p>
-                <div className="mt-6 space-y-3 text-sm text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span>Adoption reports</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.adoptionReports)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Risk reports</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.riskReports)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Vendor reports</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.vendorReports)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-                <p className="font-semibold text-slate-900">Category Definitions</p>
-                <ul className="mt-2 space-y-1 leading-relaxed">
-                  <li><span className="font-medium text-slate-800">Adoption:</span> Mentions of AI technology usage, deployment, or implementation.</li>
-                  <li><span className="font-medium text-slate-800">Risk:</span> Discussions of AI-related risks, threats, or concerns.</li>
-                  <li><span className="font-medium text-slate-800">Vendor:</span> References to specific AI vendors or providers.</li>
-                  <li><span className="font-medium text-slate-800">General/Ambiguous:</span> AI mentions lacking clear adoption or risk context.</li>
-                  <li><span className="font-medium text-slate-800">Harm:</span> Mentions of actual or potential AI-related harm incidents.</li>
-                </ul>
-                <p className="mt-3 leading-relaxed">
-                  <span className="font-medium text-slate-800">Data source:</span> Labels aggregated per report from human or LLM annotations.
-                  A report receives a tag if any text chunk has confidence ≥0.2.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeView === 2 && (
-          <div className="space-y-8">
-            {/* Adoption Trends */}
-            <div>
-              <h3 className="mb-4 text-lg font-semibold text-slate-800">Adoption Maturity Over Time</h3>
-              <StackedBarChart
-                data={activeData.adoptionTrend}
-                xAxisKey="year"
-                stackKeys={adoptionStackKeys}
-                colors={adoptionColors}
-              />
-            </div>
-
-            {/* Adoption by Sector Heatmap */}
-            <GenericHeatmap
-              data={activeData.adoptionBySector}
-              xLabels={data.labels.adoptionTypes}
-              yLabels={data.sectors}
-              baseColor="#0ea5e9"
-              valueFormatter={value => `${value}`}
-              xLabelFormatter={formatLabel}
-              showTotals={true}
-              showBlindSpots={true}
-              title="Adoption Intensity by Sector"
-            />
-
-            {/* Vendor Trends */}
-            <div>
-              <h3 className="mb-4 text-lg font-semibold text-slate-800">Vendor References Over Time</h3>
-              <StackedBarChart
-                data={activeData.vendorTrend}
-                xAxisKey="year"
-                stackKeys={vendorStackKeys}
-                colors={vendorColors}
-              />
-            </div>
-
-            {/* Vendor by Sector Heatmap */}
-            <GenericHeatmap
-              data={activeData.vendorBySector}
-              xLabels={data.labels.vendorTags}
-              yLabels={data.sectors}
-              baseColor="#14b8a6"
-              valueFormatter={value => `${value}`}
-              xLabelFormatter={formatLabel}
-              showTotals={true}
-              showBlindSpots={true}
-              title="Vendor Concentration by Sector"
-            />
-
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-semibold text-slate-900">Category Definitions</p>
-              <p className="mt-2 font-medium text-slate-800">Adoption Types:</p>
-              <ul className="mt-1 space-y-1 leading-relaxed">
-                <li><span className="font-medium text-slate-800">Non-LLM:</span> Traditional AI/ML systems (computer vision, predictive analytics, RPA).</li>
-                <li><span className="font-medium text-slate-800">LLM:</span> Large language model applications (chatbots, content generation, summarization).</li>
-                <li><span className="font-medium text-slate-800">Agentic:</span> Autonomous AI systems with decision-making capabilities.</li>
-              </ul>
-              <p className="mt-3 font-medium text-slate-800">Vendor Tags:</p>
-              <ul className="mt-1 space-y-1 leading-relaxed">
-                <li><span className="font-medium text-slate-800">OpenAI, Microsoft, Google:</span> Named major AI providers.</li>
-                <li><span className="font-medium text-slate-800">Internal:</span> In-house developed AI solutions.</li>
-                <li><span className="font-medium text-slate-800">Other:</span> Other named vendors not in the major category.</li>
-                <li><span className="font-medium text-slate-800">Undisclosed:</span> Vendor not specified in disclosure.</li>
-              </ul>
-              <p className="mt-3 leading-relaxed">
-                <span className="font-medium text-slate-800">Heatmaps:</span> Show distribution across CNI sectors.
-                Striped cells indicate no reports (potential blind spots).
-              </p>
-            </div>
-          </div>
-        )}
-
-        {activeView === 3 && (
           <div className="space-y-8">
             {/* Risk Type Filter */}
             <div className="flex flex-wrap items-center gap-4">
@@ -395,6 +257,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xAxisKey="year"
               stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
               colors={riskColors}
+              allowLineChart
+              title="Risk Trend Over Time"
+              subtitle={`Each bar shows the total ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year mentioning a given risk category. A single ${datasetKey === 'perReport' ? 'report' : 'chunk'} can appear in multiple categories.`}
             />
 
             {/* Risk by Sector Heatmap */}
@@ -403,11 +268,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={riskFilter === 'all' ? data.labels.riskLabels : [riskFilter]}
               yLabels={data.sectors}
               baseColor="#f97316"
-              valueFormatter={value => `${value}`}
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
               xLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={true}
               title="Risk Distribution by Sector"
+              subtitle={`Each cell shows the count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} in that sector mentioning that risk category. Darker = more mentions. Striped = zero mentions (potential blind spots).`}
             />
 
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
@@ -424,11 +290,121 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <li><span className="font-medium text-slate-800">Environmental Impact:</span> Energy consumption, carbon footprint, resource usage.</li>
                 <li><span className="font-medium text-slate-800">National Security:</span> Critical systems, geopolitical exposure, security-of-state concerns.</li>
               </ul>
-              <p className="mt-3 leading-relaxed">
-                <span className="font-medium text-slate-800">Heatmap:</span> Rows are CNI sectors, columns are risk categories.
-                Darker cells indicate higher report counts. Striped cells indicate no reports (potential blind spots).
-              </p>
             </div>
+          </div>
+        )}
+
+        {activeView === 2 && (
+          <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+            <div className="space-y-4">
+              <StackedBarChart
+                data={activeData.mentionTrend}
+                xAxisKey="year"
+                stackKeys={mentionStackKeys}
+                colors={mentionColors}
+                allowLineChart
+                title="Mention Types Over Time"
+                subtitle={`Each bar shows how many ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year were tagged with each mention type (confidence ≥ 0.2).`}
+              />
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Signal Coverage
+                </h3>
+                <p className="mt-3 text-3xl font-semibold text-slate-900">
+                  {formatNumber(activeData.summary.adoptionReports + activeData.summary.riskReports)}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {datasetKey === 'perReport' ? 'Reports' : 'Chunks'} with at least one adoption or risk signal.
+                </p>
+                <div className="mt-6 space-y-3 text-sm text-slate-600">
+                  <div className="flex items-center justify-between">
+                    <span>With adoption signals</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(activeData.summary.adoptionReports)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>With risk signals</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(activeData.summary.riskReports)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>With vendor references</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(activeData.summary.vendorReports)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
+                <p className="font-semibold text-slate-900">What are mention types?</p>
+                <p className="mt-2 leading-relaxed">Every AI-related text passage is classified into one or more of these categories based on what the company is talking about:</p>
+                <ul className="mt-2 space-y-1 leading-relaxed">
+                  <li><span className="font-medium text-slate-800">Adoption:</span> The company describes using, deploying, or implementing AI technology.</li>
+                  <li><span className="font-medium text-slate-800">Risk:</span> The company discusses threats, concerns, or negative outcomes tied to AI.</li>
+                  <li><span className="font-medium text-slate-800">Vendor:</span> A specific AI vendor or provider is named (e.g. Microsoft, OpenAI).</li>
+                  <li><span className="font-medium text-slate-800">General/Ambiguous:</span> AI is mentioned but without a clear adoption or risk context.</li>
+                  <li><span className="font-medium text-slate-800">Harm:</span> An actual or potential AI-related harm incident is described.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeView === 3 && (
+          <div className="space-y-8">
+            {/* Adoption Trends */}
+            <StackedBarChart
+              data={activeData.adoptionTrend}
+              xAxisKey="year"
+              stackKeys={adoptionStackKeys}
+              colors={adoptionColors}
+              allowLineChart
+              title="Adoption Maturity Over Time"
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year by maturity level: Non-LLM (traditional AI/ML), LLM (large language models), Agentic (autonomous AI systems).`}
+            />
+
+            {/* Adoption by Sector Heatmap */}
+            <GenericHeatmap
+              data={activeData.adoptionBySector}
+              xLabels={data.labels.adoptionTypes}
+              yLabels={data.sectors}
+              baseColor="#0ea5e9"
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
+              xLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={true}
+              title="Adoption Intensity by Sector"
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per sector at each adoption maturity level. Striped = zero mentions.`}
+            />
+
+            {/* Vendor Trends */}
+            <StackedBarChart
+              data={activeData.vendorTrend}
+              xAxisKey="year"
+              stackKeys={vendorStackKeys}
+              colors={vendorColors}
+              allowLineChart
+              title="Vendor References Over Time"
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} naming each AI vendor per year. "Internal" = built in-house. "Undisclosed" = AI mentioned but no vendor named.`}
+            />
+
+            {/* Vendor by Sector Heatmap */}
+            <GenericHeatmap
+              data={activeData.vendorBySector}
+              xLabels={data.labels.vendorTags}
+              yLabels={data.sectors}
+              baseColor="#14b8a6"
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
+              xLabelFormatter={formatLabel}
+              showTotals={true}
+              showBlindSpots={true}
+              title="Vendor Concentration by Sector"
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} naming each vendor per sector. Striped = no mentions.`}
+            />
           </div>
         )}
 
@@ -444,7 +420,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Risk Signal Strength (mentions)"
+                title="Risk Signal Strength"
+                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
                 compact={true}
               />
               <GenericHeatmap
@@ -456,7 +433,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Adoption Signal Strength (mentions)"
+                title="Adoption Signal Strength"
+                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
                 compact={true}
               />
               <GenericHeatmap
@@ -468,7 +446,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Vendor Signal Strength (mentions)"
+                title="Vendor Signal Strength"
+                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
                 compact={true}
               />
             </div>
@@ -482,6 +461,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               showTotals={true}
               showBlindSpots={false}
               title="Risk Substantiveness Distribution"
+              subtitle="Disclosure quality for AI-risk language. Substantive = concrete mechanism + tangible mitigation. Moderate = specific risk area, limited detail. Boilerplate = generic language without concrete detail."
             />
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
               <p className="font-semibold text-slate-900">Quality Metric Definitions</p>

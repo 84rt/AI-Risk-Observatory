@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
+  LineChart, Line,
 } from 'recharts';
 
 // --- Shared Colors ---
@@ -33,53 +35,117 @@ interface StackedBarChartProps {
   xAxisKey: string;
   stackKeys: string[];
   colors?: Record<string, string>;
+  allowLineChart?: boolean;
+  title?: string;
+  subtitle?: string;
 }
 
-export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS }: StackedBarChartProps) {
+export function StackedBarChart({ data, xAxisKey, stackKeys, colors = COLORS, allowLineChart = false, title, subtitle }: StackedBarChartProps) {
+  const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
+
+  const sharedAxisProps = {
+    xAxis: {
+      dataKey: xAxisKey,
+      axisLine: false,
+      tickLine: false,
+      tick: { fill: '#64748b', fontSize: 12 },
+      dy: 10,
+    } as const,
+    yAxis: {
+      axisLine: false,
+      tickLine: false,
+      tick: { fill: '#64748b', fontSize: 12 },
+    } as const,
+  };
+
+  const tooltipProps = {
+    cursor: chartType === 'bar' ? { fill: '#f8fafc' } : { stroke: '#e2e8f0' },
+    contentStyle: {
+      backgroundColor: '#fff',
+      borderRadius: '6px',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+      color: '#1e293b',
+    },
+    itemStyle: { color: '#1e293b' },
+    formatter: (value: number, name: string) => [value, formatLabel(name)] as [number, string],
+  };
+
   return (
-    <div className="h-[500px] w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+    <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm relative">
+      {title && (
+        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+          {title}
+        </h3>
+      )}
+      {subtitle && (
+        <p className="mb-2 text-xs leading-relaxed text-slate-500">{subtitle}</p>
+      )}
+      {allowLineChart && (
+        <div className="absolute top-3 right-3 z-10 flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+          <button
+            onClick={() => setChartType('bar')}
+            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            title="Bar chart"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="6" width="3" height="7" rx="0.5" fill="currentColor"/>
+              <rect x="5.5" y="3" width="3" height="10" rx="0.5" fill="currentColor"/>
+              <rect x="10" y="1" width="3" height="12" rx="0.5" fill="currentColor"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => setChartType('line')}
+            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            title="Line chart"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      )}
+      <div className="h-[460px]">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis 
-            dataKey={xAxisKey} 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: '#64748b', fontSize: 12 }}
-            dy={10}
-          />
-          <YAxis 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: '#64748b', fontSize: 12 }}
-          />
-          <Tooltip 
-            cursor={{ fill: '#f8fafc' }}
-            contentStyle={{ 
-              backgroundColor: '#fff',
-              borderRadius: '6px', 
-              border: '1px solid #e2e8f0', 
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-              color: '#1e293b'
-            }}
-            itemStyle={{ color: '#1e293b' }}
-            formatter={(value: number, name: string) => [value, formatLabel(name)]}
-          />
-          <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-          {stackKeys.map((key) => (
-            <Bar 
-              key={key} 
-              dataKey={key} 
-              stackId="a" 
-              fill={colors[key] || colors.default} 
-              name={formatLabel(key)}
-            />
-          ))}
-        </BarChart>
+        {chartType === 'line' ? (
+          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis {...sharedAxisProps.xAxis} />
+            <YAxis {...sharedAxisProps.yAxis} />
+            <Tooltip {...tooltipProps} />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+            {stackKeys.map((key) => (
+              <Line
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stroke={colors[key] || colors.default}
+                strokeWidth={2}
+                dot={{ r: 4, fill: colors[key] || colors.default }}
+                name={formatLabel(key)}
+              />
+            ))}
+          </LineChart>
+        ) : (
+          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis {...sharedAxisProps.xAxis} />
+            <YAxis {...sharedAxisProps.yAxis} />
+            <Tooltip {...tooltipProps} />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+            {stackKeys.map((key) => (
+              <Bar
+                key={key}
+                dataKey={key}
+                stackId="a"
+                fill={colors[key] || colors.default}
+                name={formatLabel(key)}
+              />
+            ))}
+          </BarChart>
+        )}
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -101,6 +167,7 @@ interface GenericHeatmapProps {
   showTotals?: boolean;
   showBlindSpots?: boolean;
   title?: string;
+  subtitle?: string;
   compact?: boolean;
 }
 
@@ -115,6 +182,7 @@ export function GenericHeatmap({
   showTotals = true,
   showBlindSpots = true,
   title,
+  subtitle,
   compact = false,
 }: GenericHeatmapProps) {
   // Create lookup map and compute totals
@@ -147,28 +215,36 @@ export function GenericHeatmap({
     ? `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr)) ${totalCol}px`
     : `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr))`;
 
+  const needsScroll = yLabels.length > 15;
+  const cellHeight = needsScroll ? 36 : 44;
+
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
       {title && (
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
         </h3>
       )}
+      {subtitle && (
+        <p className="mb-4 text-xs leading-relaxed text-slate-500">{subtitle}</p>
+      )}
+      {!subtitle && title && <div className="mb-3" />}
+      <div className={needsScroll ? 'max-h-[600px] overflow-y-auto' : ''}>
       <div
         className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}
-        <div className="bg-slate-50 p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-center">
+        <div className={`bg-slate-50 p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-center ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
           {/* Top-Left Corner */}
         </div>
         {xLabels.map(x => (
-          <div key={x} className="bg-slate-50 px-1 py-2 text-[10px] font-semibold text-slate-700 text-center flex items-center justify-center min-h-[60px] leading-tight">
+          <div key={x} className={`bg-slate-50 px-1 py-2 text-[10px] font-semibold text-slate-700 text-center flex items-center justify-center min-h-[60px] leading-tight ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
             {xLabelFormatter(x)}
           </div>
         ))}
         {showTotals && (
-          <div className="bg-slate-100 px-1 py-2 text-[10px] font-bold text-slate-600 text-center flex items-center justify-center min-h-[60px]">
+          <div className={`bg-slate-100 px-1 py-2 text-[10px] font-bold text-slate-600 text-center flex items-center justify-center min-h-[60px] ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
             Total
           </div>
         )}
@@ -176,7 +252,7 @@ export function GenericHeatmap({
         {/* Data Rows */}
         {yLabels.map(y => (
           <div key={`row-${y}`} className="contents">
-            <div className="bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center h-[44px] border-r border-slate-100 leading-tight">
+            <div className={`bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight`} style={{ height: cellHeight }}>
               {yLabelFormatter(y)}
             </div>
 
@@ -190,7 +266,8 @@ export function GenericHeatmap({
               return (
                 <div
                   key={`${x}-${y}`}
-                  className={`h-[44px] relative group flex items-center justify-center ${isBlindSpot ? 'bg-slate-50' : 'bg-white'}`}
+                  className={`relative group flex items-center justify-center ${isBlindSpot ? 'bg-slate-50' : 'bg-white'}`}
+                  style={{ height: cellHeight }}
                   title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${val}`}
                 >
                   {isBlindSpot ? (
@@ -221,7 +298,7 @@ export function GenericHeatmap({
 
             {/* Row Total */}
             {showTotals && (
-              <div className="bg-slate-50 h-[44px] flex items-center justify-center">
+              <div className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
                 <span className="text-sm font-semibold text-slate-600">
                   {rowTotals.get(y) || 0}
                 </span>
@@ -233,17 +310,17 @@ export function GenericHeatmap({
         {/* Column Totals Row */}
         {showTotals && (
           <div className="contents">
-            <div className="bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 flex items-center h-[44px]">
+            <div className="bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 flex items-center" style={{ height: cellHeight }}>
               Total
             </div>
             {xLabels.map(x => (
-              <div key={`total-${x}`} className="bg-slate-50 h-[44px] flex items-center justify-center">
+              <div key={`total-${x}`} className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
                 <span className="text-sm font-semibold text-slate-600">
                   {colTotals.get(x) || 0}
                 </span>
               </div>
             ))}
-            <div className="bg-slate-100 h-[44px] flex items-center justify-center">
+            <div className="bg-slate-100 flex items-center justify-center" style={{ height: cellHeight }}>
               <span className="text-sm font-bold text-slate-700">
                 {grandTotal}
               </span>
@@ -252,6 +329,7 @@ export function GenericHeatmap({
         )}
       </div>
 
+      </div>
       {showBlindSpots && (
         <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
           <div
