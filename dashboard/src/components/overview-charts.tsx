@@ -269,9 +269,9 @@ export function GenericHeatmap({
     grandTotal += d.value;
   });
 
-  const labelCol = compact ? 130 : 180;
-  const valueCol = compact ? 64 : 70;
-  const totalCol = compact ? 52 : 60;
+  const labelCol = compact ? 110 : 150;
+  const valueCol = compact ? 44 : 60;
+  const totalCol = compact ? 44 : 54;
   const minGridWidth = showTotals
     ? labelCol + (xLabels.length * valueCol) + totalCol
     : labelCol + (xLabels.length * valueCol);
@@ -279,11 +279,11 @@ export function GenericHeatmap({
     ? `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr)) ${totalCol}px`
     : `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr))`;
 
-  const needsScroll = yLabels.length > 15;
-  const cellHeight = needsScroll ? 36 : 44;
+  const needsScroll = yLabels.length > 25;
+  const cellHeight = needsScroll ? 36 : 40;
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
       {title && (
         <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
@@ -293,7 +293,7 @@ export function GenericHeatmap({
         <p className="mb-4 text-xs leading-relaxed text-slate-500">{subtitle}</p>
       )}
       {!subtitle && title && <div className="mb-3" />}
-      <div className={needsScroll ? 'max-h-[600px] overflow-y-auto' : ''}>
+      <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
         className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}

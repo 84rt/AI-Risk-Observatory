@@ -5,7 +5,7 @@
 	- The better we can measure this the better. (i.e. change of boilerplateness over time) 
 - Studies show that LLMs perform better at "System 2" reasoning (deliberate deduction) on structured financial statements (10-Ks) compared to unstructured sentiment analysis -> this makes them perfect for:  "ground truth" baseline to validate other signals instead of "real-time monitor”. (use the Annual Report to confirm if "soft" risks mentioned in news/transcripts have materialized into "hard" financial risks) <- there is a lag in reporting. 
 - Post data direction: correlate trend data with filings (cyber spending and attacks | job displacements) 
-
+- it might be cool to add a "no AI mentions" index
 
 actionables from the call with Andrew:
 - Scale the reports to 100

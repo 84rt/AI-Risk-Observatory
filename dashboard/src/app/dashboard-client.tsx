@@ -364,11 +364,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
 
               <div className="w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
-                <div className="mb-0.5 flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-                  <span>{availableYears[0] ?? '-'}</span>
-                  <span>{selectedStartYear}–{selectedEndYear}</span>
-                  <span>{availableYears[availableYears.length - 1] ?? '-'}</span>
-                </div>
                 <div
                   className="relative h-4"
                   onMouseDown={event => {
@@ -423,6 +418,32 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     aria-label="End year"
                     disabled={maxYearIndex === 0}
                   />
+                </div>
+                <div className="relative mt-0.5 h-4 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                  {availableYears.length === 0 ? (
+                    <span className="block text-center">-</span>
+                  ) : (
+                    availableYears.map((year, index) => {
+                      const leftPct = maxYearIndex <= 0 ? 50 : (index / maxYearIndex) * 100;
+                      const edgeClass =
+                        index === 0
+                          ? 'translate-x-0 text-left'
+                          : index === availableYears.length - 1
+                            ? '-translate-x-full text-right'
+                            : '-translate-x-1/2 text-center';
+                      return (
+                        <span
+                          key={year}
+                          className={`absolute top-0 transition-colors ${edgeClass} ${
+                            index >= startIndex && index <= endIndex ? 'text-slate-900' : 'text-slate-500'
+                          }`}
+                          style={{ left: `${leftPct}%` }}
+                        >
+                          {year}
+                        </span>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
