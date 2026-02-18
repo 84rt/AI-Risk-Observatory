@@ -28,6 +28,7 @@ VALID_CLASSIFIER_TYPES = {
     "adoption_type",
     "substantiveness",
     "risk",
+    "risk_open",
     "vendor",
     "mention_type",
     "mention_type_v2",
@@ -101,6 +102,9 @@ def validate_classification_response(
         messages.extend(msgs)
     elif classifier_type == "risk":
         is_valid, msgs = _validate_risk_response(response, strict)
+        messages.extend(msgs)
+    elif classifier_type == "risk_open":
+        is_valid, msgs = _validate_generic_response(response, strict)
         messages.extend(msgs)
     elif classifier_type == "vendor":
         is_valid, msgs = _validate_vendor_response(response, strict)

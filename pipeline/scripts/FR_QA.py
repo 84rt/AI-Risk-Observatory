@@ -115,13 +115,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--context-before",
         type=int,
-        default=2,
+        default=1,
         help="chunk_markdown context_before.",
     )
     parser.add_argument(
         "--context-after",
         type=int,
-        default=2,
+        default=1,
         help="chunk_markdown context_after.",
     )
     parser.add_argument(
@@ -133,8 +133,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overlap-sentences",
         type=int,
-        default=1,
+        default=0,
         help="Sentence overlap between split subchunks.",
+    )
+    parser.add_argument(
+        "--keep-table-rule-lines",
+        action="store_true",
+        help="Keep markdown table separator rows (default is to drop them).",
+    )
+    parser.add_argument(
+        "--keep-listing-signature-rows",
+        action="store_true",
+        help="Keep long listing/register table rows (default is to drop them).",
     )
     parser.add_argument(
         "--match-threshold",
@@ -655,12 +665,31 @@ def chunk_stats(chunks: list[dict[str, Any]]) -> dict[str, Any]:
     word_lengths = [len(str(c.get("chunk_text") or "").split()) for c in chunks]
     unique_norm_chunks = len({normalize_text(str(c.get("chunk_text") or "")) for c in chunks})
     duplicates = max(0, len(chunks) - unique_norm_chunks)
+    chunk_char_total = int(sum(char_lengths))
 
     keyword_presence = Counter()
     keyword_hits = Counter()
     sections = Counter()
+    parent_char_by_id: dict[str, int] = {}
+    split_subchunk_count = 0
+    direct_keyword_chunk_count = 0
 
     for chunk in chunks:
+        chunk_id = str(chunk.get("chunk_id") or "")
+        parent_id = str(chunk.get("parent_chunk_id") or chunk_id)
+        chunk_char_len = len(str(chunk.get("chunk_text") or ""))
+        parent_char_len_raw = chunk.get("parent_chunk_char_len")
+        try:
+            parent_char_len = int(parent_char_len_raw)
+        except (TypeError, ValueError):
+            parent_char_len = chunk_char_len
+        parent_char_by_id[parent_id] = max(parent_char_by_id.get(parent_id, 0), parent_char_len)
+
+        if int(chunk.get("subchunk_count") or 1) > 1:
+            split_subchunk_count += 1
+        if bool(chunk.get("has_direct_keyword_match")):
+            direct_keyword_chunk_count += 1
+
         for kw in chunk.get("matched_keywords") or []:
             keyword_presence[str(kw)] += 1
         for group in chunk.get("keyword_matches") or []:
@@ -674,8 +703,16 @@ def chunk_stats(chunks: list[dict[str, Any]]) -> dict[str, Any]:
                 sections[sec] += 1
 
     total = len(chunks)
+    parent_char_total = int(sum(parent_char_by_id.values()))
+    parent_window_count = len(parent_char_by_id)
     return {
         "chunk_count": total,
+        "parent_window_count": parent_window_count,
+        "split_subchunk_count": split_subchunk_count,
+        "direct_keyword_chunk_count": direct_keyword_chunk_count,
+        "context_only_chunk_count": max(0, total - direct_keyword_chunk_count),
+        "chunk_char_total": chunk_char_total,
+        "parent_char_total": parent_char_total,
         "char_mean": mean(char_lengths) if char_lengths else 0.0,
         "char_p10": pctl(char_lengths, 0.10),
         "char_p50": pctl(char_lengths, 0.50),
@@ -825,6 +862,8 @@ def main() -> None:
                 context_after=args.context_after,
                 max_chunk_words=args.max_chunk_words,
                 overlap_sentences=args.overlap_sentences,
+                drop_table_rule_lines=not args.keep_table_rule_lines,
+                drop_listing_rows=not args.keep_listing_signature_rows,
             )
             if our_text
             else []
@@ -840,6 +879,8 @@ def main() -> None:
                 context_after=args.context_after,
                 max_chunk_words=args.max_chunk_words,
                 overlap_sentences=args.overlap_sentences,
+                drop_table_rule_lines=not args.keep_table_rule_lines,
+                drop_listing_rows=not args.keep_listing_signature_rows,
             )
             if fr_text
             else []
@@ -874,6 +915,24 @@ def main() -> None:
             "fr_chunk_count": fr_stats["chunk_count"],
             "fr_minus_our_chunks": fr_stats["chunk_count"] - our_stats["chunk_count"],
             "fr_vs_our_chunk_ratio": safe_ratio(fr_stats["chunk_count"], our_stats["chunk_count"]),
+            "our_parent_window_count": our_stats["parent_window_count"],
+            "fr_parent_window_count": fr_stats["parent_window_count"],
+            "fr_minus_our_parent_windows": fr_stats["parent_window_count"] - our_stats["parent_window_count"],
+            "fr_vs_our_parent_window_ratio": safe_ratio(fr_stats["parent_window_count"], our_stats["parent_window_count"]),
+            "our_split_subchunk_count": our_stats["split_subchunk_count"],
+            "fr_split_subchunk_count": fr_stats["split_subchunk_count"],
+            "our_direct_keyword_chunk_count": our_stats["direct_keyword_chunk_count"],
+            "fr_direct_keyword_chunk_count": fr_stats["direct_keyword_chunk_count"],
+            "our_context_only_chunk_count": our_stats["context_only_chunk_count"],
+            "fr_context_only_chunk_count": fr_stats["context_only_chunk_count"],
+            "our_chunk_char_total": our_stats["chunk_char_total"],
+            "fr_chunk_char_total": fr_stats["chunk_char_total"],
+            "fr_minus_our_chunk_chars": fr_stats["chunk_char_total"] - our_stats["chunk_char_total"],
+            "fr_vs_our_chunk_char_ratio": safe_ratio(fr_stats["chunk_char_total"], our_stats["chunk_char_total"]),
+            "our_parent_char_total": our_stats["parent_char_total"],
+            "fr_parent_char_total": fr_stats["parent_char_total"],
+            "fr_minus_our_parent_chars": fr_stats["parent_char_total"] - our_stats["parent_char_total"],
+            "fr_vs_our_parent_char_ratio": safe_ratio(fr_stats["parent_char_total"], our_stats["parent_char_total"]),
             "our_chunk_char_p50": round(our_stats["char_p50"], 2),
             "our_chunk_char_p90": round(our_stats["char_p90"], 2),
             "fr_chunk_char_p50": round(fr_stats["char_p50"], 2),
@@ -907,6 +966,22 @@ def main() -> None:
             "fr_minus_our_mention_units": len(fr_units) - len(our_units),
             "our_units_per_chunk": round(safe_ratio(len(our_units), our_stats["chunk_count"]), 4),
             "fr_units_per_chunk": round(safe_ratio(len(fr_units), fr_stats["chunk_count"]), 4),
+            "our_units_per_1k_chunk_chars": round(safe_ratio(len(our_units) * 1000, our_stats["chunk_char_total"]), 4),
+            "fr_units_per_1k_chunk_chars": round(safe_ratio(len(fr_units) * 1000, fr_stats["chunk_char_total"]), 4),
+            "our_units_per_1k_parent_chars": round(safe_ratio(len(our_units) * 1000, our_stats["parent_char_total"]), 4),
+            "fr_units_per_1k_parent_chars": round(safe_ratio(len(fr_units) * 1000, fr_stats["parent_char_total"]), 4),
+            "our_keyword_hits_per_1k_chunk_chars": round(
+                safe_ratio(our_stats["keyword_hits_total"] * 1000, our_stats["chunk_char_total"]), 4
+            ),
+            "fr_keyword_hits_per_1k_chunk_chars": round(
+                safe_ratio(fr_stats["keyword_hits_total"] * 1000, fr_stats["chunk_char_total"]), 4
+            ),
+            "our_keyword_hits_per_1k_parent_chars": round(
+                safe_ratio(our_stats["keyword_hits_total"] * 1000, our_stats["parent_char_total"]), 4
+            ),
+            "fr_keyword_hits_per_1k_parent_chars": round(
+                safe_ratio(fr_stats["keyword_hits_total"] * 1000, fr_stats["parent_char_total"]), 4
+            ),
             "ref_positive_units": len(ref_units),
             "our_ref_unit_recall": round(our_unit_cov["ref_unit_recall"], 4),
             "fr_ref_unit_recall": round(fr_unit_cov["ref_unit_recall"], 4),
@@ -1006,6 +1081,24 @@ def main() -> None:
             "fr_chunk_count",
             "fr_minus_our_chunks",
             "fr_vs_our_chunk_ratio",
+            "our_parent_window_count",
+            "fr_parent_window_count",
+            "fr_minus_our_parent_windows",
+            "fr_vs_our_parent_window_ratio",
+            "our_split_subchunk_count",
+            "fr_split_subchunk_count",
+            "our_direct_keyword_chunk_count",
+            "fr_direct_keyword_chunk_count",
+            "our_context_only_chunk_count",
+            "fr_context_only_chunk_count",
+            "our_chunk_char_total",
+            "fr_chunk_char_total",
+            "fr_minus_our_chunk_chars",
+            "fr_vs_our_chunk_char_ratio",
+            "our_parent_char_total",
+            "fr_parent_char_total",
+            "fr_minus_our_parent_chars",
+            "fr_vs_our_parent_char_ratio",
             "our_chunk_char_p50",
             "our_chunk_char_p90",
             "fr_chunk_char_p50",
@@ -1039,6 +1132,14 @@ def main() -> None:
             "fr_minus_our_mention_units",
             "our_units_per_chunk",
             "fr_units_per_chunk",
+            "our_units_per_1k_chunk_chars",
+            "fr_units_per_1k_chunk_chars",
+            "our_units_per_1k_parent_chars",
+            "fr_units_per_1k_parent_chars",
+            "our_keyword_hits_per_1k_chunk_chars",
+            "fr_keyword_hits_per_1k_chunk_chars",
+            "our_keyword_hits_per_1k_parent_chars",
+            "fr_keyword_hits_per_1k_parent_chars",
             "ref_positive_units",
             "our_ref_unit_recall",
             "fr_ref_unit_recall",
@@ -1100,18 +1201,57 @@ def main() -> None:
     )
 
     docs_with_both = [r for r in per_doc_rows if r["our_doc_found"] and r["fr_doc_found"]]
+    our_total_chunks = sum(r["our_chunk_count"] for r in docs_with_both)
+    fr_total_chunks = sum(r["fr_chunk_count"] for r in docs_with_both)
+    our_total_parent_windows = sum(r["our_parent_window_count"] for r in docs_with_both)
+    fr_total_parent_windows = sum(r["fr_parent_window_count"] for r in docs_with_both)
+    our_total_chunk_chars = sum(r["our_chunk_char_total"] for r in docs_with_both)
+    fr_total_chunk_chars = sum(r["fr_chunk_char_total"] for r in docs_with_both)
+    our_total_parent_chars = sum(r["our_parent_char_total"] for r in docs_with_both)
+    fr_total_parent_chars = sum(r["fr_parent_char_total"] for r in docs_with_both)
+    our_total_mention_units = sum(r["our_mention_unit_count"] for r in docs_with_both)
+    fr_total_mention_units = sum(r["fr_mention_unit_count"] for r in docs_with_both)
+    our_total_keyword_hits = sum(r["our_keyword_hits_total"] for r in docs_with_both)
+    fr_total_keyword_hits = sum(r["fr_keyword_hits_total"] for r in docs_with_both)
+
     summary = {
         "run_id_inferred": run_id,
         "years": sorted(years),
         "golden_companies": len(golden_by_lei),
+        "chunking_params": {
+            "context_before": args.context_before,
+            "context_after": args.context_after,
+            "max_chunk_words": args.max_chunk_words,
+            "overlap_sentences": args.overlap_sentences,
+            "drop_table_rule_lines": not args.keep_table_rule_lines,
+            "drop_listing_rows": not args.keep_listing_signature_rows,
+        },
         "expected_company_year_pairs": len(golden_by_lei) * len(years),
         "pairs_with_our_doc": sum(r["our_doc_found"] for r in per_doc_rows),
         "pairs_with_fr_doc": sum(r["fr_doc_found"] for r in per_doc_rows),
         "pairs_with_both_docs": len(docs_with_both),
-        "our_total_chunks": sum(r["our_chunk_count"] for r in docs_with_both),
-        "fr_total_chunks": sum(r["fr_chunk_count"] for r in docs_with_both),
-        "our_total_mention_units": sum(r["our_mention_unit_count"] for r in docs_with_both),
-        "fr_total_mention_units": sum(r["fr_mention_unit_count"] for r in docs_with_both),
+        "our_total_chunks": our_total_chunks,
+        "fr_total_chunks": fr_total_chunks,
+        "our_total_parent_windows": our_total_parent_windows,
+        "fr_total_parent_windows": fr_total_parent_windows,
+        "our_total_chunk_chars": our_total_chunk_chars,
+        "fr_total_chunk_chars": fr_total_chunk_chars,
+        "our_total_parent_chars": our_total_parent_chars,
+        "fr_total_parent_chars": fr_total_parent_chars,
+        "our_total_mention_units": our_total_mention_units,
+        "fr_total_mention_units": fr_total_mention_units,
+        "our_total_keyword_hits": our_total_keyword_hits,
+        "fr_total_keyword_hits": fr_total_keyword_hits,
+        "fr_vs_our_total_chunk_char_ratio": round(safe_ratio(fr_total_chunk_chars, our_total_chunk_chars), 4),
+        "fr_vs_our_total_parent_char_ratio": round(safe_ratio(fr_total_parent_chars, our_total_parent_chars), 4),
+        "our_mentions_per_1k_chunk_chars": round(safe_ratio(our_total_mention_units * 1000, our_total_chunk_chars), 4),
+        "fr_mentions_per_1k_chunk_chars": round(safe_ratio(fr_total_mention_units * 1000, fr_total_chunk_chars), 4),
+        "our_mentions_per_1k_parent_chars": round(safe_ratio(our_total_mention_units * 1000, our_total_parent_chars), 4),
+        "fr_mentions_per_1k_parent_chars": round(safe_ratio(fr_total_mention_units * 1000, fr_total_parent_chars), 4),
+        "our_keyword_hits_per_1k_chunk_chars": round(safe_ratio(our_total_keyword_hits * 1000, our_total_chunk_chars), 4),
+        "fr_keyword_hits_per_1k_chunk_chars": round(safe_ratio(fr_total_keyword_hits * 1000, fr_total_chunk_chars), 4),
+        "our_keyword_hits_per_1k_parent_chars": round(safe_ratio(our_total_keyword_hits * 1000, our_total_parent_chars), 4),
+        "fr_keyword_hits_per_1k_parent_chars": round(safe_ratio(fr_total_keyword_hits * 1000, fr_total_parent_chars), 4),
         "avg_our_ref_recall": round(mean([r["our_ref_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_fr_ref_recall": round(mean([r["fr_ref_recall"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
         "avg_our_precision_proxy": round(mean([r["our_precision_proxy"] for r in docs_with_both]), 4) if docs_with_both else 0.0,
@@ -1143,17 +1283,41 @@ def main() -> None:
         f"- Golden companies: {len(golden_by_lei)}",
         f"- Company-year pairs expected: {len(golden_by_lei) * len(years)}",
         f"- Pairs with both docs: {len(docs_with_both)}",
+        (
+            f"- Chunking params: context_before={args.context_before}, "
+            f"context_after={args.context_after}, max_chunk_words={args.max_chunk_words}, "
+            f"overlap_sentences={args.overlap_sentences}, "
+            f"drop_table_rule_lines={not args.keep_table_rule_lines}, "
+            f"drop_listing_rows={not args.keep_listing_signature_rows}"
+        ),
         "",
         "## Aggregate",
         "",
         f"- Total chunks (our): {summary['our_total_chunks']}",
         f"- Total chunks (fr): {summary['fr_total_chunks']}",
+        f"- Total parent windows (our): {summary['our_total_parent_windows']}",
+        f"- Total parent windows (fr): {summary['fr_total_parent_windows']}",
+        f"- Total chunk chars (our): {summary['our_total_chunk_chars']}",
+        f"- Total chunk chars (fr): {summary['fr_total_chunk_chars']}",
+        f"- Total parent-collapsed chars (our): {summary['our_total_parent_chars']}",
+        f"- Total parent-collapsed chars (fr): {summary['fr_total_parent_chars']}",
         f"- Avg reference recall (our): {summary['avg_our_ref_recall']}",
         f"- Avg reference recall (fr): {summary['avg_fr_ref_recall']}",
         f"- Avg precision proxy (our): {summary['avg_our_precision_proxy']}",
         f"- Avg precision proxy (fr): {summary['avg_fr_precision_proxy']}",
         f"- Avg overlap our->fr: {summary['avg_our_to_fr_overlap']}",
         f"- Avg overlap fr->our: {summary['avg_fr_to_our_overlap']}",
+        "",
+        "## Normalized Densities",
+        "",
+        f"- Mention units per 1k chunk chars (our): {summary['our_mentions_per_1k_chunk_chars']}",
+        f"- Mention units per 1k chunk chars (fr): {summary['fr_mentions_per_1k_chunk_chars']}",
+        f"- Mention units per 1k parent chars (our): {summary['our_mentions_per_1k_parent_chars']}",
+        f"- Mention units per 1k parent chars (fr): {summary['fr_mentions_per_1k_parent_chars']}",
+        f"- Keyword hits per 1k chunk chars (our): {summary['our_keyword_hits_per_1k_chunk_chars']}",
+        f"- Keyword hits per 1k chunk chars (fr): {summary['fr_keyword_hits_per_1k_chunk_chars']}",
+        f"- Keyword hits per 1k parent chars (our): {summary['our_keyword_hits_per_1k_parent_chars']}",
+        f"- Keyword hits per 1k parent chars (fr): {summary['fr_keyword_hits_per_1k_parent_chars']}",
         "",
         "## Mention Units",
         "",
@@ -1199,6 +1363,14 @@ def main() -> None:
     print(
         "Total chunks -> "
         f"our: {summary['our_total_chunks']} | fr: {summary['fr_total_chunks']}"
+    )
+    print(
+        "Total parent-collapsed chars -> "
+        f"our: {summary['our_total_parent_chars']} | fr: {summary['fr_total_parent_chars']}"
+    )
+    print(
+        "Mention density per 1k parent chars -> "
+        f"our: {summary['our_mentions_per_1k_parent_chars']} | fr: {summary['fr_mentions_per_1k_parent_chars']}"
     )
     print(
         "Avg reference recall -> "

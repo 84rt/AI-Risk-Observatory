@@ -24,13 +24,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--context-before",
         type=int,
-        default=2,
+        default=1,
         help="Paragraphs of context before a match",
     )
     parser.add_argument(
         "--context-after",
         type=int,
-        default=2,
+        default=1,
         help="Paragraphs of context after a match",
     )
     parser.add_argument(
@@ -42,8 +42,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overlap-sentences",
         type=int,
-        default=1,
+        default=0,
         help="Sentence overlap between split subchunks of oversized chunks.",
+    )
+    parser.add_argument(
+        "--keep-table-rule-lines",
+        action="store_true",
+        help="Keep markdown table separator lines (default is to drop them).",
+    )
+    parser.add_argument(
+        "--keep-listing-signature-rows",
+        action="store_true",
+        help="Keep long listing/register table rows (default is to drop them).",
     )
     parser.add_argument(
         "--output-dir",
@@ -99,6 +109,8 @@ def main() -> None:
                 context_after=args.context_after,
                 max_chunk_words=args.max_chunk_words,
                 overlap_sentences=args.overlap_sentences,
+                drop_table_rule_lines=not args.keep_table_rule_lines,
+                drop_listing_rows=not args.keep_listing_signature_rows,
             )
             all_chunks.extend(chunks)
 

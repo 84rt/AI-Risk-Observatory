@@ -585,6 +585,64 @@ risk_v5: |
   ## EXCERPT CONTEXT
   Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
 
+risk_open_v1: |
+  You are an expert analyst classifying AI-related risks in company annual reports.
+
+  ## OBJECTIVE
+  Discover emergent risk categories without using a fixed taxonomy.
+  Stay epistemically conservative: do NOT impose categories when the excerpt does not support them.
+  Reuse the same attribution discipline as strict risk classification.
+
+  ## TASK
+  The excerpt has already been classified with mention types: {mention_types}.
+  Identify risks that are caused by, linked to, or exacerbated by AI.
+  If a specific risk category is supported, create a concise emergent label in snake_case.
+  Categories are NOT mutually exclusive; include all that are supported by the excerpt.
+  {reasoning_instruction}
+
+  ## ATTRIBUTION FRAMEWORK (MAPS DIRECTLY TO SIGNAL SCORES)
+  Before assigning any risk category, assess the strength of AI-to-risk attribution:
+
+  Signal 3 — EXPLICIT: The text directly states that AI causes, creates, or exposes the company to this specific category of risk.
+  Signal 2 — STRONG IMPLICIT: AI and a specific downside are clearly present and linked, but causality requires modest interpretation.
+  Signal 1 — WEAK IMPLICIT: AI is in a risk context and a specific category is plausible, but attribution is indirect.
+  None — NO ATTRIBUTION: No attributable AI-risk claim, or too vague to map to a concrete category.
+
+  ## EMERGENT LABELING RULES
+  1. Use short snake_case labels only. Example style: model_reliability_failure, ai_vendor_dependency, genai_fraud_exposure.
+  2. Labels must represent downside risk categories, not controls, teams, governance artifacts, or opportunities.
+  3. If the excerpt does not support attributable AI risk, return only "none".
+  4. Do not invent categories with no textual support.
+  5. Maximum 3 non-none labels per excerpt.
+  6. For each non-none label, include:
+     - a one-line definition grounded in this excerpt,
+     - one evidence snippet from the excerpt,
+     - a signal score (1-3).
+
+  ## DECISION RULES
+  1. Opportunity/adoption language alone is NOT risk.
+  2. AI mention + separate generic risk mention with no textual link = none.
+  3. Short/fragmentary chunks: prefer none unless a concrete AI-risk category is still supportable.
+  4. If "none" is selected, it must be the only risk type.
+
+  ## SUBSTANTIVENESS
+  - boilerplate: Generic AI-risk language; no specific mechanism or concrete action.
+  - moderate: Specific AI-risk area identified but limited mechanism or mitigation detail.
+  - substantive: Specific AI-risk mechanism plus tangible mitigation actions/commitments.
+
+  ## OUTPUT CONSTRAINTS
+  - risk_types must be non-empty.
+  - If "none" is present, it must be the only label.
+  - risk_signals must include exactly one object per label in risk_types.
+  - label_definitions must include exactly one object per non-none label in risk_types.
+  - evidence must include at least one object per non-none label in risk_types.
+  - Do NOT include label_definitions or evidence when risk_types is ["none"].
+  - Signal scores must be integers in {{1,2,3}}.
+  - substantiveness must be one of: boilerplate, moderate, substantive.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
 substantiveness: |
   You are an expert analyst assessing the substantiveness of AI disclosures in company annual reports.
 
@@ -597,6 +655,82 @@ substantiveness: |
   - "We are exploring AI opportunities." -> boilerplate ~0.8
   - "AI may pose risks to our industry." -> contextual ~0.7
   - "We deployed GPT-4 for automated document review, reducing processing time by 40%." -> substantive ~0.95
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}
+
+substantiveness_v2: |
+  You are an expert analyst evaluating the information density of AI-related disclosures in company annual reports.
+
+  ## OBJECTIVE
+  Determine how much actionable, company-specific information an excerpt conveys about AI.
+  This is independent of whether the excerpt discusses adoption, risk, vendor, or strategy.
+
+  ## TASK
+  Read the excerpt and assign exactly one substantiveness level: boilerplate, moderate, or substantive.
+  Provide a confidence score (0.0-1.0) and brief reasoning.
+
+  ## LEVEL DEFINITIONS
+
+  ### BOILERPLATE
+  Generic language that could appear in virtually any company's annual report unchanged.
+  Contains no company-specific detail, no named systems, no metrics, and no concrete commitments.
+  Often consists of buzzword-heavy forward-looking statements or generic risk disclaimers.
+
+  Heuristic: if you could swap in any other company name and the sentence would still make sense, it is boilerplate.
+
+  Examples (annual report language):
+  - "We leverage AI to drive innovation and improve operational efficiency."
+  - "AI poses emerging risks that we continue to monitor."
+  - "We are committed to the responsible use of artificial intelligence."
+  - "The rapid advancement of AI technologies may disrupt our industry."
+  - "We believe AI will create significant opportunities for our business."
+
+  ### MODERATE
+  Identifies a specific use case, domain, risk area, or business function, but lacks concrete detail.
+  The reader learns *where* AI is relevant to the company but not *what exactly* was done, measured, or committed to.
+
+  Heuristic: names a domain or application area but provides no specifics (no system names, no metrics, no timelines, no vendor names).
+
+  Examples (annual report language):
+  - "We use AI in our underwriting process to improve risk selection."
+  - "AI regulation, including the EU AI Act, may affect our compliance obligations."
+  - "We deployed AI-based fraud detection across our retail banking division."
+  - "AI is used in our supply chain planning to optimize inventory levels."
+  - "We are piloting AI tools in our customer service operations."
+
+  ### SUBSTANTIVE
+  Provides concrete, verifiable detail: named systems or vendors, quantified impact, specific timelines,
+  technical descriptions, or tangible mitigation actions. The reader gains information that could not
+  be written about a different company.
+
+  Heuristic: names systems/vendors/metrics/timelines, or describes what/how/why with enough technical
+  detail to distinguish this company's AI activity from any other.
+
+  Examples (annual report language):
+  - "We deployed GPT-4 via Azure OpenAI for automated document review, reducing processing time by 40%."
+  - "We allocated EUR 5M to reclassify 3 high-risk AI systems under the EU AI Act by Q2 2025."
+  - "Our proprietary ML model processes 2.3M claims per month with 96% accuracy."
+  - "We integrated Microsoft Copilot across 15,000 desktops in FY2024, with 68% weekly active usage."
+  - "Our AI governance framework requires bias audits for all models in production, reviewed quarterly by the Risk Committee."
+
+  ## DECISION RULES
+  1. Judge the excerpt as a whole. If it mixes levels, assign the level that best represents the dominant content.
+  2. A single concrete detail (vendor name, metric, timeline) in otherwise generic text can lift an excerpt from boilerplate to moderate.
+  3. Quantified impact, named systems, or specific commitments are required for substantive.
+  4. Forward-looking plans with specific timelines or budgets count as substantive; vague plans without detail are moderate at best.
+  5. Risk disclaimers are boilerplate unless they name a specific risk mechanism and concrete mitigation.
+
+  ## CONFIDENCE GUIDANCE (0.0-1.0)
+  - 0.3: the boundary between levels is genuinely ambiguous
+  - 0.5: leans toward one level but could reasonably be another
+  - 0.7: clearly fits one level with minor ambiguity
+  - 0.9+: unambiguous classification
+
+  ## OUTPUT CONSTRAINTS
+  - substantiveness must be exactly one of: boilerplate, moderate, substantive.
+  - confidence must be a float between 0.0 and 1.0.
+  - reasoning should be 1-2 sentences explaining the key evidence for your classification.
 
   ## EXCERPT CONTEXT
   Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Section: {report_section}

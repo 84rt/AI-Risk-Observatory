@@ -8,6 +8,7 @@ Note: Dict types are avoided for Gemini compatibility. Instead, we use
 nested objects with explicit properties for known keys.
 """
 
+import re
 from enum import Enum
 from typing import List, Optional
 
@@ -354,6 +355,190 @@ class RiskResponse(BaseModel):
 
 
 # =============================================================================
+# Open Risk Discovery Classifier
+# =============================================================================
+
+
+class OpenRiskSignalEntry(BaseModel):
+    """Single open-taxonomy risk signal entry."""
+
+    type: str = Field(
+        description=(
+            "Emergent risk label in snake_case, or 'none' when no attributable AI-risk exists."
+        )
+    )
+    signal: conint(ge=1, le=3) = Field(
+        description="Signal strength (1-3): 1=weak implicit, 2=strong implicit, 3=explicit",
+    )
+
+
+class OpenRiskLabelDefinitionEntry(BaseModel):
+    """One-line definition for an emergent risk label."""
+
+    type: str = Field(
+        description="Emergent risk label in snake_case."
+    )
+    definition: str = Field(
+        min_length=8,
+        max_length=240,
+        description="One-line definition grounded in the excerpt.",
+    )
+
+
+class OpenRiskEvidenceEntry(BaseModel):
+    """Evidence snippet supporting an emergent risk label."""
+
+    type: str = Field(
+        description="Emergent risk label in snake_case."
+    )
+    snippet: str = Field(
+        min_length=8,
+        max_length=360,
+        description="Quoted or near-quoted supporting snippet from the excerpt.",
+    )
+
+
+class OpenRiskResponse(BaseModel):
+    """Response schema for conservative open-taxonomy AI risk discovery."""
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    risk_types: List[str] = Field(
+        description=(
+            "Detected emergent AI risk labels in snake_case. "
+            "Use ['none'] when no attributable AI-risk category is supported."
+        ),
+        max_length=3,
+    )
+    risk_signals: List[OpenRiskSignalEntry] = Field(
+        description=(
+            "Signal scores (1-3) for labels in risk_types only; one entry per label."
+        )
+    )
+    label_definitions: List[OpenRiskLabelDefinitionEntry] = Field(
+        description=(
+            "One-line definitions for non-none labels; exactly one definition per label."
+        )
+    )
+    evidence: List[OpenRiskEvidenceEntry] = Field(
+        description=(
+            "Evidence snippets for non-none labels; include at least one snippet per label."
+        )
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI risk disclosure? "
+            "'boilerplate': generic risk language with no information content. "
+            "'moderate': specific risk area with limited mechanism/mitigation detail. "
+            "'substantive': specific mechanism plus tangible mitigation actions/commitments."
+        )
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of classification rationale.",
+    )
+
+    @staticmethod
+    def _normalize_label(raw: object) -> str:
+        token = str(raw).strip().lower()
+        if token == "none":
+            return token
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", token):
+            raise ValueError(
+                f"Invalid open risk label '{raw}'. Labels must be snake_case (2-64 chars)."
+            )
+        return token
+
+    @model_validator(mode="after")
+    def validate_open_risk_payload(self) -> "OpenRiskResponse":
+        if not self.risk_types:
+            raise ValueError("risk_types must not be empty")
+
+        normalized_types = [self._normalize_label(rt) for rt in self.risk_types]
+        if len(normalized_types) != len(set(normalized_types)):
+            raise ValueError("risk_types must not contain duplicate labels")
+        if "none" in normalized_types and len(normalized_types) > 1:
+            raise ValueError("risk_types cannot include 'none' with other labels")
+        if len(normalized_types) > 3:
+            raise ValueError("risk_types must contain at most 3 labels")
+        self.risk_types = normalized_types
+
+        signal_labels: list[str] = []
+        seen_signal_labels: set[str] = set()
+        for entry in self.risk_signals:
+            lbl = self._normalize_label(entry.type)
+            if lbl in seen_signal_labels:
+                raise ValueError(f"risk_signals contains duplicate label: {lbl}")
+            entry.type = lbl
+            seen_signal_labels.add(lbl)
+            signal_labels.append(lbl)
+
+        type_set = set(normalized_types)
+        if set(signal_labels) != type_set:
+            missing = sorted(type_set - set(signal_labels))
+            extra = sorted(set(signal_labels) - type_set)
+            details = []
+            if missing:
+                details.append(f"missing labels: {', '.join(missing)}")
+            if extra:
+                details.append(f"unexpected labels: {', '.join(extra)}")
+            raise ValueError(f"risk_signals must match risk_types exactly ({'; '.join(details)})")
+
+        if type_set == {"none"}:
+            if self.label_definitions:
+                raise ValueError("label_definitions must be empty when risk_types is ['none']")
+            if self.evidence:
+                raise ValueError("evidence must be empty when risk_types is ['none']")
+            return self
+
+        definition_labels: list[str] = []
+        seen_definition_labels: set[str] = set()
+        for entry in self.label_definitions:
+            lbl = self._normalize_label(entry.type)
+            if lbl == "none":
+                raise ValueError("label_definitions cannot include 'none'")
+            if lbl in seen_definition_labels:
+                raise ValueError(f"label_definitions contains duplicate label: {lbl}")
+            entry.type = lbl
+            seen_definition_labels.add(lbl)
+            definition_labels.append(lbl)
+
+        if set(definition_labels) != type_set:
+            missing = sorted(type_set - set(definition_labels))
+            extra = sorted(set(definition_labels) - type_set)
+            details = []
+            if missing:
+                details.append(f"missing labels: {', '.join(missing)}")
+            if extra:
+                details.append(f"unexpected labels: {', '.join(extra)}")
+            raise ValueError(
+                f"label_definitions must match non-none risk_types exactly ({'; '.join(details)})"
+            )
+
+        evidence_labels: set[str] = set()
+        for entry in self.evidence:
+            lbl = self._normalize_label(entry.type)
+            if lbl == "none":
+                raise ValueError("evidence cannot include 'none'")
+            if lbl not in type_set:
+                raise ValueError(
+                    f"evidence contains label not present in risk_types: {lbl}"
+                )
+            entry.type = lbl
+            evidence_labels.add(lbl)
+
+        missing_evidence = sorted(type_set - evidence_labels)
+        if missing_evidence:
+            raise ValueError(
+                f"evidence must include at least one snippet per risk label (missing: {', '.join(missing_evidence)})"
+            )
+
+        return self
+
+
+# =============================================================================
 # Vendor Classifier
 # =============================================================================
 
@@ -464,6 +649,34 @@ class SubstantivenessResponse(BaseModel):
     reasoning: Optional[str] = Field(
         default=None,
         description="Brief explanation of classification rationale.",
+    )
+
+
+class SubstantivenessResponseV2(BaseModel):
+    """Standalone substantiveness classifier response (v2).
+
+    Assigns a single substantiveness label with confidence and reasoning.
+    Designed to run independently of mention_type classification.
+    """
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI disclosure? "
+            "'boilerplate': generic jargon, interchangeable across companies. "
+            "'moderate': names a domain/application but lacks specifics. "
+            "'substantive': names systems/vendors/metrics/timelines with concrete detail."
+        )
+    )
+    confidence: float = Field(
+        description="Classification confidence (0.0-1.0).",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of classification rationale (1-2 sentences).",
     )
 
 

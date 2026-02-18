@@ -50,6 +50,7 @@ if _env_path.exists():
 
 from src.classifiers.adoption_type_classifier import AdoptionTypeClassifier
 from src.classifiers.base_classifier import _clean_schema_for_gemini
+from src.classifiers.mention_type_classifier import MentionTypeClassifier
 from src.classifiers.risk_classifier import RiskClassifier
 from src.classifiers.vendor_classifier import VendorClassifier
 from src.utils.batch_api import BatchClient
@@ -69,6 +70,11 @@ GOLDEN_SET_DEFAULT = REPO_ROOT / "data" / "golden_set" / "human_reconciled" / "a
 EXPORT_SCRIPT = PIPELINE_DIR / "scripts" / "export_testbed_run_for_reconcile.py"
 
 CLASSIFIER_CONFIG: dict[str, dict[str, Any]] = {
+    "mention_type": {
+        "cls": MentionTypeClassifier,
+        "human_field": "mention_types",
+        "filter_mention": None,  # all chunks
+    },
     "adoption_type": {
         "cls": AdoptionTypeClassifier,
         "human_field": "adoption_types",
@@ -125,10 +131,25 @@ def parse_args() -> argparse.Namespace:
         help="Seconds between batch status checks (default: 30).",
     )
     p.add_argument(
+        "--max-poll-time",
+        type=int,
+        default=86400,
+        help="Maximum seconds to wait for batch completion before timing out (default: 86400 = 24h).",
+    )
+    p.add_argument(
         "--temperature",
         type=float,
         default=0.0,
         help="LLM temperature (default: 0.0).",
+    )
+    p.add_argument(
+        "--thinking-budget",
+        type=int,
+        default=0,
+        help=(
+            "Thinking budget for Gemini. Set 0 to explicitly disable thinking "
+            "and preserve output tokens for JSON."
+        ),
     )
     p.add_argument(
         "--dry-run",
@@ -180,8 +201,12 @@ def load_chunks(golden_set_path: Path) -> list[dict]:
 
 def filter_chunks(chunks: list[dict], classifier_name: str) -> list[dict]:
     mention = CLASSIFIER_CONFIG[classifier_name]["filter_mention"]
-    filtered = [c for c in chunks if mention in c.get("mention_types", [])]
-    print(f"  {classifier_name}: {len(filtered)} chunks (mention_type={mention})")
+    if mention is None:
+        filtered = list(chunks)
+        print(f"  {classifier_name}: {len(filtered)} chunks (all)")
+    else:
+        filtered = [c for c in chunks if mention in c.get("mention_types", [])]
+        print(f"  {classifier_name}: {len(filtered)} chunks (mention_type={mention})")
     return filtered
 
 
@@ -307,6 +332,7 @@ def prepare_batch_jsonl(
     classifier_name: str,
     filtered_chunks: list[dict],
     temperature: float = 0.0,
+    thinking_budget: int | None = 0,
 ) -> Path:
     """Write batch request JSONL for one classifier."""
     config = CLASSIFIER_CONFIG[classifier_name]
@@ -329,6 +355,10 @@ def prepare_batch_jsonl(
                 "response_mime_type": "application/json",
                 "response_schema": response_schema,
             }
+            if thinking_budget is not None:
+                generation_config["thinking_config"] = {
+                    "thinking_budget": int(thinking_budget)
+                }
             line = {
                 "key": str(i),
                 "request": {
@@ -446,7 +476,12 @@ def download_and_parse(
 
     # --- Extract labels per classifier ---
     def _extract_llm_labels(parsed: dict) -> list[str]:
-        if classifier_name == "risk":
+        if classifier_name == "mention_type":
+            types = parsed.get("mention_types", [])
+            if isinstance(types, str):
+                types = [types]
+            return [normalize_label_token(t) for t in types if t]
+        elif classifier_name == "risk":
             return extract_risk_labels(parsed)
         elif classifier_name == "adoption_type":
             return [
@@ -569,10 +604,12 @@ def download_and_parse(
             response_obj = entry.get("response", {})
             response_text = None
             candidates = response_obj.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    response_text = parts[0].get("text")
+            for cand in candidates:
+                parts = cand.get("content", {}).get("parts", [])
+                text_parts = [p.get("text", "") for p in parts if isinstance(p, dict) and p.get("text")]
+                if text_parts:
+                    response_text = "\n".join(text_parts).strip()
+                    break
 
             if not response_text:
                 error = f"Key '{i}': empty response text"
@@ -735,6 +772,8 @@ def main() -> None:
     print(f"  Golden set:  {args.golden_set}")
     print(f"  Dry run:     {args.dry_run}")
     print(f"  Resume:      {args.resume}")
+    print(f"  Poll every:  {args.poll_interval}s")
+    print(f"  Poll max:    {args.max_poll_time}s")
     print()
 
     # Load chunks once
@@ -778,6 +817,7 @@ def main() -> None:
                 name,
                 filtered[name],
                 temperature=args.temperature,
+                thinking_budget=args.thinking_budget,
             )
         print()
 
@@ -814,7 +854,7 @@ def main() -> None:
         final_statuses = batch.poll_until_complete(
             jobs=job_names,
             interval=args.poll_interval,
-            max_time=7200,
+            max_time=args.max_poll_time,
         )
     except KeyboardInterrupt:
         print("\nInterrupted! Attempting to parse any completed jobs...")

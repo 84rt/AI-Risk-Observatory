@@ -93,7 +93,7 @@ class BatchClient:
         run_id: str,
         chunks: list[dict],
         temperature: float = 0.0,
-        thinking_budget: int = 0,
+        thinking_budget: int | None = 0,
     ) -> Path:
         """
         Write batch requests to a JSONL file with key-based matching.
@@ -104,7 +104,8 @@ class BatchClient:
             run_id: Used to name the JSONL file.
             chunks: List of chunk dicts.
             temperature: LLM temperature.
-            thinking_budget: Token budget for thinking (0 = disabled).
+            thinking_budget: Token budget for thinking.
+                Use `0` to explicitly disable thinking; use `None` to omit setting.
 
         Returns:
             Path to the written JSONL file.
@@ -125,8 +126,10 @@ class BatchClient:
                     "response_mime_type": "application/json",
                     "response_schema": response_schema,
                 }
-                if thinking_budget > 0:
-                    generation_config["thinking_config"] = {"thinking_budget": thinking_budget}
+                if thinking_budget is not None:
+                    generation_config["thinking_config"] = {
+                        "thinking_budget": int(thinking_budget)
+                    }
 
                 line = {
                     "key": str(i),
@@ -412,14 +415,14 @@ class BatchClient:
         self,
         jobs: dict[str, str],
         interval: int = 30,
-        max_time: int = 7200,
+        max_time: int = 86400,
     ) -> dict[str, dict]:
         """Poll multiple batch jobs until all reach a terminal state.
 
         Args:
             jobs: Mapping of label (e.g. classifier name) to job_name.
             interval: Seconds between polling rounds.
-            max_time: Maximum total wait time in seconds (default 2h).
+            max_time: Maximum total wait time in seconds (default 24h).
 
         Returns:
             Dict of {label: final_status_dict} for every job.
@@ -435,7 +438,12 @@ class BatchClient:
             for label, job_name in jobs.items():
                 if label in completed:
                     continue
-                status = self.check_status(job_name)
+                try:
+                    status = self.check_status(job_name)
+                except Exception as poll_err:
+                    print(f"WARNING: poll error for {label}: {poll_err!r} — will retry next cycle")
+                    pending.append(label)
+                    continue
                 if status["state"] in terminal_states:
                     completed[label] = status
                 else:

@@ -11,6 +11,7 @@ from .mention_type_classifier import MentionTypeClassifier
 from .substantiveness_classifier import SubstantivenessClassifier
 from .vendor_classifier import VendorClassifier
 from .risk_classifier import RiskClassifier
+from .open_risk_classifier import OpenRiskDiscoveryClassifier
 from .llm_classifier_v2 import LLMClassifierV2
 from .schemas import (
     MentionType,
@@ -23,12 +24,17 @@ from .schemas import (
     RiskType,
     RiskConfidenceScores,
     RiskResponse,
+    OpenRiskSignalEntry,
+    OpenRiskLabelDefinitionEntry,
+    OpenRiskEvidenceEntry,
+    OpenRiskResponse,
     VendorTag,
     VendorEntry,
     VendorResponse,
     SubstantivenessLevel,
     SubstantivenessScores,
     SubstantivenessResponse,
+    SubstantivenessResponseV2,
     HarmsResponse,
 )
 
@@ -48,6 +54,7 @@ __all__ = [
     "SubstantivenessClassifier",
     "VendorClassifier",
     "RiskClassifier",
+    "OpenRiskDiscoveryClassifier",
     # Schemas - Enums
     "MentionType",
     "AdoptionType",
@@ -59,6 +66,9 @@ __all__ = [
     "AdoptionSignalEntry",
     "AdoptionConfidenceScores",
     "RiskConfidenceScores",
+    "OpenRiskSignalEntry",
+    "OpenRiskLabelDefinitionEntry",
+    "OpenRiskEvidenceEntry",
     "VendorEntry",
     "SubstantivenessScores",
     # Schemas - Response models
@@ -66,7 +76,9 @@ __all__ = [
     "MentionTypeResponseV2",
     "AdoptionTypeResponse",
     "RiskResponse",
+    "OpenRiskResponse",
     "VendorResponse",
     "SubstantivenessResponse",
+    "SubstantivenessResponseV2",
     "HarmsResponse",
 ]

@@ -20,5 +20,8 @@ pip install -r requirements.txt
 - `scripts/chunk_markdown.py` — generate AI-mention chunks
 - `tests/qa_manager.py` — run QA checks
 
+## Gemini Batch API Gotchas
+- `gemini-3-flash-preview` uses thinking tokens by default, and they count against `max_output_tokens`. Use at least `2048` for simple schemas (thinking alone averages ~650 tokens). The phase 2 classifiers already use 2048; the substantiveness testbed initially used 1024 and hit 30% truncation errors.
+
 ## Guardrails
 - Never commit real API keys. Use `.env` (gitignored).
