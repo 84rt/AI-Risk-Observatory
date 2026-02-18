@@ -1,16 +1,51 @@
-company_name,sector,index,type,company_number,ticker,lei
-Croda International plc,Chemicals,FTSE 100,Best proxy,,,
-Rolls-Royce Holdings plc,Civil Nuclear/Space,FTSE 100,Best proxy,,,
-BT Group plc,Communications,FTSE 100,Direct,,,
-BAE Systems plc,Defence,FTSE 100,Direct,,,
-Serco Group plc,Government Services,FTSE 250,Best proxy,,,
-Shell plc,Energy (Extraction),FTSE 100,Direct,,,
-Lloyds Banking Group plc,Finance (Banking),FTSE 100,Direct,,,
-Tesco plc,Food (Retail),FTSE 100,Direct,,,
-AstraZeneca plc,Health (Pharma),FTSE 100,Direct,,,
-National Grid plc,Energy (Transmission),FTSE 100,Direct,,,
-Severn Trent plc,Water,FTSE 100,Direct,,,
-Aviva plc,Insurance,FTSE 100,Direct,,,
-Schroders plc,Asset Management,FTSE 100,Direct,,,
-FirstGroup plc,Transport,FTSE 250,Direct,,,
-Clarkson plc,Shipping,FTSE 250,Direct,,,
+company_name,lei,cni_sector,isic_sector_code,isic_sector_name,isic_section_code,isic_section_name,source_type
+Croda International plc,2138004WCNBFJEEOXV26,Chemicals,2029,Manufacture of other chemical products n.e.c.,C,Manufacturing,Golden Set
+Rolls-Royce Holdings plc,213800EC7997ZBLZJH69,Civil Nuclear/Space,3030,Manufacture of air and spacecraft and related machinery,C,Manufacturing,Golden Set
+BT Group plc,213800LRO7NS5CYQMN21,Communications,6110,"Wired, wireless, and satellite telecommunication activities",J,Information and communication,Golden Set
+BAE Systems plc,8SVCSVKSGDWMW2QHOH83,Defence,3040,Manufacture of military fighting vehicles,C,Manufacturing,Golden Set
+Serco Group plc,549300PT2CIHYN5GWJ21,Government Services,8299,Other business support service activities n.e.c.,N,Administrative and support service activities,Golden Set
+Shell plc,21380068P1DRHMJ8KU70,Energy (Extraction),1920,Manufacture of refined petroleum products; manufacture of fossil fuel products,C,Manufacturing,Golden Set
+Lloyds Banking Group plc,549300PPXHEU2JF0AM85,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Golden Set
+Tesco plc,2138002P5RNKC5W2JZ46,Food (Retail),4711,"Non-specialized retail sale with food, beverages or tobacco predominating",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Golden Set
+AstraZeneca plc,PY6ZZQWO2IZFZC3IOL08,Health (Pharma),2100,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",C,Manufacturing,Golden Set
+National Grid plc,8R95QZMKZLJX5Q2XR704,Energy (Transmission),3513,Electric power transmission and distribution activities,D,"Electricity, gas, steam and air conditioning supply",Golden Set
+Severn Trent plc,213800RPBXRETY4A4C59,Water,3600,"Water collection, treatment and supply",E,"Water supply; sewerage, waste management and remediation activities",Golden Set
+Aviva plc,YF0Y5B0IB8SM0ZFG9G81,Insurance,6511,Life insurance,K,Financial and insurance activities,Golden Set
+Schroders plc,2138001YYBULX5SZ2H24,Asset Management,6499,"Other financial service activities n.e.c., except insurance and pension funding activities",K,Financial and insurance activities,Golden Set
+FirstGroup plc,549300DEJZCPWA4HKM93,Transport,4921,Urban and suburban passenger land transport,H,Transportation and storage,Golden Set
+Clarkson plc,2138007G6BGTEHI3OT22,Shipping,7499,"All other professional, scientific and technical activities n.e.c.",M,"Professional, scientific and technical activities",Golden Set
+ASSOCIATED BRITISH ENGINEERING PLC,213800MYKAWRRE9C9U05,Other,6421,Activities of holding companies,K,Financial and insurance activities,Expansion
+BSF ENTERPRISE PLC,2138007PJT69H8FYLC06,Other,7210,Research and experimental development on natural sciences and engineering,M,"Professional, scientific and technical activities",Expansion
+Babcock International Group PLC,213800TSKOLX4EU6L377,Defence,7110,"Architectural and engineering, and related technical consultancy activities",M,"Professional, scientific and technical activities",Expansion
+Barclays PLC,213800LBQA1Y9L22JB70,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
+Barratt Developments PLC,2138006R85VEOF5YNK29,Other,4100,Construction of residential and non-residential buildings,F,Construction,Expansion
+British Land Co PLC,RV5B68J2GV3QGMRPW209,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
+Capita PLC,CMIGEWPLHL4M7ZV0IZ88,Government Services,6220,Computer consultancy and computer facilities management activities,J,Information and communication,Expansion
+Carnival PLC,4DR1VPDQMHD3N3QW8W95,Shipping,5011,Sea and coastal passenger water transport,H,Transportation and storage,Expansion
+Centrica PLC,E26EDV109X6EEPBKVH76,Energy (Transmission),3540,Activities of brokers and agents for electric power and natural gas,D,"Electricity, gas, steam and air conditioning supply",Expansion
+Crest Nicholson Holdings PLC,213800ROIFXRRRKVQD25,Other,4100,Construction of residential and non-residential buildings,F,Construction,Expansion
+GlaxoSmithKline PLC,5493000HZTVUYLO1D793,Health (Pharma),2100,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",C,Manufacturing,Expansion
+HSBC Holdings PLC,MLU0ZO3ML4LN2LL2TL39,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
+IntegraFin Holdings PLC,213800CYIZKXK9PQYE87,Asset Management,6433,"Activities of trust, estate and agency accounts",K,Financial and insurance activities,Expansion
+Kingfisher PLC,213800KBMEV7I92FY281,Other,4752,"Retail sale of hardware, building materials, paints and glass",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Expansion
+LOWLAND INV CO PLC,2138008RHG5363FEHV19,Asset Management,6432,Activities of non-money market investments funds,K,Financial and insurance activities,Expansion
+London Stock Exchange Group PLC,213800QAUUUP6I445N30,Finance (Banking),6611,Administration of financial markets,K,Financial and insurance activities,Expansion
+Natwest Group PLC,2138005O9XJIJN4JPN90,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
+Paragon Banking Group PLC,213800S1TDKIB1IUTS72,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
+Prudential PLC,5493001Z3ZE83NGK8Y12,Insurance,6511,Life insurance,K,Financial and insurance activities,Expansion
+R.E.A. HOLDINGS PLC,213800YXL94R94RYG150,Other,0126,Growing of oleaginous fruits,A,"Agriculture, forestry and fishing",Expansion
+RICARDO PLC,213800ZNYAY35F4XB814,Other,7110,"Architectural and engineering, and related technical consultancy activities",M,"Professional, scientific and technical activities",Expansion
+Relx PLC,549300WSX3VBUFFJOO66,Other,6390,Web search portals activities and other information service activities,J,Information and communication,Expansion
+SSE PLC,549300KI75VYLLMSK856,Energy (Transmission),3512,Electric power generation activities from renewable sources,D,"Electricity, gas, steam and air conditioning supply",Expansion
+SSP Group PLC,213800QGNIWTXFMENJ24,Food (Retail),5629,Other food service activities,I,Accommodation and food service activities,Expansion
+Safestore Holdings PLC,213800WGA3YSJC1YOH73,Other,5210,Warehousing and storage,H,Transportation and storage,Expansion
+Sage Group PLC,2138005RN5XYLTF8G138,Other,6219,Other computer programming activities,J,Information and communication,Expansion
+Sainsbury (J) PLC,213800VGZAAJIKJ9Y484,Food (Retail),4711,"Non-specialized retail sale with food, beverages or tobacco predominating",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Expansion
+Segro PLC,213800XC35KGM9NFC641,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
+Standard Chartered PLC,U4LOSYZ7YG4W3S5F2G91,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
+Tritax Eurobox PLC,213800HK59N7H979QU33,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
+Unilever PLC,549300MKFYEKVRWML317,Other,1079,Manufacture of other food products n.e.c.,C,Manufacturing,Expansion
+United Utilities Group PLC,213800KYT12UFB2VE455,Water,3600,"Water collection, treatment and supply",E,"Water supply; sewerage, waste management and remediation activities",Expansion
+Victrex PLC,213800UYNPHAUNHPXL67,Chemicals,2013,Manufacture of plastics and synthetic rubber in primary forms,C,Manufacturing,Expansion
+Vodafone Group PLC,213800TB53ELEUKM7Q61,Communications,6110,"Wired, wireless, and satellite telecommunication activities",J,Information and communication,Expansion
+Whitbread PLC,21380099VMZKRMN3EX36,Other,5510,Hotels and similar accommodation activities,I,Accommodation and food service activities,Expansion

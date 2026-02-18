@@ -109,32 +109,52 @@ const RISK_LABEL_ALIASES: Record<string, string> = {
 const toKey = (value: string) => value.trim().toLowerCase();
 
 const parseCompanySectors = () => {
+  if (!fs.existsSync(COMPANIES_PATH)) {
+    return {
+      sectorMap: new Map<string, string>(),
+      sectors: [] as string[],
+      companySectors: [] as { company_name: string; sector: string }[],
+    };
+  }
+
   const content = fs.readFileSync(COMPANIES_PATH, 'utf8').trim();
   const lines = content.split(/\r?\n/);
   const header = lines.shift();
   if (!header) {
-    return { sectorMap: new Map<string, string>(), sectors: [] as string[] };
+    return {
+      sectorMap: new Map<string, string>(),
+      sectors: [] as string[],
+      companySectors: [] as { company_name: string; sector: string }[],
+    };
   }
   const headers = header.split(',');
   const nameIndex = headers.indexOf('company_name');
-  const sectorIndex = headers.indexOf('sector');
+  const sectorIndex = headers.indexOf('sector') >= 0
+    ? headers.indexOf('sector')
+    : headers.indexOf('cni_sector');
   const sectorMap = new Map<string, string>();
   const sectors: string[] = [];
+  const companySectors: { company_name: string; sector: string }[] = [];
   const sectorSet = new Set<string>();
+
+  if (nameIndex < 0 || sectorIndex < 0) {
+    return { sectorMap, sectors, companySectors };
+  }
 
   lines.forEach(line => {
     const cells = line.split(',');
     const name = cells[nameIndex]?.trim();
-    const sector = cells[sectorIndex]?.trim();
-    if (!name || !sector) return;
+    const sector = cells[sectorIndex]?.trim() || 'Unknown';
+    if (!name) return;
     sectorMap.set(toKey(name), sector);
+    companySectors.push({ company_name: name, sector });
     if (!sectorSet.has(sector)) {
       sectorSet.add(sector);
       sectors.push(sector);
     }
   });
 
-  return { sectorMap, sectors };
+  return { sectorMap, sectors, companySectors };
 };
 
 const parseAnnotations = (filepath: string) => {
@@ -266,9 +286,31 @@ type ReportData = {
   riskSubstantivenessValues: string[];
 };
 
+const makeEmptyReportData = (
+  companyName: string,
+  reportYear: number,
+  sector: string
+): ReportData => ({
+  company_name: companyName,
+  report_year: reportYear,
+  sector,
+  mentionTypes: new Set(),
+  adoptionTypes: new Set(),
+  riskLabels: new Set(),
+  vendorTags: new Set(),
+  adoptionConfidences: new Map(),
+  riskConfidences: new Map(),
+  adoptionSignalValues: [],
+  riskSignalValues: [],
+  vendorSignalValues: [],
+  riskSubstantivenessValues: [],
+});
+
 const aggregateToReports = (
   annotations: GoldenAnnotation[],
-  sectorMap: Map<string, string>
+  sectorMap: Map<string, string>,
+  years: number[],
+  companySectors: { company_name: string; sector: string }[]
 ): ReportData[] => {
   const reportMap = new Map<string, ReportData>();
 
@@ -276,21 +318,14 @@ const aggregateToReports = (
     const reportKey = `${item.company_name}|||${item.report_year}`;
 
     if (!reportMap.has(reportKey)) {
-      reportMap.set(reportKey, {
-        company_name: item.company_name,
-        report_year: item.report_year,
-        sector: sectorMap.get(toKey(item.company_name)) || 'Unknown',
-        mentionTypes: new Set(),
-        adoptionTypes: new Set(),
-        riskLabels: new Set(),
-        vendorTags: new Set(),
-        adoptionConfidences: new Map(),
-        riskConfidences: new Map(),
-        adoptionSignalValues: [],
-        riskSignalValues: [],
-        vendorSignalValues: [],
-        riskSubstantivenessValues: [],
-      });
+      reportMap.set(
+        reportKey,
+        makeEmptyReportData(
+          item.company_name,
+          item.report_year,
+          sectorMap.get(toKey(item.company_name)) || 'Unknown'
+        )
+      );
     }
 
     const report = reportMap.get(reportKey)!;
@@ -363,6 +398,19 @@ const aggregateToReports = (
     const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
     if (riskSubstantiveness) report.riskSubstantivenessValues.push(riskSubstantiveness);
   });
+
+  // Ensure report-level dataset includes all expected company-year pairs,
+  // including reports with zero AI chunks.
+  if (years.length > 0 && companySectors.length > 0) {
+    companySectors.forEach(({ company_name, sector }) => {
+      years.forEach(year => {
+        const key = `${company_name}|||${year}`;
+        if (!reportMap.has(key)) {
+          reportMap.set(key, makeEmptyReportData(company_name, year, sector || 'Unknown'));
+        }
+      });
+    });
+  }
 
   return Array.from(reportMap.values());
 };
@@ -662,14 +710,14 @@ const buildDataset = (
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { sectorMap, sectors } = parseCompanySectors();
+  const { sectorMap, sectors, companySectors } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
 
   const years = Array.from(
     new Set(annotations.map(item => item.report_year))
-  ).sort();
+  ).sort((a, b) => a - b);
 
-  const perReportData = aggregateToReports(annotations, sectorMap);
+  const perReportData = aggregateToReports(annotations, sectorMap, years, companySectors);
   const perChunkData = annotationsAsChunks(annotations, sectorMap);
 
   return {

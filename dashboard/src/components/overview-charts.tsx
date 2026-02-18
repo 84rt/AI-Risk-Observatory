@@ -323,8 +323,11 @@ export function GenericHeatmap({
             {/* Cells */}
             {xLabels.map(x => {
               const val = dataMap.get(`${x}-${y}`) || 0;
-              const intensity = maxValue > 0 ? val / maxValue : 0;
-              const opacity = Math.max(0.08, intensity * 0.92);
+              // Use log scaling so gradients remain readable when totals grow (e.g. 3-year windows).
+              const scaledIntensity = maxValue > 0
+                ? Math.log1p(val) / Math.log1p(maxValue)
+                : 0;
+              const opacity = val > 0 ? (0.12 + scaledIntensity * 0.88) : 0;
               const isBlindSpot = val === 0 && showBlindSpots;
 
               return (
@@ -352,7 +355,7 @@ export function GenericHeatmap({
                     />
                   )}
                   {val > 0 && (
-                    <span className={`relative z-10 text-sm font-bold ${intensity > 0.5 ? 'text-white' : 'text-slate-700'}`}>
+                    <span className={`relative z-10 text-sm font-bold ${scaledIntensity > 0.6 ? 'text-white' : 'text-slate-700'}`}>
                       {valueFormatter(val)}
                     </span>
                   )}
