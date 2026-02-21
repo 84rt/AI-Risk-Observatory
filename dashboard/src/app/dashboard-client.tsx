@@ -21,17 +21,12 @@ const VIEWS: View[] = [
   },
   {
     id: 2,
-    title: 'Mention Types',
-    description: 'How each AI-related text chunk was classified: adoption, risk, vendor reference, general/ambiguous, or harm.',
-  },
-  {
-    id: 3,
     title: 'Adoption & Vendors',
     description: 'AI adoption maturity (non-LLM, LLM, agentic) and which technology vendors companies name in their reports.',
   },
   {
-    id: 4,
-    title: 'Quality Signals',
+    id: 3,
+    title: 'Signal Quality',
     description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
 ];
@@ -311,6 +306,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
                 Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their annual reports.
               </p>
+              <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                This dashboard visualises findings from an NLP pipeline that analyses annual reports of UK Critical National Infrastructure companies for AI-related disclosures.{' '}
+                <a href="/about" className="underline decoration-slate-400 hover:text-slate-700">Learn more about our methodology</a>.
+              </p>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
                 <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
                   {activeData.summary.totalCompanies} Companies
@@ -460,7 +459,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
             >
               <option value="perReport">Per Report</option>
-              <option value="perChunk">Per Chunk</option>
+              <option value="perChunk">Per Excerpt</option>
             </select>
           </div>
         </div>
@@ -514,7 +513,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={riskFilter === 'all' ? null : riskFilter}
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="Risk Trend Over Time"
-              subtitle={`Each bar shows the total ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year mentioning a given risk category. A single ${datasetKey === 'perReport' ? 'report' : 'chunk'} can appear in multiple categories.`}
+              subtitle={`Each bar shows the total ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} per year mentioning a given risk category. A single ${datasetKey === 'perReport' ? 'report' : 'excerpt'} can appear in multiple categories.`}
             />
 
             {/* Risk by Sector Heatmap */}
@@ -523,12 +522,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={riskFilter === 'all' ? data.labels.riskLabels : [riskFilter]}
               yLabels={data.sectors}
               baseColor="#f97316"
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
               xLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={true}
               title="Risk Distribution by Sector"
-              subtitle={`Each cell shows the count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} in that sector mentioning that risk category. Darker = more mentions. Striped = zero mentions (potential blind spots).`}
+              subtitle={`Each cell shows the count of ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} in that sector mentioning that risk category. Darker = more mentions. Striped = zero mentions (potential blind spots).`}
             />
 
             <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
@@ -550,66 +549,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         )}
 
         {activeView === 2 && (
-          <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-            <div className="space-y-4">
-              <StackedBarChart
-                data={mentionTrendInRange}
-                xAxisKey="year"
-                stackKeys={mentionStackKeys}
-                colors={mentionColors}
-                allowLineChart
-                title="Mention Types Over Time"
-                subtitle={`Each bar shows how many ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year were tagged with each mention type (confidence ≥ 0.2).`}
-              />
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Signal Coverage
-                </h3>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">
-                  {formatNumber(activeData.summary.adoptionReports + activeData.summary.riskReports)}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {datasetKey === 'perReport' ? 'Reports' : 'Chunks'} with at least one adoption or risk signal.
-                </p>
-                <div className="mt-6 space-y-3 text-sm text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span>With adoption signals</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.adoptionReports)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>With risk signals</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.riskReports)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>With vendor references</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(activeData.summary.vendorReports)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-                <p className="font-semibold text-slate-900">What are mention types?</p>
-                <p className="mt-2 leading-relaxed">Every AI-related text passage is classified into one or more of these categories based on what the company is talking about:</p>
-                <ul className="mt-2 space-y-1 leading-relaxed">
-                  <li><span className="font-medium text-slate-800">Adoption:</span> The company describes using, deploying, or implementing AI technology.</li>
-                  <li><span className="font-medium text-slate-800">Risk:</span> The company discusses threats, concerns, or negative outcomes tied to AI.</li>
-                  <li><span className="font-medium text-slate-800">Vendor:</span> A specific AI vendor or provider is named (e.g. Microsoft, OpenAI).</li>
-                  <li><span className="font-medium text-slate-800">General/Ambiguous:</span> AI is mentioned but without a clear adoption or risk context.</li>
-                  <li><span className="font-medium text-slate-800">Harm:</span> An actual or potential AI-related harm incident is described.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeView === 3 && (
           <div className="space-y-8">
             {/* Adoption Trends */}
             <StackedBarChart
@@ -619,7 +558,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={adoptionColors}
               allowLineChart
               title="Adoption Maturity Over Time"
-              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per year by maturity level: Non-LLM (traditional AI/ML), LLM (large language models), Agentic (autonomous AI systems).`}
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} per year by maturity level: Non-LLM (traditional AI/ML), LLM (large language models), Agentic (autonomous AI systems).`}
             />
 
             {/* Adoption by Sector Heatmap */}
@@ -628,12 +567,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={data.labels.adoptionTypes}
               yLabels={data.sectors}
               baseColor="#0ea5e9"
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
               xLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={true}
               title="Adoption Intensity by Sector"
-              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} per sector at each adoption maturity level. Striped = zero mentions.`}
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} per sector at each adoption maturity level. Striped = zero mentions.`}
             />
 
             {/* Vendor Trends */}
@@ -644,7 +583,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={vendorColors}
               allowLineChart
               title="Vendor References Over Time"
-              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} naming each AI vendor per year. "Internal" = built in-house. "Undisclosed" = AI mentioned but no vendor named.`}
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} naming each AI vendor per year. "Internal" = built in-house. "Undisclosed" = AI mentioned but no vendor named.`}
             />
 
             {/* Vendor by Sector Heatmap */}
@@ -653,17 +592,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xLabels={data.labels.vendorTags}
               yLabels={data.sectors}
               baseColor="#14b8a6"
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'chunks'}`}
+              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
               xLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={true}
               title="Vendor Concentration by Sector"
-              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text chunks'} naming each vendor per sector. Striped = no mentions.`}
+              subtitle={`Count of ${datasetKey === 'perReport' ? 'reports' : 'text excerpts'} naming each vendor per sector. Striped = no mentions.`}
             />
           </div>
         )}
 
-        {activeView === 4 && (
+        {activeView === 3 && (
           <div className="space-y-8">
             <div className="grid gap-8 lg:grid-cols-3">
               <GenericHeatmap
@@ -725,8 +664,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   <p className="font-medium text-slate-800">Signal Strength (Risk / Adoption / Vendor):</p>
                   <p className="mt-1 leading-relaxed">
                     How explicitly each mention evidences its classification.
-                    Each cell counts individual label mentions across all chunks.
-                    Per label per chunk, the strongest signal from any source wins.
+                    Each cell counts individual label mentions across all excerpts.
+                    Per label per excerpt, the strongest signal from any source wins.
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs">
                     <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>

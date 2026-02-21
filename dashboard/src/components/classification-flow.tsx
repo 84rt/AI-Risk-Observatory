@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
+  ChevronRight,
   Database,
   FileCode2,
   FileText,
@@ -12,64 +13,50 @@ type FlowNode = {
   step: string;
   title: string;
   detail: string;
-  signals: string;
   icon: LucideIcon;
   iconClass: string;
 };
 
 const FLOW_NODES: FlowNode[] = [
   {
-    step: 'Step 1',
+    step: '1',
     title: 'Ingestion',
-    detail:
-      'Source raw reports as PDFs (FinancialReports DB) and iXBRL/HTML filings (Companies House API).',
-    signals: 'Output: Raw source files + company/year metadata',
+    detail: 'Source PDFs and iXBRL/HTML filings with company/year metadata.',
     icon: FileText,
     iconClass: 'text-sky-600',
   },
   {
-    step: 'Step 2',
-    title: 'Preprocessing (Text Extraction)',
-    detail:
-      'Convert PDFs to layout-aware Markdown and parse iXBRL into text blocks mapped to financial tags.',
-    signals: 'Output: Cleaned, structured report text',
+    step: '2',
+    title: 'Text Extraction',
+    detail: 'Convert PDFs to Markdown; parse iXBRL into structured text blocks.',
     icon: ScanText,
     iconClass: 'text-indigo-600',
   },
   {
-    step: 'Step 3',
+    step: '3',
     title: 'Chunking',
-    detail:
-      'Split documents into context-heavy chunks (~500-2000 chars); keyword matching isolates AI-relevant segments.',
-    signals: 'Output: AI-candidate text chunks',
+    detail: 'Split into ~500-2000 char excerpts; keyword-filter for AI relevance.',
     icon: FileCode2,
     iconClass: 'text-amber-600',
   },
   {
-    step: 'Step 4',
-    title: 'AI Classification',
-    detail:
-      'run_llm_classifier scripts send chunks to an LLM (for example GPT-4 or Gemini).',
-    signals:
-      'Signals: AI mention, risk vs opportunity, substantiveness + confidence',
+    step: '4',
+    title: 'Classification',
+    detail: 'LLM classifies each excerpt for mention type, risk, adoption, and confidence.',
     icon: Sparkles,
     iconClass: 'text-emerald-600',
   },
   {
-    step: 'Step 5',
-    title: 'Database Loading',
-    detail:
-      'Persist classified chunks, metadata (company, year, sector), and model scores into SQLite via Prisma.',
-    signals: 'Output: Queryable analytical tables',
+    step: '5',
+    title: 'Database',
+    detail: 'Persist classified excerpts and scores into SQLite via Prisma.',
     icon: Database,
     iconClass: 'text-rose-600',
   },
   {
-    step: 'Step 6',
+    step: '6',
     title: 'Visualization',
-    detail:
-      'Next.js dashboard queries the database and renders trends, sector comparisons, and Golden Set benchmarks.',
-    signals: 'Output: End-user charts and filters',
+    detail: 'Dashboard renders trends, sector comparisons, and quality metrics.',
     icon: BarChart3,
     iconClass: 'text-teal-600',
   },
@@ -84,45 +71,34 @@ export function ClassificationFlowDiagram() {
       <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
         Processing Pipeline
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">
-        End-to-end flow from raw filings to chart-ready risk and adoption analytics.
+      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+        End-to-end flow from raw filings to chart-ready analytics.
       </p>
 
-      <div className="relative mt-6">
-        <div className="absolute bottom-4 left-[18px] top-4 w-px bg-slate-200 md:left-1/2" />
-        <div className="space-y-4">
-          {FLOW_NODES.map((node, index) => {
-            const NodeIcon = node.icon;
-            const alignRight = index % 2 === 0;
+      <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {FLOW_NODES.map((node, index) => {
+          const NodeIcon = node.icon;
 
-            return (
-              <div
-                key={node.title}
-                className={`relative flex items-stretch ${alignRight ? 'md:justify-end' : 'md:justify-start'}`}
+          return (
+            <div key={node.title} className="relative flex items-stretch">
+              <article
+                className="animate-rise flex w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                style={{ animationDelay: `${index * 60}ms` }}
               >
-                <article
-                  className={`animate-rise w-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:w-[46%] ${
-                    alignRight ? 'md:mr-10' : 'md:ml-10'
-                  }`}
-                  style={{ animationDelay: `${index * 90}ms` }}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    {node.step}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{node.title}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-slate-600">{node.detail}</p>
-                  <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] font-medium leading-relaxed text-slate-500">
-                    {node.signals}
-                  </p>
-                </article>
-
-                <div className="absolute left-[18px] top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-slate-300 bg-white shadow-sm md:left-1/2">
-                  <NodeIcon className={`h-4 w-4 ${node.iconClass}`} />
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+                    <NodeIcon className={`h-3.5 w-3.5 ${node.iconClass}`} />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-900 leading-tight">{node.title}</p>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{node.detail}</p>
+              </article>
+              {index < FLOW_NODES.length - 1 && (
+                <ChevronRight className="absolute -right-[9px] top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-slate-300 hidden lg:block" />
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

@@ -33,8 +33,8 @@ export default function RootLayout({
               AI Risk Observatory
             </Link>
             <div className="h-4 w-px bg-slate-300" />
-            <Link href="/methodology" className="text-sm text-slate-500 hover:text-slate-900">
-              Methodology
+            <Link href="/about" className="text-sm text-slate-500 hover:text-slate-900">
+              About
             </Link>
             <Link href="/dataset" className="text-sm text-slate-500 hover:text-slate-900">
               Dataset

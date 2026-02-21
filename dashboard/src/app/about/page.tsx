@@ -1,11 +1,16 @@
 import { ClassificationFlowDiagram } from '@/components/classification-flow';
+import { MentionTypesChart } from '@/components/mention-types-chart';
+import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
-export default function MethodologyPage() {
+export default function AboutPage() {
+  const data = loadGoldenSetDashboardData();
+  const mentionTrend = data.datasets.perReport.mentionTrend;
+  const mentionTypes = data.labels.mentionTypes;
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
       <div className="mx-auto max-w-6xl px-6 py-16">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
-          Methodology
+          About
         </h1>
         <p className="mt-3 text-lg text-slate-600">
           How the AI Risk Observatory collects, processes, and classifies data.
@@ -23,10 +28,10 @@ export default function MethodologyPage() {
           <section>
             <h2 className="text-xl font-semibold text-slate-900">Classification &amp; Confidence</h2>
             <p className="mt-2">
-              Chunks are classified by an LLM pipeline (for example GPT-4 or Gemini via the <code>run_llm_classifier</code> scripts) for AI mention presence, risk vs opportunity framing, and disclosure substantiveness.
+              Excerpts are classified by an LLM pipeline (for example GPT-4 or Gemini via the <code>run_llm_classifier</code> scripts) for AI mention presence, risk vs opportunity framing, and disclosure substantiveness.
               Each prediction carries a confidence score (0&ndash;1), and only labels with confidence &ge; 0.2 are included.
-              <strong> Per Report</strong> aggregates all chunks from one company-year into a single row.
-              <strong> Per Chunk</strong> treats every individual text passage as its own data point &mdash; giving you finer-grained detail but higher counts.
+              <strong> Per Report</strong> aggregates all excerpts from one company-year into a single row.
+              <strong> Per Excerpt</strong> treats every individual text passage as its own data point &mdash; giving you finer-grained detail but higher counts.
             </p>
             <div className="mt-5">
               <ClassificationFlowDiagram />
@@ -34,9 +39,27 @@ export default function MethodologyPage() {
           </section>
 
           <section>
+            <h2 className="text-xl font-semibold text-slate-900">Mention Types</h2>
+            <p className="mt-2">
+              Every AI-related text passage is classified into one or more mention types based on what the company is talking about.
+              In the Phase 1 classification breakdown, each excerpt receives labels across the following categories:
+            </p>
+            <ul className="mt-2 space-y-2">
+              <li><span className="font-medium text-slate-900">Adoption:</span> The company describes using, deploying, or implementing AI technology.</li>
+              <li><span className="font-medium text-slate-900">Risk:</span> The company discusses threats, concerns, or negative outcomes tied to AI.</li>
+              <li><span className="font-medium text-slate-900">Vendor:</span> A specific AI vendor or provider is named (e.g. Microsoft, OpenAI).</li>
+              <li><span className="font-medium text-slate-900">General / Ambiguous:</span> AI is mentioned but without a clear adoption or risk context.</li>
+              <li><span className="font-medium text-slate-900">Harm:</span> An actual or potential AI-related harm incident is described.</li>
+            </ul>
+            <div className="mt-5">
+              <MentionTypesChart data={mentionTrend} stackKeys={mentionTypes} />
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-xl font-semibold text-slate-900">Reading the Charts</h2>
             <p className="mt-2">
-              Values in charts and heatmaps are <em>counts</em> &mdash; how many reports (or chunks) received a given label.
+              Values in charts and heatmaps are <em>counts</em> &mdash; how many reports (or excerpts) received a given label.
               A cell showing &ldquo;3&rdquo; means 3 reports in that sector mentioned that category. Darker cells = higher counts. Striped cells = zero reports (potential blind spots).
             </p>
           </section>
@@ -63,7 +86,7 @@ export default function MethodologyPage() {
               <div>
                 <p className="font-medium text-slate-900">Signal Strength (Risk / Adoption / Vendor)</p>
                 <p className="mt-1">
-                  How explicitly each mention evidences its classification. Per label per chunk, the strongest signal from any source wins.
+                  How explicitly each mention evidences its classification. Per label per excerpt, the strongest signal from any source wins.
                 </p>
                 <ul className="mt-1 space-y-0.5 text-sm">
                   <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>
