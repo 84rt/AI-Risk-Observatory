@@ -1,104 +1,84 @@
-import type { LucideIcon } from 'lucide-react';
-import {
-  BarChart3,
-  ChevronRight,
-  Database,
-  FileCode2,
-  FileText,
-  ScanText,
-  Sparkles,
-} from 'lucide-react';
-
-type FlowNode = {
-  step: string;
+type FlowStage = {
+  sectionNumber: number;
   title: string;
-  detail: string;
-  icon: LucideIcon;
-  iconClass: string;
+  panelClass: string;
+  labelClass: string;
+  arrowClass: string;
+  badgeClass: string;
+  steps: string[];
 };
 
-const FLOW_NODES: FlowNode[] = [
+const FLOW_STAGES: FlowStage[] = [
   {
-    step: '1',
-    title: 'Ingestion',
-    detail: 'Source PDFs and iXBRL/HTML filings with company/year metadata.',
-    icon: FileText,
-    iconClass: 'text-sky-600',
+    sectionNumber: 1,
+    title: 'Pre Processing',
+    panelClass: 'border-[#dfbcc7] bg-[#f9eef2]',
+    labelClass: 'text-[#7d5a67]',
+    arrowClass: 'text-[#c990a2]',
+    badgeClass: 'border-[#d8b0bd] text-[#7d5a67] bg-white/95',
+    steps: [
+      'List companies and years to analyse with metadata',
+      'Fetch annual reports',
+      'Convert reports to Markdown',
+      'Extract all excerpts that mention AI',
+    ],
   },
   {
-    step: '2',
-    title: 'Text Extraction',
-    detail: 'Convert PDFs to Markdown; parse iXBRL into structured text blocks.',
-    icon: ScanText,
-    iconClass: 'text-indigo-600',
+    sectionNumber: 2,
+    title: 'Processing',
+    panelClass: 'border-[#bdd3ea] bg-[#eef5fd]',
+    labelClass: 'text-[#4f6f92]',
+    arrowClass: 'text-[#93b5da]',
+    badgeClass: 'border-[#a7c4e3] text-[#4f6f92] bg-white/95',
+    steps: [
+      'For all AI mention excerpts',
+      'Run a mention type classifier',
+      'Run Phase 2 classifiers (risk, adoption, vendor)',
+      'Run the boilerplate level classifier',
+    ],
   },
   {
-    step: '3',
-    title: 'Chunking',
-    detail: 'Split into ~500-2000 char excerpts; keyword-filter for AI relevance.',
-    icon: FileCode2,
-    iconClass: 'text-amber-600',
-  },
-  {
-    step: '4',
-    title: 'Classification',
-    detail: 'LLM classifies each excerpt for mention type, risk, adoption, and confidence.',
-    icon: Sparkles,
-    iconClass: 'text-emerald-600',
-  },
-  {
-    step: '5',
-    title: 'Database',
-    detail: 'Persist classified excerpts and scores into SQLite via Prisma.',
-    icon: Database,
-    iconClass: 'text-rose-600',
-  },
-  {
-    step: '6',
-    title: 'Visualization',
-    detail: 'Dashboard renders trends, sector comparisons, and quality metrics.',
-    icon: BarChart3,
-    iconClass: 'text-teal-600',
+    sectionNumber: 3,
+    title: 'Post Processing',
+    panelClass: 'border-[#b8ddd2] bg-[#edf8f4]',
+    labelClass: 'text-[#4e7a6f]',
+    arrowClass: 'text-[#8fc4b6]',
+    badgeClass: 'border-[#9ecfbe] text-[#4e7a6f] bg-white/95',
+    steps: [
+      'Aggregate classifications across chunks and reports',
+      'Compute metrics and trends',
+      'Produce a structured dataset',
+      'Visualize on the dashboard',
+    ],
   },
 ];
 
 export function ClassificationFlowDiagram() {
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-      <div className="pointer-events-none absolute -left-16 -top-14 h-44 w-44 rounded-full bg-sky-200/35 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-16 right-0 h-48 w-48 rounded-full bg-amber-200/30 blur-3xl" />
-
-      <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-        Processing Pipeline
-      </h3>
-      <p className="mt-1 text-xs leading-relaxed text-slate-500">
-        End-to-end flow from raw filings to chart-ready analytics.
-      </p>
-
-      <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {FLOW_NODES.map((node, index) => {
-          const NodeIcon = node.icon;
-
-          return (
-            <div key={node.title} className="relative flex items-stretch">
-              <article
-                className="animate-rise flex w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-                style={{ animationDelay: `${index * 60}ms` }}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
-                    <NodeIcon className={`h-3.5 w-3.5 ${node.iconClass}`} />
+    <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+      <div className="min-w-[1040px] space-y-4">
+        {FLOW_STAGES.map((stage) => (
+          <div key={stage.title} className={`relative rounded-xl border-2 p-5 pt-8 ${stage.panelClass}`}>
+            <p className={`absolute -top-3 left-3 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${stage.labelClass}`}>
+              {stage.title}
+            </p>
+            <div className="flex items-center gap-2">
+              {stage.steps.map((step, index) => (
+                <div key={`${stage.title}-${index}`} className="flex items-center gap-2">
+                  <div className="relative flex h-[110px] w-[220px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-center text-sm font-semibold leading-tight text-slate-700 shadow-sm">
+                    <span className={`absolute left-2 top-2 rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${stage.badgeClass}`}>
+                      {stage.sectionNumber}.{index + 1}
+                    </span>
+                    {step}
                   </div>
-                  <p className="text-xs font-semibold text-slate-900 leading-tight">{node.title}</p>
+                  {index < stage.steps.length - 1 ? (
+                    <span className={`text-3xl font-bold leading-none ${stage.arrowClass}`}>→</span>
+                  ) : null}
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{node.detail}</p>
-              </article>
-              {index < FLOW_NODES.length - 1 && (
-                <ChevronRight className="absolute -right-[9px] top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-slate-300 hidden lg:block" />
-              )}
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </section>
   );

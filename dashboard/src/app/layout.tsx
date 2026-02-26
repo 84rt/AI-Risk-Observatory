@@ -34,7 +34,7 @@ export default function RootLayout({
             </Link>
             <div className="h-4 w-px bg-slate-300" />
             <Link href="/about" className="text-sm text-slate-500 hover:text-slate-900">
-              About
+              Methodology
             </Link>
             <Link href="/dataset" className="text-sm text-slate-500 hover:text-slate-900">
               Dataset

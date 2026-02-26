@@ -6,13 +6,18 @@ export default function DatasetPage() {
           Dataset
         </h1>
         <p className="mt-4 text-lg text-slate-600 leading-relaxed">
-          The AI Risk Observatory dataset contains structured classifications of AI-related disclosures
-          extracted from annual reports of UK Critical National Infrastructure companies. Each text passage
-          is labelled with mention type, adoption maturity, risk taxonomy, vendor references, signal strength,
-          and substantiveness scores.
+          The AI Risk Observatory dataset includes a metadata.csv file that details the mapping 
+          between company, year, report, excerpt, and other metadata. It also provides a list of excerpts,
+          each annotated with labels assigned by classifiers. Every excerpt is labeled with mention type, 
+          adoption maturity, risk taxonomy, vendor references, signal strength, and substantiveness scores. 
+          Additionally, LLM classifier reasoning is provided for easier quality assurance analysis.
         </p>
         <p className="mt-4 text-base text-slate-600 leading-relaxed">
-          The full dataset, processing pipeline, and documentation are available on GitHub.
+          For more detail on how these files are produced and used, see the{' '}
+          <a href="/about" className="underline decoration-slate-400 hover:text-slate-700">
+            Methodology page
+          </a>
+          . The full dataset, processing pipeline, and documentation are available on GitHub.
         </p>
         <a
           href="https://github.com/84rt/AI-Risk-Observatory"

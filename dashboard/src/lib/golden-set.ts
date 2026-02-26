@@ -19,6 +19,7 @@ type GoldenAnnotation = {
 export type GoldenDashboardData = {
   years: number[];
   sectors: string[];
+  isicSectors: string[];
   labels: {
     mentionTypes: string[];
     adoptionTypes: string[];
@@ -49,6 +50,8 @@ export type GoldenDataset = {
   vendorTrend: Record<string, number>[];
   riskBySector: { x: string; y: string; value: number }[];
   riskBySectorYear: { year: number; x: string; y: string; value: number }[];
+  riskByIsicSector: { x: string; y: string; value: number }[];
+  riskByIsicSectorYear: { year: number; x: string; y: string; value: number }[];
   adoptionBySector: { x: string; y: string; value: number }[];
   adoptionBySectorYear: { year: number; x: string; y: string; value: number }[];
   vendorBySector: { x: string; y: string; value: number }[];
@@ -57,6 +60,9 @@ export type GoldenDataset = {
   adoptionSignalHeatmap: { x: number; y: string; value: number }[];
   vendorSignalHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
+  blindSpotTrend: Record<string, number>[];
+  noAiBySectorYear: { x: number; y: string; value: number }[];
+  noAiRiskBySectorYear: { x: number; y: string; value: number }[];
 };
 
 const ANNOTATIONS_PATH = path.join(
@@ -99,6 +105,30 @@ const vendorTags = ['openai', 'microsoft', 'google', 'internal', 'other', 'undis
 const substantivenessBands = ['substantive', 'moderate', 'boilerplate'];
 const riskSignalLevels = ['3-explicit', '2-strong_implicit', '1-weak_implicit'];
 
+const ALL_ISIC_SECTION_NAMES = [
+  'Agriculture, forestry and fishing',
+  'Mining and quarrying',
+  'Manufacturing',
+  'Electricity, gas, steam and air conditioning supply',
+  'Water supply; sewerage, waste management and remediation activities',
+  'Construction',
+  'Wholesale and retail trade; repair of motor vehicles and motorcycles',
+  'Transportation and storage',
+  'Accommodation and food service activities',
+  'Information and communication',
+  'Financial and insurance activities',
+  'Real estate activities',
+  'Professional, scientific and technical activities',
+  'Administrative and support service activities',
+  'Public administration and defence; compulsory social security',
+  'Education',
+  'Human health and social work activities',
+  'Arts, entertainment and recreation',
+  'Other service activities',
+  'Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use',
+  'Activities of extraterritorial organizations and bodies',
+];
+
 const RISK_LABEL_ALIASES: Record<string, string> = {
   strategic_market: 'strategic_competitive',
   regulatory: 'regulatory_compliance',
@@ -108,12 +138,45 @@ const RISK_LABEL_ALIASES: Record<string, string> = {
 
 const toKey = (value: string) => value.trim().toLowerCase();
 
+const parseCsvRow = (line: string): string[] => {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
+};
+
 const parseCompanySectors = () => {
   if (!fs.existsSync(COMPANIES_PATH)) {
     return {
-      sectorMap: new Map<string, string>(),
-      sectors: [] as string[],
-      companySectors: [] as { company_name: string; sector: string }[],
+      cniSectorMap: new Map<string, string>(),
+      isicSectorMap: new Map<string, string>(),
+      cniSectors: [] as string[],
+      isicSectors: [] as string[],
+      companySectors: [] as { company_name: string; cniSector: string; isicSector: string }[],
     };
   }
 
@@ -122,39 +185,56 @@ const parseCompanySectors = () => {
   const header = lines.shift();
   if (!header) {
     return {
-      sectorMap: new Map<string, string>(),
-      sectors: [] as string[],
-      companySectors: [] as { company_name: string; sector: string }[],
+      cniSectorMap: new Map<string, string>(),
+      isicSectorMap: new Map<string, string>(),
+      cniSectors: [] as string[],
+      isicSectors: [] as string[],
+      companySectors: [] as { company_name: string; cniSector: string; isicSector: string }[],
     };
   }
-  const headers = header.split(',');
+  const headers = parseCsvRow(header);
   const nameIndex = headers.indexOf('company_name');
-  const sectorIndex = headers.indexOf('sector') >= 0
+  const cniSectorIndex = headers.indexOf('sector') >= 0
     ? headers.indexOf('sector')
     : headers.indexOf('cni_sector');
-  const sectorMap = new Map<string, string>();
-  const sectors: string[] = [];
-  const companySectors: { company_name: string; sector: string }[] = [];
-  const sectorSet = new Set<string>();
+  const isicSectorIndex = headers.indexOf('isic_section_name') >= 0
+    ? headers.indexOf('isic_section_name')
+    : headers.indexOf('isic_sector_name');
 
-  if (nameIndex < 0 || sectorIndex < 0) {
-    return { sectorMap, sectors, companySectors };
+  const cniSectorMap = new Map<string, string>();
+  const isicSectorMap = new Map<string, string>();
+  const cniSectors: string[] = [];
+  const isicSectors: string[] = [];
+  const companySectors: { company_name: string; cniSector: string; isicSector: string }[] = [];
+  const cniSectorSet = new Set<string>();
+  const isicSectorSet = new Set<string>();
+
+  if (nameIndex < 0 || cniSectorIndex < 0) {
+    return { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors };
   }
 
   lines.forEach(line => {
-    const cells = line.split(',');
+    const cells = parseCsvRow(line);
     const name = cells[nameIndex]?.trim();
-    const sector = cells[sectorIndex]?.trim() || 'Unknown';
+    const cniSector = cells[cniSectorIndex]?.trim() || 'Unknown';
+    const isicSector = isicSectorIndex >= 0
+      ? (cells[isicSectorIndex]?.trim() || 'Unknown')
+      : 'Unknown';
     if (!name) return;
-    sectorMap.set(toKey(name), sector);
-    companySectors.push({ company_name: name, sector });
-    if (!sectorSet.has(sector)) {
-      sectorSet.add(sector);
-      sectors.push(sector);
+    cniSectorMap.set(toKey(name), cniSector);
+    isicSectorMap.set(toKey(name), isicSector);
+    companySectors.push({ company_name: name, cniSector, isicSector });
+    if (!cniSectorSet.has(cniSector)) {
+      cniSectorSet.add(cniSector);
+      cniSectors.push(cniSector);
+    }
+    if (!isicSectorSet.has(isicSector)) {
+      isicSectorSet.add(isicSector);
+      isicSectors.push(isicSector);
     }
   });
 
-  return { sectorMap, sectors, companySectors };
+  return { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors };
 };
 
 const parseAnnotations = (filepath: string) => {
@@ -274,6 +354,7 @@ type ReportData = {
   company_name: string;
   report_year: number;
   sector: string;
+  isicSector: string;
   mentionTypes: Set<string>;
   adoptionTypes: Set<string>;
   riskLabels: Set<string>;
@@ -289,11 +370,13 @@ type ReportData = {
 const makeEmptyReportData = (
   companyName: string,
   reportYear: number,
-  sector: string
+  sector: string,
+  isicSector: string
 ): ReportData => ({
   company_name: companyName,
   report_year: reportYear,
   sector,
+  isicSector,
   mentionTypes: new Set(),
   adoptionTypes: new Set(),
   riskLabels: new Set(),
@@ -308,9 +391,10 @@ const makeEmptyReportData = (
 
 const aggregateToReports = (
   annotations: GoldenAnnotation[],
-  sectorMap: Map<string, string>,
+  cniSectorMap: Map<string, string>,
+  isicSectorMap: Map<string, string>,
   years: number[],
-  companySectors: { company_name: string; sector: string }[]
+  companySectors: { company_name: string; cniSector: string; isicSector: string }[]
 ): ReportData[] => {
   const reportMap = new Map<string, ReportData>();
 
@@ -323,7 +407,8 @@ const aggregateToReports = (
         makeEmptyReportData(
           item.company_name,
           item.report_year,
-          sectorMap.get(toKey(item.company_name)) || 'Unknown'
+          cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
+          isicSectorMap.get(toKey(item.company_name)) || 'Unknown'
         )
       );
     }
@@ -402,11 +487,14 @@ const aggregateToReports = (
   // Ensure report-level dataset includes all expected company-year pairs,
   // including reports with zero AI chunks.
   if (years.length > 0 && companySectors.length > 0) {
-    companySectors.forEach(({ company_name, sector }) => {
+    companySectors.forEach(({ company_name, cniSector, isicSector }) => {
       years.forEach(year => {
         const key = `${company_name}|||${year}`;
         if (!reportMap.has(key)) {
-          reportMap.set(key, makeEmptyReportData(company_name, year, sector || 'Unknown'));
+          reportMap.set(
+            key,
+            makeEmptyReportData(company_name, year, cniSector || 'Unknown', isicSector || 'Unknown')
+          );
         }
       });
     });
@@ -417,7 +505,8 @@ const aggregateToReports = (
 
 const annotationsAsChunks = (
   annotations: GoldenAnnotation[],
-  sectorMap: Map<string, string>
+  cniSectorMap: Map<string, string>,
+  isicSectorMap: Map<string, string>
 ): ReportData[] => {
   return annotations.map(item => {
     const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
@@ -470,7 +559,8 @@ const annotationsAsChunks = (
     return {
       company_name: item.company_name,
       report_year: item.report_year,
-      sector: sectorMap.get(toKey(item.company_name)) || 'Unknown',
+      sector: cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
+      isicSector: isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
       mentionTypes: new Set(item.mention_types || []),
       adoptionTypes: filteredAdoption,
       riskLabels: filteredRisk,
@@ -492,7 +582,8 @@ const averageConfidence = (values: number[]): number => {
 
 const buildDataset = (
   reports: ReportData[],
-  years: number[]
+  years: number[],
+  sectors: string[]
 ): GoldenDataset => {
   const mentionTrend = initYearSeries(years, mentionTypes);
   const adoptionTrend = initYearSeries(years, adoptionTypes);
@@ -501,6 +592,8 @@ const buildDataset = (
 
   const riskBySectorCounts = new Map<string, number>();
   const riskBySectorYearCounts = new Map<string, number>();
+  const riskByIsicSectorCounts = new Map<string, number>();
+  const riskByIsicSectorYearCounts = new Map<string, number>();
   const adoptionBySectorCounts = new Map<string, number>();
   const adoptionBySectorYearCounts = new Map<string, number>();
   const vendorBySectorCounts = new Map<string, number>();
@@ -509,6 +602,9 @@ const buildDataset = (
   const riskSignalCounts = new Map<string, number>();
   const vendorSignalCounts = new Map<string, number>();
   const substantivenessCounts = new Map<string, number>();
+  const blindSpotYearCounts = new Map<number, { total: number; noAi: number; noAiRisk: number }>();
+  const noAiBySectorYearCounts = new Map<string, number>();
+  const noAiRiskBySectorYearCounts = new Map<string, number>();
 
   const companies = new Set<string>();
   let aiSignalReports = 0;
@@ -523,11 +619,26 @@ const buildDataset = (
     const hasSignal =
       report.mentionTypes.size > 0 &&
       !(report.mentionTypes.size === 1 && report.mentionTypes.has('none'));
+    const hasRiskSignal = report.mentionTypes.has('risk') || report.riskLabels.size > 0;
     if (hasSignal) aiSignalReports += 1;
 
     if (report.mentionTypes.has('adoption')) adoptionReports += 1;
     if (report.mentionTypes.has('risk')) riskReports += 1;
     if (report.mentionTypes.has('vendor')) vendorReports += 1;
+
+    const yearBlindSpot = blindSpotYearCounts.get(year) || { total: 0, noAi: 0, noAiRisk: 0 };
+    yearBlindSpot.total += 1;
+    if (!hasSignal) yearBlindSpot.noAi += 1;
+    if (!hasRiskSignal) yearBlindSpot.noAiRisk += 1;
+    blindSpotYearCounts.set(year, yearBlindSpot);
+
+    const sectorYearKey = `${year}|||${report.sector}`;
+    if (!hasSignal) {
+      noAiBySectorYearCounts.set(sectorYearKey, (noAiBySectorYearCounts.get(sectorYearKey) || 0) + 1);
+    }
+    if (!hasRiskSignal) {
+      noAiRiskBySectorYearCounts.set(sectorYearKey, (noAiRiskBySectorYearCounts.get(sectorYearKey) || 0) + 1);
+    }
 
     report.mentionTypes.forEach(type => addCount(mentionTrend, year, type));
     report.adoptionTypes.forEach(type => addCount(adoptionTrend, year, type));
@@ -539,6 +650,14 @@ const buildDataset = (
       riskBySectorCounts.set(key, (riskBySectorCounts.get(key) || 0) + 1);
       const yearKey = `${year}|||${label}|||${report.sector}`;
       riskBySectorYearCounts.set(yearKey, (riskBySectorYearCounts.get(yearKey) || 0) + 1);
+
+      const isicKey = `${label}|||${report.isicSector}`;
+      riskByIsicSectorCounts.set(isicKey, (riskByIsicSectorCounts.get(isicKey) || 0) + 1);
+      const isicYearKey = `${year}|||${label}|||${report.isicSector}`;
+      riskByIsicSectorYearCounts.set(
+        isicYearKey,
+        (riskByIsicSectorYearCounts.get(isicYearKey) || 0) + 1
+      );
     });
 
     report.adoptionTypes.forEach(type => {
@@ -638,6 +757,16 @@ const buildDataset = (
     return { year: Number(year), x: tag, y: sector, value };
   });
 
+  const riskByIsicSector = Array.from(riskByIsicSectorCounts.entries()).map(([key, value]) => {
+    const [label, sector] = key.split('|||');
+    return { x: label, y: sector, value };
+  });
+
+  const riskByIsicSectorYear = Array.from(riskByIsicSectorYearCounts.entries()).map(([key, value]) => {
+    const [year, label, sector] = key.split('|||');
+    return { year: Number(year), x: label, y: sector, value };
+  });
+
   const adoptionSignalHeatmap: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
     riskSignalLevels.forEach(level => {
@@ -682,6 +811,36 @@ const buildDataset = (
     });
   });
 
+  const blindSpotTrend = years.map(year => {
+    const counts = blindSpotYearCounts.get(year) || { total: 0, noAi: 0, noAiRisk: 0 };
+    return {
+      year,
+      total_reports: counts.total,
+      ai_mention: counts.total - counts.noAi,
+      ai_risk_mention: counts.total - counts.noAiRisk,
+      no_ai_mention: counts.noAi,
+      no_ai_risk_mention: counts.noAiRisk,
+    };
+  });
+
+  const noAiBySectorYear: { x: number; y: string; value: number }[] = [];
+  const noAiRiskBySectorYear: { x: number; y: string; value: number }[] = [];
+  years.forEach(year => {
+    sectors.forEach(sector => {
+      const key = `${year}|||${sector}`;
+      noAiBySectorYear.push({
+        x: year,
+        y: sector,
+        value: noAiBySectorYearCounts.get(key) || 0,
+      });
+      noAiRiskBySectorYear.push({
+        x: year,
+        y: sector,
+        value: noAiRiskBySectorYearCounts.get(key) || 0,
+      });
+    });
+  });
+
   return {
     years,
     summary: {
@@ -698,6 +857,8 @@ const buildDataset = (
     vendorTrend,
     riskBySector,
     riskBySectorYear,
+    riskByIsicSector,
+    riskByIsicSectorYear,
     adoptionBySector,
     adoptionBySectorYear,
     vendorBySector,
@@ -706,23 +867,37 @@ const buildDataset = (
     adoptionSignalHeatmap,
     vendorSignalHeatmap,
     substantivenessHeatmap,
+    blindSpotTrend,
+    noAiBySectorYear,
+    noAiRiskBySectorYear,
   };
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { sectorMap, sectors, companySectors } = parseCompanySectors();
+  const { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
 
   const years = Array.from(
     new Set(annotations.map(item => item.report_year))
   ).sort((a, b) => a - b);
 
-  const perReportData = aggregateToReports(annotations, sectorMap, years, companySectors);
-  const perChunkData = annotationsAsChunks(annotations, sectorMap);
+  const resolvedCniSectors = cniSectors.length ? cniSectors : ['Unknown'];
+  const extraIsicSectors = isicSectors.filter(section => !ALL_ISIC_SECTION_NAMES.includes(section));
+  const resolvedIsicSectors = [...ALL_ISIC_SECTION_NAMES, ...extraIsicSectors];
+
+  const perReportData = aggregateToReports(
+    annotations,
+    cniSectorMap,
+    isicSectorMap,
+    years,
+    companySectors
+  );
+  const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap);
 
   return {
     years,
-    sectors: sectors.length ? sectors : ['Unknown'],
+    sectors: resolvedCniSectors,
+    isicSectors: resolvedIsicSectors,
     labels: {
       mentionTypes,
       adoptionTypes,
@@ -732,8 +907,8 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       riskSignalLevels,
     },
     datasets: {
-      perReport: buildDataset(perReportData, years),
-      perChunk: buildDataset(perChunkData, years),
+      perReport: buildDataset(perReportData, years, resolvedCniSectors),
+      perChunk: buildDataset(perChunkData, years, resolvedCniSectors),
     },
   };
 };

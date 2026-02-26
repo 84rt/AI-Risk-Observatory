@@ -20,6 +20,8 @@ const formatLabel = (val: string) => {
     operational_technical: 'Operational / Technical',
     reputational_ethical: 'Reputational / Ethical',
     information_integrity: 'Information Integrity',
+    no_ai_mention: 'No AI Mention',
+    no_ai_risk_mention: 'No AI Risk Mention',
     none: 'Unspecified',
   };
   if (overrides[val]) return overrides[val];
@@ -28,6 +30,49 @@ const formatLabel = (val: string) => {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 };
+
+// --- Component: Info Tooltip ---
+// Uses position:fixed so the popup escapes any overflow:hidden/auto ancestor.
+export function InfoTooltip({ content }: { content: React.ReactNode }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPos({ x: rect.left + rect.width / 2, y: rect.top });
+  };
+
+  return (
+    <span className="relative inline-flex align-middle">
+      <button
+        type="button"
+        className="ml-1.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-600"
+        aria-label="Chart information"
+        onMouseEnter={handleEnter}
+        onMouseLeave={() => setPos(null)}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <circle cx="5" cy="5" r="4.3" stroke="currentColor" strokeWidth="1.1" />
+          <path d="M5 4.4V7.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <circle cx="5" cy="2.7" r="0.7" fill="currentColor" />
+        </svg>
+      </button>
+      {pos && (
+        <div
+          className="pointer-events-none z-[9999] w-72 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-normal leading-relaxed text-slate-600 normal-case tracking-normal shadow-lg"
+          style={{
+            position: 'fixed',
+            left: pos.x,
+            top: pos.y,
+            transform: 'translate(-50%, calc(-100% - 10px))',
+          }}
+        >
+          {content}
+          <div className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-[5px] rotate-45 border-b border-r border-slate-200 bg-white" />
+        </div>
+      )}
+    </span>
+  );
+}
 
 // --- Component: Stacked Bar Chart ---
 interface StackedBarChartProps {
@@ -38,6 +83,7 @@ interface StackedBarChartProps {
   allowLineChart?: boolean;
   title?: string;
   subtitle?: string;
+  tooltip?: React.ReactNode;
   legendPosition?: 'bottom' | 'right';
   legendKeys?: string[];
   activeLegendKey?: string | null;
@@ -52,6 +98,7 @@ export function StackedBarChart({
   allowLineChart = false,
   title,
   subtitle,
+  tooltip,
   legendPosition = 'bottom',
   legendKeys,
   activeLegendKey = null,
@@ -59,7 +106,7 @@ export function StackedBarChart({
 }: StackedBarChartProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const showSideLegend = legendPosition === 'right';
-  const visibleLegendKeys = legendKeys ?? stackKeys;
+  const visibleLegendKeys = [...(legendKeys ?? stackKeys)].reverse();
 
   const sharedAxisProps = {
     xAxis: {
@@ -92,12 +139,10 @@ export function StackedBarChart({
   return (
     <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm relative">
       {title && (
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
+          {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
-      )}
-      {subtitle && (
-        <p className="mb-2 text-xs leading-relaxed text-slate-500">{subtitle}</p>
       )}
       {allowLineChart && (
         <div className="absolute top-3 right-3 z-10 flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -210,6 +255,9 @@ export function StackedBarChart({
           </div>
         )}
       </div>
+      {subtitle && (
+        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-400">{subtitle}</p>
+      )}
     </div>
   );
 }
@@ -232,7 +280,13 @@ interface GenericHeatmapProps {
   showBlindSpots?: boolean;
   title?: string;
   subtitle?: string;
+  tooltip?: React.ReactNode;
+  xAxisLabel?: string;
+  yAxisLabel?: string;
   compact?: boolean;
+  labelColumnWidth?: number;
+  rowHeight?: number;
+  yLabelClassName?: string;
 }
 
 export function GenericHeatmap({
@@ -247,7 +301,13 @@ export function GenericHeatmap({
   showBlindSpots = true,
   title,
   subtitle,
+  tooltip,
+  xAxisLabel,
+  yAxisLabel,
   compact = false,
+  labelColumnWidth,
+  rowHeight,
+  yLabelClassName,
 }: GenericHeatmapProps) {
   // Create lookup map and compute totals
   const dataMap = new Map<string, number>();
@@ -269,7 +329,14 @@ export function GenericHeatmap({
     grandTotal += d.value;
   });
 
-  const labelCol = compact ? 110 : 150;
+  const longestYLabelLength = yLabels.reduce<number>((max, y) => {
+    const formatted = String(yLabelFormatter(y));
+    return Math.max(max, formatted.length);
+  }, 0);
+  const inferredLabelCol = compact
+    ? 110
+    : Math.max(150, Math.min(320, Math.round(longestYLabelLength * 5.2)));
+  const labelCol = labelColumnWidth ?? inferredLabelCol;
   const valueCol = compact ? 44 : 60;
   const totalCol = compact ? 44 : 54;
   const minGridWidth = showTotals
@@ -280,27 +347,44 @@ export function GenericHeatmap({
     : `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr))`;
 
   const needsScroll = yLabels.length > 25;
-  const cellHeight = needsScroll ? 36 : 40;
+  const inferredCellHeight = compact
+    ? 36
+    : longestYLabelLength > 44
+      ? 62
+      : longestYLabelLength > 30
+        ? 52
+        : 40;
+  const cellHeight = rowHeight ?? (needsScroll ? Math.max(36, inferredCellHeight - 4) : inferredCellHeight);
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
       {title && (
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
+          {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
       )}
-      {subtitle && (
-        <p className="mb-4 text-xs leading-relaxed text-slate-500">{subtitle}</p>
-      )}
-      {!subtitle && title && <div className="mb-3" />}
+      {title && <div className="mb-3" />}
       <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
         className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}
-        <div className={`bg-slate-50 p-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-center ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
-          {/* Top-Left Corner */}
+        <div className={`relative bg-slate-50 min-h-[60px] overflow-hidden ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+          {xAxisLabel && yAxisLabel ? (
+            <>
+              <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
+                <line x1="0" y1="0" x2="100%" y2="100%" stroke="#cbd5e1" strokeWidth="1" />
+              </svg>
+              <span className="absolute right-2 top-2 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                {xAxisLabel}
+              </span>
+              <span className="absolute bottom-2 left-2 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                {yAxisLabel}
+              </span>
+            </>
+          ) : null}
         </div>
         {xLabels.map(x => (
           <div key={x} className={`bg-slate-50 px-1 py-2 text-[10px] font-semibold text-slate-700 text-center flex items-center justify-center min-h-[60px] leading-tight ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
@@ -316,7 +400,12 @@ export function GenericHeatmap({
         {/* Data Rows */}
         {yLabels.map(y => (
           <div key={`row-${y}`} className="contents">
-            <div className={`bg-white px-3 py-2 text-sm font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight`} style={{ height: cellHeight }}>
+            <div
+              className={`bg-white px-3 py-2 font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight break-words ${
+                compact ? 'text-xs' : 'text-sm'
+              } ${yLabelClassName || ''}`}
+              style={{ height: cellHeight }}
+            >
               {yLabelFormatter(y)}
             </div>
 
@@ -405,8 +494,11 @@ export function GenericHeatmap({
               backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #cbd5e1 2px, #cbd5e1 3px)',
             }}
           />
-          <span>No reports — potential blind spot</span>
+          <span>No reports containing specified mention</span>
         </div>
+      )}
+      {subtitle && (
+        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-400">{subtitle}</p>
       )}
     </div>
   );

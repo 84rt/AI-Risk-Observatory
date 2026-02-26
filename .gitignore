@@ -29,6 +29,8 @@ data/annotations/
 !data/golden_set/**/*.jsonl
 !dashboard/data/**/*.jsonl
 
+# sensitive info
+/context
 
 # testing
 /coverage

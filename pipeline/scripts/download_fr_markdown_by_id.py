@@ -17,6 +17,7 @@ import csv
 import json
 import os
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
@@ -106,6 +107,24 @@ def extract_markdown(resp: requests.Response) -> str:
     return json.dumps(body, ensure_ascii=False, indent=2)
 
 
+def extract_processing_status(resp: requests.Response) -> tuple[str | None, str | None]:
+    """Best-effort parse of processing status/details from non-200 API responses."""
+    try:
+        body = resp.json()
+    except ValueError:
+        return None, None
+
+    if not isinstance(body, dict):
+        return None, None
+
+    raw_status = body.get("processing_status")
+    status = str(raw_status).strip() if raw_status is not None else None
+
+    detail = body.get("detail")
+    detail_text = str(detail).strip() if detail is not None else None
+    return status or None, detail_text or None
+
+
 def main() -> int:
     args = parse_args()
     load_dotenv(REPO_ROOT / ".env.local", override=True)
@@ -139,6 +158,7 @@ def main() -> int:
     not_found = 0
     forbidden = 0
     failed = 0
+    not_found_status_counts: Counter[str] = Counter()
 
     for i, filing_id in enumerate(candidate_ids, start=1):
         url = f"{API_BASE}/filings/{filing_id}/markdown/"
@@ -161,7 +181,18 @@ def main() -> int:
                 print(f"[{i}/{len(candidate_ids)}] {filing_id}: saved")
         elif resp.status_code == 404:
             not_found += 1
-            print(f"[{i}/{len(candidate_ids)}] {filing_id}: 404 (not processed)")
+            processing_status, detail = extract_processing_status(resp)
+            status_label = processing_status or "unknown"
+            not_found_status_counts[status_label] += 1
+            if processing_status:
+                if detail:
+                    print(
+                        f"[{i}/{len(candidate_ids)}] {filing_id}: 404 ({processing_status}) - {detail}"
+                    )
+                else:
+                    print(f"[{i}/{len(candidate_ids)}] {filing_id}: 404 ({processing_status})")
+            else:
+                print(f"[{i}/{len(candidate_ids)}] {filing_id}: 404 (not processed)")
         elif resp.status_code == 403:
             forbidden += 1
             print(f"[{i}/{len(candidate_ids)}] {filing_id}: 403 (access denied)")
@@ -175,6 +206,9 @@ def main() -> int:
     print(
         f"Done. saved={ok} not_found={not_found} forbidden={forbidden} failed={failed}"
     )
+    if not_found_status_counts:
+        parts = [f"{status}:{count}" for status, count in sorted(not_found_status_counts.items())]
+        print("404 processing_status breakdown:", ", ".join(parts))
     return 0 if failed == 0 else 1
 
 
