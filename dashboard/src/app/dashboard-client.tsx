@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
@@ -50,44 +50,44 @@ const VIEWS: View[] = [
 ];
 
 const mentionColors: Record<string, string> = {
-  adoption: '#0ea5e9',
-  risk: '#f97316',
-  vendor: '#14b8a6',
-  general_ambiguous: '#64748b',
-  harm: '#ef4444',
+  adoption: '#0ea5e9',    // sky-500
+  risk: '#f97316',        // orange-500
+  vendor: '#10b981',      // emerald-500
+  general_ambiguous: '#94a3b8', // slate-400
+  harm: '#ef4444',        // red-500
 };
 
 const adoptionColors: Record<string, string> = {
-  non_llm: '#0f766e',
-  llm: '#38bdf8',
-  agentic: '#f59e0b',
+  non_llm: '#f59e0b',     // amber-500
+  llm: '#0ea5e9',         // sky-500
+  agentic: '#7c3aed',     // violet-700
 };
 
 const vendorColors: Record<string, string> = {
-  openai: '#0ea5e9',
-  microsoft: '#1d4ed8',
-  google: '#f97316',
-  internal: '#0f766e',
-  other: '#64748b',
-  undisclosed: '#cbd5e1',
+  openai: '#0ea5e9',      // sky-500
+  microsoft: '#7c3aed',   // violet-700
+  google: '#f97316',      // orange-500
+  internal: '#10b981',    // emerald-500
+  other: '#94a3b8',       // slate-400
+  undisclosed: '#e2e8f0', // slate-200
 };
 
 const riskColors: Record<string, string> = {
-  cybersecurity: '#ef4444',
-  operational_technical: '#f97316',
-  regulatory_compliance: '#f59e0b',
-  reputational_ethical: '#14b8a6',
-  information_integrity: '#0ea5e9',
-  third_party_supply_chain: '#22c55e',
-  strategic_competitive: '#84cc16',
-  workforce_impacts: '#0f766e',
-  environmental_impact: '#10b981',
-  national_security: '#7c3aed',
+  cybersecurity:            '#ef4444', // red-500
+  operational_technical:    '#f97316', // orange-500
+  regulatory_compliance:    '#f59e0b', // amber-500
+  reputational_ethical:     '#14b8a6', // teal-500
+  information_integrity:    '#0ea5e9', // sky-500
+  third_party_supply_chain: '#22c55e', // green-500
+  strategic_competitive:    '#84cc16', // lime-500
+  workforce_impacts:        '#0f766e', // teal-700
+  environmental_impact:     '#10b981', // emerald-500
+  national_security:        '#7c3aed', // violet-700
 };
 
 const blindSpotColors: Record<string, string> = {
-  no_ai_mention: '#f87171',
-  no_ai_risk_mention: '#be789a',
+  no_ai_mention:      '#ef4444', // red-500
+  no_ai_risk_mention: '#f59e0b', // amber-500
 };
 
 const formatNumber = (value: number) =>
@@ -122,6 +122,8 @@ const formatLabel = (val: string | number) => {
 
 type DatasetKey = 'perReport' | 'perChunk';
 type RiskSectorView = 'cni' | 'isic';
+type SignalQualityFilter = 'all' | 'risk_signal' | 'adoption_signal' | 'vendor_signal' | 'substantiveness';
+type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
@@ -130,6 +132,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter>('all');
   const [riskSectorView, setRiskSectorView] = useState<RiskSectorView>('cni');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
+  const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
+  const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const activeData = data.datasets[datasetKey];
@@ -139,8 +143,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const mentionStackKeys = useMemo(() => data.labels.mentionTypes, [data.labels.mentionTypes]);
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
-  const vendorStackKeys = useMemo(() => data.labels.vendorTags, [data.labels.vendorTags]);
+  const vendorStackKeys = useMemo(
+    () => data.labels.vendorTags.filter(tag => tag !== 'undisclosed'),
+    [data.labels.vendorTags]
+  );
   const riskStackKeys = useMemo(() => data.labels.riskLabels, [data.labels.riskLabels]);
+
+  useEffect(() => {
+    if (vendorFilter !== 'all' && !vendorStackKeys.includes(vendorFilter)) {
+      setVendorFilter('all');
+    }
+  }, [vendorFilter, vendorStackKeys]);
 
   const [yearRangeIndices, setYearRangeIndices] = useState(() => ({
     start: 0,
@@ -342,12 +355,20 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [adoptionTrendInRange, adoptionFilter]);
 
   const filteredVendorTrend = useMemo(() => {
-    if (vendorFilter === 'all') return vendorTrendInRange;
+    if (vendorFilter === 'all') {
+      return vendorTrendInRange.map(row => {
+        const nextRow: Record<string, string | number | null | undefined> = { year: row.year };
+        vendorStackKeys.forEach(key => {
+          nextRow[key] = row[key] || 0;
+        });
+        return nextRow;
+      });
+    }
     return vendorTrendInRange.map(row => ({
       year: row.year,
       [vendorFilter]: row[vendorFilter] || 0,
     }));
-  }, [vendorTrendInRange, vendorFilter]);
+  }, [vendorTrendInRange, vendorFilter, vendorStackKeys]);
 
   const riskSignalHeatmapInRange = useMemo(
     () =>
@@ -427,6 +448,20 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       ),
     [blindSpotTrendInRange]
   );
+
+  const blindSpotOverviewStats = useMemo(() => {
+    const { totalReports, noAiMention, noAiRiskMention } = blindSpotTotalsInRange;
+    const safePct = (value: number) =>
+      totalReports > 0 ? (value / totalReports) * 100 : 0;
+
+    return {
+      totalReports,
+      noAiMention,
+      noAiRiskMention,
+      noAiMentionPct: safePct(noAiMention),
+      noAiRiskMentionPct: safePct(noAiRiskMention),
+    };
+  }, [blindSpotTotalsInRange]);
 
   const riskOverviewStats = useMemo(() => {
     const reportTotals = blindSpotTrendInRange.reduce(
@@ -524,6 +559,44 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     filteredYears.length,
   ]);
 
+  const signalQualityOverviewStats = useMemo(() => {
+    const sumValues = (rows: { value: number }[]) =>
+      rows.reduce((sum, row) => sum + (Number(row.value) || 0), 0);
+
+    const totalReports = blindSpotTrendInRange.reduce(
+      (sum, row) => sum + (Number(row.total_reports) || 0),
+      0
+    );
+
+    const riskSignalTotal = sumValues(riskSignalHeatmapInRange);
+    const adoptionSignalTotal = sumValues(adoptionSignalHeatmapInRange);
+    const vendorSignalTotal = sumValues(vendorSignalHeatmapInRange);
+    const substantivenessTotal = sumValues(substantivenessHeatmapInRange);
+
+    const explicitRisk = riskSignalHeatmapInRange
+      .filter(row => row.y === '3-explicit')
+      .reduce((sum, row) => sum + (Number(row.value) || 0), 0);
+    const substantiveRisk = substantivenessHeatmapInRange
+      .filter(row => row.y === 'substantive')
+      .reduce((sum, row) => sum + (Number(row.value) || 0), 0);
+
+    return {
+      totalReports,
+      riskSignalTotal,
+      adoptionSignalTotal,
+      vendorSignalTotal,
+      substantivenessTotal,
+      explicitRisk,
+      substantiveRisk,
+    };
+  }, [
+    blindSpotTrendInRange,
+    riskSignalHeatmapInRange,
+    adoptionSignalHeatmapInRange,
+    vendorSignalHeatmapInRange,
+    substantivenessHeatmapInRange,
+  ]);
+
   const riskHeatmapYLabels = riskSectorView === 'cni' ? data.sectors : data.isicSectors;
   const riskHeatmapAxisSectorLabel = riskSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector';
   const riskHeatmapTaxonomyDataInRange =
@@ -553,15 +626,64 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     ? '#0ea5e9'
     : (adoptionColors[adoptionFilter] || '#0ea5e9');
   const vendorHeatmapData = useMemo(() => {
-    if (vendorFilter === 'all') return vendorBySectorInRange;
+    if (vendorFilter === 'all') {
+      return vendorBySectorInRange.filter(cell => vendorStackKeys.includes(cell.x));
+    }
     return vendorBySectorYearInRange
       .filter(cell => cell.x === vendorFilter)
       .map(cell => ({ x: cell.year, y: cell.y, value: cell.value }));
-  }, [vendorFilter, vendorBySectorInRange, vendorBySectorYearInRange]);
-  const vendorHeatmapXLabels = vendorFilter === 'all' ? data.labels.vendorTags : filteredYears;
+  }, [vendorFilter, vendorBySectorInRange, vendorBySectorYearInRange, vendorStackKeys]);
+  const vendorHeatmapXLabels = vendorFilter === 'all' ? vendorStackKeys : filteredYears;
   const vendorHeatmapBaseColor = vendorFilter === 'all'
-    ? '#14b8a6'
-    : (vendorColors[vendorFilter] || '#14b8a6');
+    ? '#10b981'
+    : (vendorColors[vendorFilter] || '#10b981');
+  const filteredBlindSpotTrend = useMemo(() => {
+    if (blindSpotFilter === 'all') return blindSpotTrendInRange;
+    return blindSpotTrendInRange.map(row => ({
+      year: row.year,
+      [blindSpotFilter]: row[blindSpotFilter] || 0,
+    }));
+  }, [blindSpotFilter, blindSpotTrendInRange]);
+  const blindSpotHeatmapData = blindSpotFilter === 'no_ai_mention'
+    ? noAiBySectorYearInRange
+    : blindSpotFilter === 'no_ai_risk_mention'
+      ? noAiRiskBySectorYearInRange
+      : null;
+  const blindSpotHeatmapTitle = blindSpotFilter === 'no_ai_mention'
+    ? 'No AI Mention by Sector and Year'
+    : blindSpotFilter === 'no_ai_risk_mention'
+      ? 'No AI Risk Mention by Sector and Year'
+      : '';
+  const blindSpotHeatmapSubtitle = blindSpotFilter === 'no_ai_mention'
+    ? 'Counts of annual reports with zero AI mention signal.'
+    : blindSpotFilter === 'no_ai_risk_mention'
+      ? 'Counts of annual reports that do not disclose AI risk.'
+      : '';
+  const blindSpotHeatmapTooltip = blindSpotFilter === 'no_ai_mention'
+    ? 'Each cell is the number of reports in that sector-year that do not mention AI at all.'
+    : blindSpotFilter === 'no_ai_risk_mention'
+      ? 'Each cell is the number of reports in that sector-year with no AI risk mention.'
+      : '';
+  const blindSpotHeatmapColor = blindSpotFilter === 'no_ai_mention'
+    ? blindSpotColors.no_ai_mention
+    : blindSpotFilter === 'no_ai_risk_mention'
+      ? blindSpotColors.no_ai_risk_mention
+      : blindSpotColors.no_ai_mention;
+  const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
+  const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
+  const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
+  const showSubstantivenessPanel = signalQualityFilter === 'all' || signalQualityFilter === 'substantiveness';
+  const visibleSignalPanelCount = [
+    showRiskSignalPanel,
+    showAdoptionSignalPanel,
+    showVendorSignalPanel,
+  ].filter(Boolean).length;
+  const signalPanelGridClass =
+    visibleSignalPanelCount <= 1
+      ? 'grid gap-8'
+      : visibleSignalPanelCount === 2
+        ? 'grid gap-8 md:grid-cols-2'
+        : 'grid gap-8 lg:grid-cols-3';
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
@@ -582,7 +704,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 AI Risk Observatory
               </h1>
               <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
-                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their annual reports.
+                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their <a href="https://en.wikipedia.org/wiki/Annual_report" className="underline decoration-slate-400 hover:text-slate-700" target="_blank" rel="noopener noreferrer">annual reports</a>.
               </p>
               <p className="mt-2 max-w-2xl text-sm text-slate-500">
                 This dashboard visualises findings from an NLP pipeline that analyses annual reports of UK Critical National Infrastructure companies for AI-related disclosures.{' '}
@@ -858,13 +980,65 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Vendors</option>
-                  {data.labels.vendorTags.map(label => (
+                  {vendorStackKeys.map(label => (
                     <option key={label} value={label}>{formatLabel(label)}</option>
                   ))}
                 </select>
                 {vendorFilter !== 'all' && (
                   <button
                     onClick={() => setVendorFilter('all')}
+                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Signal-quality specific controls */}
+            {activeView === 4 && (
+              <>
+                <div className="h-6 w-px bg-slate-200 mx-1" />
+                <select
+                  id="signal-quality-filter"
+                  value={signalQualityFilter}
+                  onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
+                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                >
+                  <option value="all">All Quality Panels</option>
+                  <option value="risk_signal">Risk Signal Strength</option>
+                  <option value="adoption_signal">Adoption Signal Strength</option>
+                  <option value="vendor_signal">Vendor Signal Strength</option>
+                  <option value="substantiveness">Risk Substantiveness</option>
+                </select>
+                {signalQualityFilter !== 'all' && (
+                  <button
+                    onClick={() => setSignalQualityFilter('all')}
+                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Blind-spot specific controls */}
+            {activeView === 5 && (
+              <>
+                <div className="h-6 w-px bg-slate-200 mx-1" />
+                <select
+                  id="blind-spot-filter"
+                  value={blindSpotFilter}
+                  onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
+                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                >
+                  <option value="all">All Blind Spots</option>
+                  <option value="no_ai_mention">No AI Mention</option>
+                  <option value="no_ai_risk_mention">No AI Risk Mention</option>
+                </select>
+                {blindSpotFilter !== 'all' && (
+                  <button
+                    onClick={() => setBlindSpotFilter('all')}
                     className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
@@ -951,14 +1125,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 annual reports examined across{' '}
                 <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>,{' '}
                 <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.vendorMentionReports)}</span>{' '}
-                contain at least one named AI vendor reference, spanning{' '}
+                contain at least one AI vendor reference, spanning{' '}
                 <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.excerptVendorMentions)}</span>{' '}
                 individual passages.
               </p>
               <p>
                 <span className="font-medium text-slate-800">Per Report</span> shows how many filings mention a given
                 vendor at least once; <span className="font-medium text-slate-800">Per Excerpt</span> shows the full
-                volume of vendor-tagged passages across all repoirts and therefore the depth of mention.
+                volume of vendor-tagged passages across all reports and therefore the depth of mention.
               </p>
               <p>
                 Use the control above to focus on one vendor tag (
@@ -966,13 +1140,62 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <span className="font-medium text-slate-800">Microsoft</span>,{' '}
                 <span className="font-medium text-slate-800">Google</span>,{' '}
                 <span className="font-medium text-slate-800">Internal</span>,{' '}
-                <span className="font-medium text-slate-800">Undisclosed</span>, or{' '}
                 <span className="font-medium text-slate-800">Other</span>). Selecting one vendor switches the heatmap
                 from categorical columns (vendor tags) to yearly columns.
               </p>
               <p>
                 Read the trend chart for time patterns and the heatmap for sector concentration. Together they show both
                 which vendors are cited and where those dependencies appear most strongly.
+              </p>
+            </div>
+          ) : activeView === 4 ? (
+            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+              <p>
+                This section evaluates disclosure quality, not just volume. Across{' '}
+                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.totalReports)}</span>{' '}
+                reports in <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>, the dataset
+                contains <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.riskSignalTotal)}</span>{' '}
+                risk-signal labels, <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.adoptionSignalTotal)}</span>{' '}
+                adoption-signal labels, and <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.vendorSignalTotal)}</span>{' '}
+                vendor-signal labels.
+              </p>
+              <p>
+                Signal strength asks how explicitly a disclosure supports its classification: weak implicit, strong
+                implicit, or explicit. In the current window,{' '}
+                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.explicitRisk)}</span>{' '}
+                risk labels are scored as explicit.
+              </p>
+              <p>
+                Substantiveness is a separate quality lens for risk language, measuring whether disclosures are
+                boilerplate, moderate, or substantive. In this range,{' '}
+                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.substantiveRisk)}</span>{' '}
+                reports are classified as substantive.
+              </p>
+              <p>
+                Use the control above to focus on a single quality panel, or keep all panels visible to compare
+                risk/adoption/vendor explicitness against risk substantiveness side-by-side.
+              </p>
+            </div>
+          ) : activeView === 5 ? (
+            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+              <p>
+                In the selected period (<span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>),
+                the dataset includes <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.totalReports)}</span>{' '}
+                report-year filings. Of those,{' '}
+                <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.noAiMention)}</span>{' '}
+                (<span className="font-semibold text-slate-900">{blindSpotOverviewStats.noAiMentionPct.toFixed(1)}%</span>)
+                contain no AI mention at all, and{' '}
+                <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.noAiRiskMention)}</span>{' '}
+                (<span className="font-semibold text-slate-900">{blindSpotOverviewStats.noAiRiskMentionPct.toFixed(1)}%</span>)
+                contain no AI risk mention.
+              </p>
+              <p>
+                This view helps distinguish two different gaps: complete AI silence vs. AI being discussed without any
+                associated risk disclosure.
+              </p>
+              <p>
+                Use the filter above to focus on one blind-spot type. The trend chart and heatmap will then isolate that
+                specific absence pattern by year and sector.
               </p>
             </div>
           ) : (
@@ -1159,9 +1382,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               subtitle={`How frequently each vendor tag appears in ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} over time.`}
               tooltip={
                 <>
-                  <p>Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other, Undisclosed).</p>
+                  <p>Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).</p>
                   <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
-                  <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development; <span className="font-medium">Undisclosed</span> means AI is referenced but no provider is named.</p>
+                  <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
                   <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
                 </>
               }
@@ -1211,7 +1434,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
                   <li><span className="font-medium text-slate-800">OpenAI / Microsoft / Google:</span> The provider is explicitly named in the text.</li>
                   <li><span className="font-medium text-slate-800">Internal:</span> The company describes AI as built or operated in-house.</li>
-                  <li><span className="font-medium text-slate-800">Undisclosed:</span> AI is referenced but the provider is not identified.</li>
                   <li><span className="font-medium text-slate-800">Other:</span> A named provider outside the primary tracked vendor set.</li>
                 </ul>
               </div>
@@ -1221,7 +1443,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 4 && (
           <div className="space-y-8">
-            <div className="grid gap-8 lg:grid-cols-3">
+            {(showRiskSignalPanel || showAdoptionSignalPanel || showVendorSignalPanel) && (
+            <div className={signalPanelGridClass}>
+              {showRiskSignalPanel && (
               <GenericHeatmap
                 data={riskSignalHeatmapInRange}
                 xLabels={filteredYears}
@@ -1232,12 +1456,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 showTotals={true}
                 showBlindSpots={false}
                 title="Risk Signal Strength"
-                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
-                tooltip="Measures how explicitly each risk mention is evidenced. For each label in each excerpt the pipeline picks the strongest signal from any contributing source. 3-Explicit: the report directly names the risk in concrete terms. 2-Strong Implicit: the link is clear but inferential. 1-Weak Implicit: plausible but lightly supported. Higher rows indicate stronger, more verifiable disclosures."
+                subtitle="How explicitly risk labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                tooltip="Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
                 compact={true}
               />
+              )}
+              {showAdoptionSignalPanel && (
               <GenericHeatmap
                 data={adoptionSignalHeatmapInRange}
                 xLabels={filteredYears}
@@ -1248,138 +1474,183 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 showTotals={true}
                 showBlindSpots={false}
                 title="Adoption Signal Strength"
-                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
-                tooltip="Same signal-strength scoring as the risk heatmap, applied to AI adoption mentions. Explicit signals (row 3) indicate direct, named acknowledgement of AI system deployment. Weak implicit signals (row 1) may represent cautious or ambiguous language. Trends toward higher rows suggest improving disclosure quality over time."
+                subtitle="How explicitly adoption labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                tooltip="Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
                 compact={true}
               />
+              )}
+              {showVendorSignalPanel && (
               <GenericHeatmap
                 data={vendorSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#14b8a6"
+                baseColor="#10b981"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
                 title="Vendor Signal Strength"
-                subtitle="3 (Explicit) = direct statement, 2 (Strong Implicit) = clear inference, 1 (Weak Implicit) = lightly supported."
-                tooltip="Signal-strength scoring for vendor references. Explicit (row 3) means a specific vendor or platform is directly named. Strong implicit (row 2) means the vendor relationship is clearly implied. Weak implicit (row 1) means a vendor connection is inferred from context. Low explicitness across years may indicate opaque AI supply chains."
+                subtitle="How explicitly vendor labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                tooltip="Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
                 compact={true}
               />
+              )}
             </div>
+            )}
+            {showSubstantivenessPanel && (
             <GenericHeatmap
               data={substantivenessHeatmapInRange}
               xLabels={filteredYears}
               yLabels={data.labels.substantivenessBands}
-              baseColor="#14b8a6"
+              baseColor="#10b981"
               valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={false}
               title="Risk Substantiveness Distribution"
-              subtitle="Disclosure quality for AI-risk language. Substantive = concrete mechanism + tangible mitigation. Moderate = specific risk area, limited detail. Boilerplate = generic language without concrete detail."
-              tooltip="Rates the quality of AI-risk language in each annual report. Substantive disclosures describe a concrete risk mechanism and a tangible mitigation or action taken. Moderate disclosures identify a specific risk area but provide limited detail. Boilerplate disclosures use generic risk language with no concrete specifics. A shift toward Substantive over time indicates improving disclosure practice."
+              subtitle="Disclosure quality for AI-risk language: Substantive, Moderate, Boilerplate."
+              tooltip="Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic."
               xAxisLabel="Year"
               yAxisLabel="Quality Band"
             />
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-              <p className="font-semibold text-slate-900">Quality Metric Definitions</p>
-              <div className="mt-2 grid gap-4 md:grid-cols-2">
-                <div>
-                  <p className="font-medium text-slate-800">Signal Strength (Risk / Adoption / Vendor):</p>
-                  <p className="mt-1 leading-relaxed">
-                    How explicitly each mention evidences its classification.
-                    Each cell counts individual label mentions across all excerpts.
-                    Per label per excerpt, the strongest signal from any source wins.
-                  </p>
-                  <ul className="mt-1 space-y-0.5 text-xs">
-                    <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>
-                    <li><span className="font-medium">2 Strong implicit:</span> clear but inferential link</li>
-                    <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported</li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium text-slate-800">Substantiveness:</p>
-                  <p className="mt-1 leading-relaxed">
-                    Disclosure quality for AI-risk language per report.
-                  </p>
-                  <ul className="mt-1 space-y-0.5 text-xs">
-                    <li><span className="font-medium">Substantive:</span> concrete mechanism + tangible mitigation/action</li>
-                    <li><span className="font-medium">Moderate:</span> specific risk area, limited detail</li>
-                    <li><span className="font-medium">Boilerplate:</span> generic risk language without concrete detail</li>
-                  </ul>
+            )}
+            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                Quality Metric Definitions
+                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </summary>
+              <div className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm text-slate-600">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="font-medium text-slate-800">Signal Strength (Risk / Adoption / Vendor):</p>
+                    <p className="mt-1 leading-relaxed">
+                      Signal strength captures how explicitly a label is supported by the text.
+                      Each cell counts label-level classifications, and the strongest available signal per label is retained.
+                    </p>
+                    <ul className="mt-2 space-y-0.5 text-xs">
+                      <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>
+                      <li><span className="font-medium">2 Strong implicit:</span> clear but inferential evidence</li>
+                      <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported evidence</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-800">Substantiveness:</p>
+                    <p className="mt-1 leading-relaxed">
+                      Substantiveness evaluates the quality of AI-risk disclosure at report level.
+                    </p>
+                    <ul className="mt-2 space-y-0.5 text-xs">
+                      <li><span className="font-medium">Substantive:</span> concrete mechanism + tangible mitigation/action</li>
+                      <li><span className="font-medium">Moderate:</span> specific risk area, limited detail</li>
+                      <li><span className="font-medium">Boilerplate:</span> generic risk language without concrete detail</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
+            </details>
           </div>
         )}
 
         {activeView === 5 && (
           <div className="space-y-8">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Reports in Range</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{formatNumber(blindSpotTotalsInRange.totalReports)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">No AI Mention</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{formatNumber(blindSpotTotalsInRange.noAiMention)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">No AI Risk Mention</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{formatNumber(blindSpotTotalsInRange.noAiRiskMention)}</p>
-              </div>
-            </div>
-
             <StackedBarChart
-              data={blindSpotTrendInRange}
+              data={filteredBlindSpotTrend}
               xAxisKey="year"
-              stackKeys={['no_ai_mention', 'no_ai_risk_mention']}
+              stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
               colors={blindSpotColors}
               allowLineChart
+              legendPosition="right"
+              legendKeys={['no_ai_mention', 'no_ai_risk_mention']}
+              activeLegendKey={blindSpotFilter === 'all' ? null : blindSpotFilter}
+              onLegendItemClick={(key) =>
+                setBlindSpotFilter(prev => (prev === key ? 'all' : (key as BlindSpotFilter)))
+              }
               title="Blind Spots by Year"
-              subtitle="Yearly counts of annual reports with no AI mention at all, and with no AI risk mention."
-              tooltip="This view is based on report-level coverage. 'No AI mention' means no AI disclosure signal in that report. 'No AI risk mention' means the report does not disclose AI risk, even if AI may be mentioned elsewhere."
+              subtitle={
+                blindSpotFilter === 'all'
+                  ? 'Yearly counts of annual reports with no AI mention at all, and with no AI risk mention.'
+                  : `Yearly counts of annual reports for ${formatLabel(blindSpotFilter)}.`
+              }
+              tooltip={
+                blindSpotFilter === 'all'
+                  ? 'This report-level view compares two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
+                  : `${formatLabel(blindSpotFilter)} is currently isolated. Clear the filter to compare both blind-spot types together.`
+              }
             />
 
-            <div className="grid gap-8 xl:grid-cols-2">
-              <GenericHeatmap
-                data={noAiBySectorYearInRange}
-                xLabels={blindSpotYearsInRange}
-                yLabels={data.sectors}
-                baseColor="#f87171"
-                valueFormatter={value => `${value}`}
-                showTotals={true}
-                showBlindSpots={false}
-                title="No AI Mention by Sector and Year"
-                subtitle="Counts of annual reports with zero AI mention signal."
-                tooltip="Each cell is the number of reports in that sector-year that do not mention AI at all."
-                xAxisLabel="Year"
-                yAxisLabel="Sector"
-              />
-              <GenericHeatmap
-                data={noAiRiskBySectorYearInRange}
-                xLabels={blindSpotYearsInRange}
-                yLabels={data.sectors}
-                baseColor="#be789a"
-                valueFormatter={value => `${value}`}
-                showTotals={true}
-                showBlindSpots={false}
-                title="No AI Risk Mention by Sector and Year"
-                subtitle="Counts of annual reports that do not disclose AI risk."
-                tooltip="Each cell is the number of reports in that sector-year with no AI risk mention."
-                xAxisLabel="Year"
-                yAxisLabel="Sector"
-              />
-            </div>
+            {blindSpotFilter === 'all' ? (
+              <div className="grid gap-8 xl:grid-cols-2">
+                <GenericHeatmap
+                  data={noAiBySectorYearInRange}
+                  xLabels={blindSpotYearsInRange}
+                  yLabels={data.sectors}
+                  baseColor="#ef4444"
+                  valueFormatter={value => `${value}`}
+                  showTotals={true}
+                  showBlindSpots={false}
+                  title="No AI Mention by Sector and Year"
+                  subtitle="Counts of annual reports with zero AI mention signal."
+                  tooltip="Each cell is the number of reports in that sector-year that do not mention AI at all."
+                  xAxisLabel="Year"
+                  yAxisLabel="Sector"
+                />
+                <GenericHeatmap
+                  data={noAiRiskBySectorYearInRange}
+                  xLabels={blindSpotYearsInRange}
+                  yLabels={data.sectors}
+                  baseColor="#f59e0b"
+                  valueFormatter={value => `${value}`}
+                  showTotals={true}
+                  showBlindSpots={false}
+                  title="No AI Risk Mention by Sector and Year"
+                  subtitle="Counts of annual reports that do not disclose AI risk."
+                  tooltip="Each cell is the number of reports in that sector-year with no AI risk mention."
+                  xAxisLabel="Year"
+                  yAxisLabel="Sector"
+                />
+              </div>
+            ) : (
+              blindSpotHeatmapData && (
+                <GenericHeatmap
+                  data={blindSpotHeatmapData}
+                  xLabels={blindSpotYearsInRange}
+                  yLabels={data.sectors}
+                  baseColor={blindSpotHeatmapColor}
+                  valueFormatter={value => `${value}`}
+                  showTotals={true}
+                  showBlindSpots={false}
+                  title={blindSpotHeatmapTitle}
+                  subtitle={blindSpotHeatmapSubtitle}
+                  tooltip={blindSpotHeatmapTooltip}
+                  xAxisLabel="Year"
+                  yAxisLabel="Sector"
+                />
+              )
+            )}
 
-            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-xs leading-relaxed text-slate-600 shadow-sm">
-              Blind spot metrics are calculated from report-level coverage (one annual report per company-year baseline), including zero-mention reports.
-            </div>
+            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                Blind Spot Definitions
+                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </summary>
+              <div className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm leading-relaxed text-slate-600">
+                <p>
+                  Blind spot metrics are calculated from report-level coverage (one annual report per company-year baseline),
+                  including reports with zero extracted AI passages.
+                </p>
+                <ul className="mt-3 space-y-1 text-xs">
+                  <li><span className="font-medium text-slate-800">No AI Mention:</span> no AI disclosure signal appears in the report.</li>
+                  <li><span className="font-medium text-slate-800">No AI Risk Mention:</span> AI may be mentioned, but no AI-risk disclosure is present.</li>
+                </ul>
+              </div>
+            </details>
           </div>
         )}
 
