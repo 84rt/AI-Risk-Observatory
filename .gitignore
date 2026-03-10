@@ -14,6 +14,8 @@
 data/
 !dashboard/data/
 !dashboard/data/**
+!dashboard/src/app/data/
+!dashboard/src/app/data/**
 !data/golden_set/
 !data/reference/
 !data/reference/**
@@ -45,6 +47,8 @@ data/annotations/
 # misc
 .DS_Store
 *.pem
+__pycache__/
+*.py[cod]
 
 # debug
 npm-debug.log*

@@ -3,6 +3,7 @@ import path from 'path';
 
 type GoldenAnnotation = {
   annotation_id: string;
+  document_id: string;
   company_name: string;
   report_year: number;
   mention_types: string[];
@@ -36,6 +37,7 @@ export type GoldenDashboardData = {
 
 export type GoldenDataset = {
   years: number[];
+  months: string[];
   summary: {
     totalReports: number;
     totalCompanies: number;
@@ -48,14 +50,22 @@ export type GoldenDataset = {
   adoptionTrend: Record<string, number>[];
   riskTrend: Record<string, number>[];
   vendorTrend: Record<string, number>[];
+  riskTrendMonthly: Record<string, string | number>[];
+  adoptionTrendMonthly: Record<string, string | number>[];
+  vendorTrendMonthly: Record<string, string | number>[];
+  blindSpotTrendMonthly: Record<string, string | number>[];
   riskBySector: { x: string; y: string; value: number }[];
   riskBySectorYear: { year: number; x: string; y: string; value: number }[];
   riskByIsicSector: { x: string; y: string; value: number }[];
   riskByIsicSectorYear: { year: number; x: string; y: string; value: number }[];
   adoptionBySector: { x: string; y: string; value: number }[];
   adoptionBySectorYear: { year: number; x: string; y: string; value: number }[];
+  adoptionByIsicSector: { x: string; y: string; value: number }[];
+  adoptionByIsicSectorYear: { year: number; x: string; y: string; value: number }[];
   vendorBySector: { x: string; y: string; value: number }[];
   vendorBySectorYear: { year: number; x: string; y: string; value: number }[];
+  vendorByIsicSector: { x: string; y: string; value: number }[];
+  vendorByIsicSectorYear: { year: number; x: string; y: string; value: number }[];
   riskSignalHeatmap: { x: number; y: string; value: number }[];
   adoptionSignalHeatmap: { x: number; y: string; value: number }[];
   vendorSignalHeatmap: { x: number; y: string; value: number }[];
@@ -76,6 +86,18 @@ const COMPANIES_PATH = path.join(
   'data',
   'golden_set_companies.csv'
 );
+
+const DOCUMENT_MONTHS_PATH = path.join(
+  process.cwd(),
+  'data',
+  'document_months.json'
+);
+
+const loadDocumentMonths = (): Map<string, string> => {
+  if (!fs.existsSync(DOCUMENT_MONTHS_PATH)) return new Map();
+  const raw = JSON.parse(fs.readFileSync(DOCUMENT_MONTHS_PATH, 'utf8')) as Record<string, string>;
+  return new Map(Object.entries(raw));
+};
 
 const mentionTypes = [
   'adoption',
@@ -353,6 +375,7 @@ const extractRiskSignalMap = (item: GoldenAnnotation): Record<string, number> =>
 type ReportData = {
   company_name: string;
   report_year: number;
+  release_month: string;
   sector: string;
   isicSector: string;
   mentionTypes: Set<string>;
@@ -371,10 +394,12 @@ const makeEmptyReportData = (
   companyName: string,
   reportYear: number,
   sector: string,
-  isicSector: string
+  isicSector: string,
+  releaseMonth: string = ''
 ): ReportData => ({
   company_name: companyName,
   report_year: reportYear,
+  release_month: releaseMonth,
   sector,
   isicSector,
   mentionTypes: new Set(),
@@ -394,7 +419,8 @@ const aggregateToReports = (
   cniSectorMap: Map<string, string>,
   isicSectorMap: Map<string, string>,
   years: number[],
-  companySectors: { company_name: string; cniSector: string; isicSector: string }[]
+  companySectors: { company_name: string; cniSector: string; isicSector: string }[],
+  documentMonths: Map<string, string>
 ): ReportData[] => {
   const reportMap = new Map<string, ReportData>();
 
@@ -408,7 +434,8 @@ const aggregateToReports = (
           item.company_name,
           item.report_year,
           cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
-          isicSectorMap.get(toKey(item.company_name)) || 'Unknown'
+          isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
+          documentMonths.get(item.document_id) || ''
         )
       );
     }
@@ -506,7 +533,8 @@ const aggregateToReports = (
 const annotationsAsChunks = (
   annotations: GoldenAnnotation[],
   cniSectorMap: Map<string, string>,
-  isicSectorMap: Map<string, string>
+  isicSectorMap: Map<string, string>,
+  documentMonths: Map<string, string>
 ): ReportData[] => {
   return annotations.map(item => {
     const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
@@ -559,6 +587,7 @@ const annotationsAsChunks = (
     return {
       company_name: item.company_name,
       report_year: item.report_year,
+      release_month: documentMonths.get(item.document_id) || '',
       sector: cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
       isicSector: isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
       mentionTypes: new Set(item.mention_types || []),
@@ -575,9 +604,24 @@ const annotationsAsChunks = (
   });
 };
 
-const averageConfidence = (values: number[]): number => {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, val) => sum + val, 0) / values.length;
+const initMonthSeries = (months: string[], keys: string[]) => {
+  return months.map(month => {
+    const row: Record<string, string | number> = { month };
+    keys.forEach(key => {
+      row[key] = 0;
+    });
+    return row;
+  });
+};
+
+const addMonthCount = (
+  series: Record<string, string | number>[],
+  month: string,
+  key: string
+) => {
+  const row = series.find(entry => entry.month === month);
+  if (!row) return;
+  row[key] = (Number(row[key]) || 0) + 1;
 };
 
 const buildDataset = (
@@ -585,10 +629,21 @@ const buildDataset = (
   years: number[],
   sectors: string[]
 ): GoldenDataset => {
+  // Collect all unique months from reports
+  const monthSet = new Set<string>();
+  reports.forEach(r => {
+    if (r.release_month) monthSet.add(r.release_month);
+  });
+  const months = Array.from(monthSet).sort();
+
   const mentionTrend = initYearSeries(years, mentionTypes);
   const adoptionTrend = initYearSeries(years, adoptionTypes);
   const riskTrend = initYearSeries(years, riskLabels);
   const vendorTrend = initYearSeries(years, vendorTags);
+
+  const riskTrendMonthly = initMonthSeries(months, riskLabels);
+  const adoptionTrendMonthly = initMonthSeries(months, adoptionTypes);
+  const vendorTrendMonthly = initMonthSeries(months, vendorTags);
 
   const riskBySectorCounts = new Map<string, number>();
   const riskBySectorYearCounts = new Map<string, number>();
@@ -596,8 +651,12 @@ const buildDataset = (
   const riskByIsicSectorYearCounts = new Map<string, number>();
   const adoptionBySectorCounts = new Map<string, number>();
   const adoptionBySectorYearCounts = new Map<string, number>();
+  const adoptionByIsicSectorCounts = new Map<string, number>();
+  const adoptionByIsicSectorYearCounts = new Map<string, number>();
   const vendorBySectorCounts = new Map<string, number>();
   const vendorBySectorYearCounts = new Map<string, number>();
+  const vendorByIsicSectorCounts = new Map<string, number>();
+  const vendorByIsicSectorYearCounts = new Map<string, number>();
   const adoptionSignalCounts = new Map<string, number>();
   const riskSignalCounts = new Map<string, number>();
   const vendorSignalCounts = new Map<string, number>();
@@ -645,6 +704,13 @@ const buildDataset = (
     report.riskLabels.forEach(label => addCount(riskTrend, year, label));
     report.vendorTags.forEach(tag => addCount(vendorTrend, year, tag));
 
+    // Monthly trends
+    if (report.release_month) {
+      report.riskLabels.forEach(label => addMonthCount(riskTrendMonthly, report.release_month, label));
+      report.adoptionTypes.forEach(type => addMonthCount(adoptionTrendMonthly, report.release_month, type));
+      report.vendorTags.forEach(tag => addMonthCount(vendorTrendMonthly, report.release_month, tag));
+    }
+
     report.riskLabels.forEach(label => {
       const key = `${label}|||${report.sector}`;
       riskBySectorCounts.set(key, (riskBySectorCounts.get(key) || 0) + 1);
@@ -665,6 +731,11 @@ const buildDataset = (
       adoptionBySectorCounts.set(key, (adoptionBySectorCounts.get(key) || 0) + 1);
       const yearKey = `${year}|||${type}|||${report.sector}`;
       adoptionBySectorYearCounts.set(yearKey, (adoptionBySectorYearCounts.get(yearKey) || 0) + 1);
+
+      const isicKey = `${type}|||${report.isicSector}`;
+      adoptionByIsicSectorCounts.set(isicKey, (adoptionByIsicSectorCounts.get(isicKey) || 0) + 1);
+      const isicYearKey = `${year}|||${type}|||${report.isicSector}`;
+      adoptionByIsicSectorYearCounts.set(isicYearKey, (adoptionByIsicSectorYearCounts.get(isicYearKey) || 0) + 1);
     });
 
     report.vendorTags.forEach(tag => {
@@ -672,6 +743,11 @@ const buildDataset = (
       vendorBySectorCounts.set(key, (vendorBySectorCounts.get(key) || 0) + 1);
       const yearKey = `${year}|||${tag}|||${report.sector}`;
       vendorBySectorYearCounts.set(yearKey, (vendorBySectorYearCounts.get(yearKey) || 0) + 1);
+
+      const isicKey = `${tag}|||${report.isicSector}`;
+      vendorByIsicSectorCounts.set(isicKey, (vendorByIsicSectorCounts.get(isicKey) || 0) + 1);
+      const isicYearKey = `${year}|||${tag}|||${report.isicSector}`;
+      vendorByIsicSectorYearCounts.set(isicYearKey, (vendorByIsicSectorYearCounts.get(isicYearKey) || 0) + 1);
     });
 
     report.adoptionSignalValues.forEach(signal => {
@@ -752,7 +828,27 @@ const buildDataset = (
     return { year: Number(year), x: type, y: sector, value };
   });
 
+  const adoptionByIsicSector = Array.from(adoptionByIsicSectorCounts.entries()).map(([key, value]) => {
+    const [type, sector] = key.split('|||');
+    return { x: type, y: sector, value };
+  });
+
+  const adoptionByIsicSectorYear = Array.from(adoptionByIsicSectorYearCounts.entries()).map(([key, value]) => {
+    const [year, type, sector] = key.split('|||');
+    return { year: Number(year), x: type, y: sector, value };
+  });
+
   const vendorBySectorYear = Array.from(vendorBySectorYearCounts.entries()).map(([key, value]) => {
+    const [year, tag, sector] = key.split('|||');
+    return { year: Number(year), x: tag, y: sector, value };
+  });
+
+  const vendorByIsicSector = Array.from(vendorByIsicSectorCounts.entries()).map(([key, value]) => {
+    const [tag, sector] = key.split('|||');
+    return { x: tag, y: sector, value };
+  });
+
+  const vendorByIsicSectorYear = Array.from(vendorByIsicSectorYearCounts.entries()).map(([key, value]) => {
     const [year, tag, sector] = key.split('|||');
     return { year: Number(year), x: tag, y: sector, value };
   });
@@ -823,6 +919,29 @@ const buildDataset = (
     };
   });
 
+  // Monthly blind spot trend
+  const blindSpotMonthCounts = new Map<string, { total: number; noAi: number; noAiRisk: number }>();
+  reports.forEach(report => {
+    if (!report.release_month) return;
+    const month = report.release_month;
+    const entry = blindSpotMonthCounts.get(month) || { total: 0, noAi: 0, noAiRisk: 0 };
+    entry.total += 1;
+    const hasSignal = report.mentionTypes.size > 0 && !(report.mentionTypes.size === 1 && report.mentionTypes.has('none'));
+    const hasRiskSignal = report.mentionTypes.has('risk') || report.riskLabels.size > 0;
+    if (!hasSignal) entry.noAi += 1;
+    if (!hasRiskSignal) entry.noAiRisk += 1;
+    blindSpotMonthCounts.set(month, entry);
+  });
+  const blindSpotTrendMonthly = months.map(month => {
+    const counts = blindSpotMonthCounts.get(month) || { total: 0, noAi: 0, noAiRisk: 0 };
+    return {
+      month,
+      total_reports: counts.total,
+      no_ai_mention: counts.noAi,
+      no_ai_risk_mention: counts.noAiRisk,
+    };
+  });
+
   const noAiBySectorYear: { x: number; y: string; value: number }[] = [];
   const noAiRiskBySectorYear: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
@@ -843,6 +962,7 @@ const buildDataset = (
 
   return {
     years,
+    months,
     summary: {
       totalReports: reports.length,
       totalCompanies: companies.size,
@@ -855,14 +975,22 @@ const buildDataset = (
     adoptionTrend,
     riskTrend,
     vendorTrend,
+    riskTrendMonthly,
+    adoptionTrendMonthly,
+    vendorTrendMonthly,
+    blindSpotTrendMonthly,
     riskBySector,
     riskBySectorYear,
     riskByIsicSector,
     riskByIsicSectorYear,
     adoptionBySector,
     adoptionBySectorYear,
+    adoptionByIsicSector,
+    adoptionByIsicSectorYear,
     vendorBySector,
     vendorBySectorYear,
+    vendorByIsicSector,
+    vendorByIsicSectorYear,
     riskSignalHeatmap,
     adoptionSignalHeatmap,
     vendorSignalHeatmap,
@@ -876,6 +1004,7 @@ const buildDataset = (
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   const { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
+  const documentMonths = loadDocumentMonths();
 
   const years = Array.from(
     new Set(annotations.map(item => item.report_year))
@@ -890,9 +1019,10 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     cniSectorMap,
     isicSectorMap,
     years,
-    companySectors
+    companySectors,
+    documentMonths
   );
-  const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap);
+  const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, documentMonths);
 
   return {
     years,

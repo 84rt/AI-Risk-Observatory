@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
 // Filter type for risk distribution view
@@ -49,14 +48,6 @@ const VIEWS: View[] = [
   },
 ];
 
-const mentionColors: Record<string, string> = {
-  adoption: '#0ea5e9',    // sky-500
-  risk: '#f97316',        // orange-500
-  vendor: '#10b981',      // emerald-500
-  general_ambiguous: '#94a3b8', // slate-400
-  harm: '#ef4444',        // red-500
-};
-
 const adoptionColors: Record<string, string> = {
   non_llm: '#f59e0b',     // amber-500
   llm: '#0ea5e9',         // sky-500
@@ -64,10 +55,10 @@ const adoptionColors: Record<string, string> = {
 };
 
 const vendorColors: Record<string, string> = {
-  openai: '#0ea5e9',      // sky-500
-  microsoft: '#7c3aed',   // violet-700
-  google: '#f97316',      // orange-500
-  internal: '#10b981',    // emerald-500
+  openai: '#7c3aed',      // violet-600 (purple)
+  microsoft: '#3b82f6',   // blue-500
+  google: '#22c55e',      // green-500
+  internal: '#f97316',    // orange-500
   other: '#94a3b8',       // slate-400
   undisclosed: '#e2e8f0', // slate-200
 };
@@ -112,6 +103,7 @@ const formatLabel = (val: string | number) => {
     '1-weak_implicit': 'Weak Implicit',
     no_ai_mention: 'No AI Mention',
     no_ai_risk_mention: 'No AI Risk Mention',
+    openai: 'OpenAI',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -121,6 +113,7 @@ const formatLabel = (val: string | number) => {
 };
 
 type DatasetKey = 'perReport' | 'perChunk';
+type TrendTimeAxis = 'year' | 'month';
 type RiskSectorView = 'cni' | 'isic';
 type SignalQualityFilter = 'all' | 'risk_signal' | 'adoption_signal' | 'vendor_signal' | 'substantiveness';
 type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
@@ -128,9 +121,12 @@ type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
+  const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>('year');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
   const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter>('all');
   const [riskSectorView, setRiskSectorView] = useState<RiskSectorView>('cni');
+  const [adoptionSectorView, setAdoptionSectorView] = useState<RiskSectorView>('cni');
+  const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>('cni');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
   const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
@@ -141,19 +137,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const availableYears = activeData.years;
   const maxYearIndex = Math.max(availableYears.length - 1, 0);
 
-  const mentionStackKeys = useMemo(() => data.labels.mentionTypes, [data.labels.mentionTypes]);
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const vendorStackKeys = useMemo(
     () => data.labels.vendorTags.filter(tag => tag !== 'undisclosed'),
     [data.labels.vendorTags]
   );
   const riskStackKeys = useMemo(() => data.labels.riskLabels, [data.labels.riskLabels]);
-
-  useEffect(() => {
-    if (vendorFilter !== 'all' && !vendorStackKeys.includes(vendorFilter)) {
-      setVendorFilter('all');
-    }
-  }, [vendorFilter, vendorStackKeys]);
+  const effectiveVendorFilter =
+    vendorFilter !== 'all' && !vendorStackKeys.includes(vendorFilter) ? 'all' : vendorFilter;
 
   const [yearRangeIndices, setYearRangeIndices] = useState(() => ({
     start: 0,
@@ -200,15 +191,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     });
   };
 
-  const mentionTrendInRange = useMemo(
-    () =>
-      activeData.mentionTrend.filter(row => {
-        const year = Number(row.year);
-        return year >= selectedStartYear && year <= selectedEndYear;
-      }),
-    [activeData.mentionTrend, selectedStartYear, selectedEndYear]
-  );
-
   const adoptionTrendInRange = useMemo(
     () =>
       activeData.adoptionTrend.filter(row => {
@@ -225,15 +207,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         return year >= selectedStartYear && year <= selectedEndYear;
       }),
     [activeData.riskTrend, selectedStartYear, selectedEndYear]
-  );
-
-  const heroRiskTrend = useMemo(
-    () =>
-      activeData.riskTrend.map(row => {
-        const total = riskStackKeys.reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
-        return { year: row.year, risk: total };
-      }),
-    [activeData.riskTrend, riskStackKeys]
   );
 
   const vendorTrendInRange = useMemo(
@@ -314,6 +287,29 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     [adoptionBySectorYearInRange]
   );
 
+  const adoptionByIsicSectorYearInRange = useMemo(
+    () =>
+      activeData.adoptionByIsicSectorYear.filter(
+        cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
+      ),
+    [activeData.adoptionByIsicSectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const adoptionByIsicSectorInRange = useMemo(
+    () => {
+      const counts = new Map<string, number>();
+      adoptionByIsicSectorYearInRange.forEach(cell => {
+        const key = `${cell.x}|||${cell.y}`;
+        counts.set(key, (counts.get(key) || 0) + cell.value);
+      });
+      return Array.from(counts.entries()).map(([key, value]) => {
+        const [x, y] = key.split('|||');
+        return { x, y, value };
+      });
+    },
+    [adoptionByIsicSectorYearInRange]
+  );
+
   const vendorBySectorYearInRange = useMemo(
     () =>
       activeData.vendorBySectorYear.filter(
@@ -337,6 +333,29 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     [vendorBySectorYearInRange]
   );
 
+  const vendorByIsicSectorYearInRange = useMemo(
+    () =>
+      activeData.vendorByIsicSectorYear.filter(
+        cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
+      ),
+    [activeData.vendorByIsicSectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const vendorByIsicSectorInRange = useMemo(
+    () => {
+      const counts = new Map<string, number>();
+      vendorByIsicSectorYearInRange.forEach(cell => {
+        const key = `${cell.x}|||${cell.y}`;
+        counts.set(key, (counts.get(key) || 0) + cell.value);
+      });
+      return Array.from(counts.entries()).map(([key, value]) => {
+        const [x, y] = key.split('|||');
+        return { x, y, value };
+      });
+    },
+    [vendorByIsicSectorYearInRange]
+  );
+
   // Filter risk trend for single risk type view
   const filteredRiskTrend = useMemo(() => {
     if (riskFilter === 'all') return riskTrendInRange;
@@ -355,7 +374,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [adoptionTrendInRange, adoptionFilter]);
 
   const filteredVendorTrend = useMemo(() => {
-    if (vendorFilter === 'all') {
+    if (effectiveVendorFilter === 'all') {
       return vendorTrendInRange.map(row => {
         const nextRow: Record<string, string | number | null | undefined> = { year: row.year };
         vendorStackKeys.forEach(key => {
@@ -366,9 +385,86 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     }
     return vendorTrendInRange.map(row => ({
       year: row.year,
-      [vendorFilter]: row[vendorFilter] || 0,
+      [effectiveVendorFilter]: row[effectiveVendorFilter] || 0,
     }));
-  }, [vendorTrendInRange, vendorFilter, vendorStackKeys]);
+  }, [effectiveVendorFilter, vendorTrendInRange, vendorStackKeys]);
+
+  // Monthly trend data filtered by year range
+  const monthlyRiskTrendInRange = useMemo(() => {
+    const startMonth = `${selectedStartYear}-01`;
+    const endMonth = `${selectedEndYear}-12`;
+    return activeData.riskTrendMonthly.filter(row => {
+      const m = row.month as string;
+      return m >= startMonth && m <= endMonth;
+    });
+  }, [activeData.riskTrendMonthly, selectedStartYear, selectedEndYear]);
+
+  const monthlyAdoptionTrendInRange = useMemo(() => {
+    const startMonth = `${selectedStartYear}-01`;
+    const endMonth = `${selectedEndYear}-12`;
+    return activeData.adoptionTrendMonthly.filter(row => {
+      const m = row.month as string;
+      return m >= startMonth && m <= endMonth;
+    });
+  }, [activeData.adoptionTrendMonthly, selectedStartYear, selectedEndYear]);
+
+  const monthlyVendorTrendInRange = useMemo(() => {
+    const startMonth = `${selectedStartYear}-01`;
+    const endMonth = `${selectedEndYear}-12`;
+    return activeData.vendorTrendMonthly.filter(row => {
+      const m = row.month as string;
+      return m >= startMonth && m <= endMonth;
+    });
+  }, [activeData.vendorTrendMonthly, selectedStartYear, selectedEndYear]);
+
+  const monthlyBlindSpotTrendInRange = useMemo(() => {
+    const startMonth = `${selectedStartYear}-01`;
+    const endMonth = `${selectedEndYear}-12`;
+    return reportBaselineData.blindSpotTrendMonthly.filter(row => {
+      const m = row.month as string;
+      return m >= startMonth && m <= endMonth;
+    });
+  }, [reportBaselineData.blindSpotTrendMonthly, selectedStartYear, selectedEndYear]);
+
+  const filteredMonthlyRiskTrend = useMemo(() => {
+    if (riskFilter === 'all') return monthlyRiskTrendInRange;
+    return monthlyRiskTrendInRange.map(row => ({
+      month: row.month,
+      [riskFilter]: row[riskFilter] || 0,
+    }));
+  }, [monthlyRiskTrendInRange, riskFilter]);
+
+  const filteredMonthlyAdoptionTrend = useMemo(() => {
+    if (adoptionFilter === 'all') return monthlyAdoptionTrendInRange;
+    return monthlyAdoptionTrendInRange.map(row => ({
+      month: row.month,
+      [adoptionFilter]: row[adoptionFilter] || 0,
+    }));
+  }, [monthlyAdoptionTrendInRange, adoptionFilter]);
+
+  const filteredMonthlyVendorTrend = useMemo(() => {
+    if (effectiveVendorFilter === 'all') {
+      return monthlyVendorTrendInRange.map(row => {
+        const nextRow: Record<string, string | number | null | undefined> = { month: row.month };
+        vendorStackKeys.forEach(key => {
+          nextRow[key] = row[key] || 0;
+        });
+        return nextRow;
+      });
+    }
+    return monthlyVendorTrendInRange.map(row => ({
+      month: row.month,
+      [effectiveVendorFilter]: row[effectiveVendorFilter] || 0,
+    }));
+  }, [effectiveVendorFilter, monthlyVendorTrendInRange, vendorStackKeys]);
+
+  const filteredMonthlyBlindSpotTrend = useMemo(() => {
+    if (blindSpotFilter === 'all') return monthlyBlindSpotTrendInRange;
+    return monthlyBlindSpotTrendInRange.map(row => ({
+      month: row.month,
+      [blindSpotFilter]: row[blindSpotFilter] || 0,
+    }));
+  }, [blindSpotFilter, monthlyBlindSpotTrendInRange]);
 
   const riskSignalHeatmapInRange = useMemo(
     () =>
@@ -613,30 +709,36 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const riskHeatmapXLabels = riskFilter === 'all' ? data.labels.riskLabels : filteredYears;
   const riskHeatmapBaseColor = riskFilter === 'all'
-    ? '#f97316'
-    : (riskColors[riskFilter] || '#f97316');
+    ? '#64748b'
+    : (riskColors[riskFilter] || '#64748b');
+  const adoptionHeatmapYLabels = adoptionSectorView === 'cni' ? data.sectors : data.isicSectors;
+  const adoptionHeatmapSectorData = adoptionSectorView === 'cni' ? adoptionBySectorInRange : adoptionByIsicSectorInRange;
+  const adoptionHeatmapSectorYearData = adoptionSectorView === 'cni' ? adoptionBySectorYearInRange : adoptionByIsicSectorYearInRange;
   const adoptionHeatmapData = useMemo(() => {
-    if (adoptionFilter === 'all') return adoptionBySectorInRange;
-    return adoptionBySectorYearInRange
+    if (adoptionFilter === 'all') return adoptionHeatmapSectorData;
+    return adoptionHeatmapSectorYearData
       .filter(cell => cell.x === adoptionFilter)
       .map(cell => ({ x: cell.year, y: cell.y, value: cell.value }));
-  }, [adoptionFilter, adoptionBySectorInRange, adoptionBySectorYearInRange]);
+  }, [adoptionFilter, adoptionHeatmapSectorData, adoptionHeatmapSectorYearData]);
   const adoptionHeatmapXLabels = adoptionFilter === 'all' ? data.labels.adoptionTypes : filteredYears;
   const adoptionHeatmapBaseColor = adoptionFilter === 'all'
-    ? '#0ea5e9'
-    : (adoptionColors[adoptionFilter] || '#0ea5e9');
+    ? '#64748b'
+    : (adoptionColors[adoptionFilter] || '#64748b');
+  const vendorHeatmapYLabels = vendorSectorView === 'cni' ? data.sectors : data.isicSectors;
+  const vendorHeatmapSectorData = vendorSectorView === 'cni' ? vendorBySectorInRange : vendorByIsicSectorInRange;
+  const vendorHeatmapSectorYearData = vendorSectorView === 'cni' ? vendorBySectorYearInRange : vendorByIsicSectorYearInRange;
   const vendorHeatmapData = useMemo(() => {
-    if (vendorFilter === 'all') {
-      return vendorBySectorInRange.filter(cell => vendorStackKeys.includes(cell.x));
+    if (effectiveVendorFilter === 'all') {
+      return vendorHeatmapSectorData.filter(cell => vendorStackKeys.includes(cell.x));
     }
-    return vendorBySectorYearInRange
-      .filter(cell => cell.x === vendorFilter)
+    return vendorHeatmapSectorYearData
+      .filter(cell => cell.x === effectiveVendorFilter)
       .map(cell => ({ x: cell.year, y: cell.y, value: cell.value }));
-  }, [vendorFilter, vendorBySectorInRange, vendorBySectorYearInRange, vendorStackKeys]);
-  const vendorHeatmapXLabels = vendorFilter === 'all' ? vendorStackKeys : filteredYears;
-  const vendorHeatmapBaseColor = vendorFilter === 'all'
-    ? '#10b981'
-    : (vendorColors[vendorFilter] || '#10b981');
+  }, [effectiveVendorFilter, vendorHeatmapSectorData, vendorHeatmapSectorYearData, vendorStackKeys]);
+  const vendorHeatmapXLabels = effectiveVendorFilter === 'all' ? vendorStackKeys : filteredYears;
+  const vendorHeatmapBaseColor = effectiveVendorFilter === 'all'
+    ? '#64748b'
+    : (vendorColors[effectiveVendorFilter] || '#64748b');
   const filteredBlindSpotTrend = useMemo(() => {
     if (blindSpotFilter === 'all') return blindSpotTrendInRange;
     return blindSpotTrendInRange.map(row => ({
@@ -655,20 +757,16 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       ? 'No AI Risk Mention by Sector and Year'
       : '';
   const blindSpotHeatmapSubtitle = blindSpotFilter === 'no_ai_mention'
-    ? 'Counts of annual reports with zero AI mention signal.'
+    ? 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
     : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'Counts of annual reports that do not disclose AI risk.'
+      ? 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
       : '';
   const blindSpotHeatmapTooltip = blindSpotFilter === 'no_ai_mention'
     ? 'Each cell is the number of reports in that sector-year that do not mention AI at all.'
     : blindSpotFilter === 'no_ai_risk_mention'
       ? 'Each cell is the number of reports in that sector-year with no AI risk mention.'
       : '';
-  const blindSpotHeatmapColor = blindSpotFilter === 'no_ai_mention'
-    ? blindSpotColors.no_ai_mention
-    : blindSpotFilter === 'no_ai_risk_mention'
-      ? blindSpotColors.no_ai_risk_mention
-      : blindSpotColors.no_ai_mention;
+  const blindSpotHeatmapColor = '#64748b';
   const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
   const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
   const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
@@ -688,90 +786,65 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
 
+  const makeSectorToggle = (
+    current: RiskSectorView,
+    setter: (v: RiskSectorView) => void
+  ) => (
+    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setter('cni')}
+        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+          current === 'cni'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        CNI
+      </button>
+      <button
+        type="button"
+        onClick={() => setter('isic')}
+        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+          current === 'isic'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        ISIC
+      </button>
+    </div>
+  );
+
+  const trendTimeToggle = (
+    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setTrendTimeAxis('year')}
+        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+          trendTimeAxis === 'year'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        Year
+      </button>
+      <button
+        type="button"
+        onClick={() => setTrendTimeAxis('month')}
+        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+          trendTimeAxis === 'month'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        Month
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
-      {/* Hero section */}
-      <header className="relative overflow-hidden border-b border-slate-200/70">
-        <div className="absolute inset-0">
-          <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-amber-200/70 blur-3xl" />
-          <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-sky-200/70 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-emerald-200/60 blur-3xl" />
-        </div>
-        <div className="relative mx-auto max-w-7xl px-6 py-12">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="animate-rise">
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-                AI Risk Observatory
-              </h1>
-              <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">
-                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their <a href="https://en.wikipedia.org/wiki/Annual_report" className="underline decoration-slate-400 hover:text-slate-700" target="_blank" rel="noopener noreferrer">annual reports</a>.
-              </p>
-              <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                This dashboard visualises findings from an NLP pipeline that analyses annual reports of UK Critical National Infrastructure companies for AI-related disclosures.{' '}
-                <a href="/about" className="underline decoration-slate-400 hover:text-slate-700">Learn more about our methodology</a>.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {activeData.summary.totalCompanies} Companies
-                </span>
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {activeData.summary.totalReports} Annual Reports
-                </span>
-                <span className="rounded-full bg-white/80 px-3 py-1 font-semibold">
-                  {selectedStartYear}–{selectedEndYear}
-                </span>
-              </div>
-            </div>
-            <div className="animate-rise animate-rise-delay-1 relative w-full max-w-md lg:w-[380px]">
-              <div className="h-[130px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={heroRiskTrend} margin={{ top: 4, right: 12, bottom: 0, left: -12 }}>
-                    <defs>
-                      <linearGradient id="heroEdgeFade" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#000" />
-                        <stop offset="8%" stopColor="#fff" />
-                        <stop offset="92%" stopColor="#fff" />
-                        <stop offset="100%" stopColor="#000" />
-                      </linearGradient>
-                      <mask id="heroEdgeFadeMask" maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox">
-                        <rect x="0" y="0" width="1" height="1" fill="url(#heroEdgeFade)" />
-                      </mask>
-                      <linearGradient id="heroRiskLineGrad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#fb923c" />
-                        <stop offset="100%" stopColor="#f97316" />
-                      </linearGradient>
-                      <linearGradient id="heroRiskGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#a8a29e' }} axisLine={false} tickLine={false} dy={4} />
-                    <YAxis tick={{ fontSize: 9, fill: '#a09890' }} axisLine={false} tickLine={false} width={36} tickCount={4} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 11, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', boxShadow: '0 4px 24px rgba(0,0,0,.1)' }}
-                      labelFormatter={label => `${label}`}
-                      formatter={(value: number) => [value, 'Risk mentions']}
-                      cursor={{ stroke: '#d6d3d1', strokeWidth: 1, strokeDasharray: '3 3' }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="risk"
-                      stroke="url(#heroRiskLineGrad)"
-                      strokeWidth={2.5}
-                      fill="url(#heroRiskGrad)"
-                      mask="url(#heroEdgeFadeMask)"
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#f97316' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="mt-1 text-[11px] text-slate-400">AI risk mentions in UK public company annual reports</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Sticky control bar */}
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6">
@@ -897,30 +970,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {activeView === 1 && (
               <>
                 <div className="h-6 w-px bg-slate-200 mx-1" />
-                <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => setRiskSectorView('cni')}
-                    className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-                      riskSectorView === 'cni'
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    CNI
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRiskSectorView('isic')}
-                    className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-                      riskSectorView === 'isic'
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    ISIC
-                  </button>
-                </div>
                 <select
                   id="risk-filter"
                   value={riskFilter}
@@ -975,7 +1024,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <div className="h-6 w-px bg-slate-200 mx-1" />
                 <select
                   id="vendor-filter"
-                  value={vendorFilter}
+                  value={effectiveVendorFilter}
                   onChange={e => setVendorFilter(e.target.value)}
                   className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
@@ -984,7 +1033,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     <option key={label} value={label}>{formatLabel(label)}</option>
                   ))}
                 </select>
-                {vendorFilter !== 'all' && (
+                {effectiveVendorFilter !== 'all' && (
                   <button
                     onClick={() => setVendorFilter('all')}
                     className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
@@ -1076,7 +1125,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 the sector taxonomy between{' '}
                 <span className="font-medium text-slate-800">CNI</span> (Critical National Infrastructure) and{' '}
                 <span className="font-medium text-slate-800">ISIC</span> (international standard industry codes).
-                <InfoTooltip content="Sector classifications for companies that do not fall clearly within a CNI sector have been approximated using an LLM-assisted mapping process. Full details are available on the Methodology page." />
+                <InfoTooltip content="Sector classifications for companies that do not fall clearly within a CNI sector have been approximated using an LLM-assisted mapping process. Full details are available on the About page." />
               </div>
               <p>
                 The <span className="font-medium text-slate-800">risk trend chart</span> shows how often each risk
@@ -1207,8 +1256,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="space-y-8">
             {/* Risk Trend Over Time */}
             <StackedBarChart
-              data={filteredRiskTrend}
-              xAxisKey="year"
+              data={trendTimeAxis === 'month' ? filteredMonthlyRiskTrend : filteredRiskTrend}
+              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
               colors={riskColors}
               allowLineChart
@@ -1217,12 +1266,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={riskFilter === 'all' ? null : riskFilter}
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="Risk Trend Over Time"
-              subtitle={`How often each AI risk category appeared in ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'}, year by year. One ${datasetKey === 'perReport' ? 'report' : 'passage'} can be counted in more than one category.`}
+              headerExtra={trendTimeToggle}
+              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`}
               tooltip={
                 <>
                   <p>Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.</p>
-                  <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year's bar — segments are not mutually exclusive.</p>
-                  <p className="mt-2">Year-on-year growth may also reflect shifts in disclosure requirements or reporting culture rather than changes in actual risk levels — see the Methodology page for more detail.</p>
+                  <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year&apos;s bar; segments are not mutually exclusive.</p>
+                  <p className="mt-2">Year-on-year growth may also reflect shifts in disclosure requirements or reporting culture rather than changes in actual risk levels — see the About page for more detail.</p>
                   <p className="mt-2">Click a legend item to isolate a single category.</p>
                 </>
               }
@@ -1241,20 +1291,20 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               title={riskFilter === 'all' ? 'Risk Distribution by Sector' : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`}
               subtitle={
                 riskFilter === 'all'
-                  ? `How many ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} in each ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector mentioned each risk category.`
-                  : `How frequently ${formatLabel(riskFilter)} was mentioned across ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sectors, broken down by year.`
+                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} containing each risk type within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                  : `Heatmap of ${formatLabel(riskFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(riskFilter)} mentions in that sector-year.`
               }
               tooltip={
                 riskFilter === 'all'
                   ? <>
                       <p>Colour intensity is scaled relative to the full dataset, not absolute counts — two cells with the same shade may differ in raw numbers, and a dark cell means relatively more {datasetKey === 'perReport' ? 'reports' : 'passages'} than lighter cells in this view.</p>
-                      <p className="mt-2">To track how a specific risk has evolved across sectors over time, select it from the 'Focus on Risk Type' control above; this switches the columns from risk categories to individual years.</p>
-                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the Methodology page.</p>
+                      <p className="mt-2">To track how a specific risk has evolved across sectors over time, select it from the &apos;Focus on Risk Type&apos; control above; this switches the columns from risk categories to individual years.</p>
+                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
                     </>
                   : <>
                       <p>Colour intensity is scaled relative to the full dataset — two cells with the same shade may differ in raw numbers.</p>
                       <p className="mt-2">Clearing the risk-type filter returns the view to all categories, with columns showing each risk category again.</p>
-                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the Methodology page.</p>
+                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
                     </>
               }
               xAxisLabel={riskFilter === 'all' ? 'Risk Type' : 'Year'}
@@ -1262,6 +1312,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               labelColumnWidth={riskSectorView === 'isic' ? 290 : undefined}
               rowHeight={riskSectorView === 'isic' ? 58 : undefined}
               yLabelClassName={riskSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+              headerExtra={makeSectorToggle(riskSectorView, setRiskSectorView)}
             />
 
             <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
@@ -1281,7 +1332,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   <li><span className="font-medium text-slate-800">Regulatory / Compliance:</span> Risks from evolving compliance obligations, legal liability, or uncertainty in the regulatory landscape for AI.</li>
                   <li><span className="font-medium text-slate-800">Reputational / Ethical:</span> Risks of brand damage, public concern over algorithmic bias, or broader ethical considerations in AI deployment.</li>
                   <li><span className="font-medium text-slate-800">Information Integrity:</span> Risks from AI-generated misinformation, model hallucinations, or degraded data quality affecting decision-making.</li>
-                  <li><span className="font-medium text-slate-800">Third-Party Supply Chain:</span> Risks arising from dependence on external AI vendors, APIs, or suppliers whose reliability or conduct is outside the company's direct control.</li>
+                  <li><span className="font-medium text-slate-800">Third-Party Supply Chain:</span> Risks arising from dependence on external AI vendors, APIs, or suppliers whose reliability or conduct is outside the company&apos;s direct control.</li>
                   <li><span className="font-medium text-slate-800">Strategic / Competitive:</span> Risks of competitive displacement, market disruption, or falling behind peers in AI adoption and innovation.</li>
                   <li><span className="font-medium text-slate-800">Workforce Impacts:</span> Risks relating to job displacement, emerging skills gaps, or changes in labour relations driven by AI automation.</li>
                   <li><span className="font-medium text-slate-800">Environmental Impact:</span> Risks associated with the energy consumption, carbon footprint, or resource demands of AI infrastructure.</li>
@@ -1295,8 +1346,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 2 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={filteredAdoptionTrend}
-              xAxisKey="year"
+              data={trendTimeAxis === 'month' ? filteredMonthlyAdoptionTrend : filteredAdoptionTrend}
+              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter]}
               colors={adoptionColors}
               allowLineChart
@@ -1305,7 +1356,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={adoptionFilter === 'all' ? null : adoptionFilter}
               onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
               title="Adoption Type Over Time"
-              subtitle={`How frequently AI adoption appears in ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'}, grouped by maturity level (Non-LLM, LLM, Agentic).`}
+              headerExtra={trendTimeToggle}
+              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`}
               tooltip={
                 <>
                   <p>Each bar is stacked by adoption type: Non-LLM, LLM, and Agentic.</p>
@@ -1317,7 +1369,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <GenericHeatmap
               data={adoptionHeatmapData}
               xLabels={adoptionHeatmapXLabels}
-              yLabels={data.sectors}
+              yLabels={adoptionHeatmapYLabels}
               baseColor={adoptionHeatmapBaseColor}
               valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
               xLabelFormatter={formatLabel}
@@ -1326,8 +1378,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               title={adoptionFilter === 'all' ? 'Adoption Intensity by Sector' : `${formatLabel(adoptionFilter)} Mentions by Sector and Year`}
               subtitle={
                 adoptionFilter === 'all'
-                  ? `How many ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} in each CNI sector mention each adoption type.`
-                  : `How frequently ${formatLabel(adoptionFilter)} was mentioned across CNI sectors, broken down by year.`
+                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} mentioning each adoption maturity level within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                  : `Heatmap of ${formatLabel(adoptionFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(adoptionFilter)} mentions in that sector-year.`
               }
               tooltip={
                 adoptionFilter === 'all'
@@ -1342,7 +1394,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     </>
               }
               xAxisLabel={adoptionFilter === 'all' ? 'Adoption Type' : 'Year'}
-              yAxisLabel="Sector"
+              yAxisLabel={adoptionSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
+              headerExtra={makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
+              labelColumnWidth={adoptionSectorView === 'isic' ? 290 : undefined}
+              rowHeight={adoptionSectorView === 'isic' ? 58 : undefined}
+              yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />
 
             <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
@@ -1369,17 +1425,18 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 3 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={filteredVendorTrend}
-              xAxisKey="year"
-              stackKeys={vendorFilter === 'all' ? vendorStackKeys : [vendorFilter]}
+              data={trendTimeAxis === 'month' ? filteredMonthlyVendorTrend : filteredVendorTrend}
+              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
+              stackKeys={effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter]}
               colors={vendorColors}
               allowLineChart
               legendPosition="right"
               legendKeys={vendorStackKeys}
-              activeLegendKey={vendorFilter === 'all' ? null : vendorFilter}
+              activeLegendKey={effectiveVendorFilter === 'all' ? null : effectiveVendorFilter}
               onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
               title="Vendor References Over Time"
-              subtitle={`How frequently each vendor tag appears in ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} over time.`}
+              headerExtra={trendTimeToggle}
+              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`}
               tooltip={
                 <>
                   <p>Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).</p>
@@ -1392,20 +1449,20 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <GenericHeatmap
               data={vendorHeatmapData}
               xLabels={vendorHeatmapXLabels}
-              yLabels={data.sectors}
+              yLabels={vendorHeatmapYLabels}
               baseColor={vendorHeatmapBaseColor}
               valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
               xLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={true}
-              title={vendorFilter === 'all' ? 'Vendor Concentration by Sector' : `${formatLabel(vendorFilter)} Mentions by Sector and Year`}
+              title={effectiveVendorFilter === 'all' ? 'Vendor Concentration by Sector' : `${formatLabel(effectiveVendorFilter)} Mentions by Sector and Year`}
               subtitle={
-                vendorFilter === 'all'
-                  ? `How many ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} in each CNI sector mention each vendor tag.`
-                  : `How frequently ${formatLabel(vendorFilter)} was mentioned across CNI sectors, broken down by year.`
+                effectiveVendorFilter === 'all'
+                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} naming each vendor within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                  : `Heatmap of ${formatLabel(effectiveVendorFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(effectiveVendorFilter)} mentions in that sector-year.`
               }
               tooltip={
-                vendorFilter === 'all'
+                effectiveVendorFilter === 'all'
                   ? <>
                       <p>Colour intensity is scaled relative to the full dataset, not absolute counts — darker cells indicate relatively higher mention concentration in this view.</p>
                       <p className="mt-2">Hatched cells indicate no observed mentions for that sector/vendor pairing.</p>
@@ -1416,8 +1473,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
                     </>
               }
-              xAxisLabel={vendorFilter === 'all' ? 'Vendor' : 'Year'}
-              yAxisLabel="Sector"
+              xAxisLabel={effectiveVendorFilter === 'all' ? 'Vendor' : 'Year'}
+              yAxisLabel={vendorSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
+              headerExtra={makeSectorToggle(vendorSectorView, setVendorSectorView)}
+              labelColumnWidth={vendorSectorView === 'isic' ? 290 : undefined}
+              rowHeight={vendorSectorView === 'isic' ? 58 : undefined}
+              yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />
 
             <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
@@ -1450,13 +1511,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={riskSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#f97316"
+                baseColor="#64748b"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
                 title="Risk Signal Strength"
-                subtitle="How explicitly risk labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                subtitle="Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
@@ -1468,13 +1529,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={adoptionSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#0ea5e9"
+                baseColor="#64748b"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
                 title="Adoption Signal Strength"
-                subtitle="How explicitly adoption labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                subtitle="Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
@@ -1486,13 +1547,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={vendorSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#10b981"
+                baseColor="#64748b"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
                 title="Vendor Signal Strength"
-                subtitle="How explicitly vendor labels are evidenced: Explicit, Strong Implicit, Weak Implicit."
+                subtitle="Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution."
                 xAxisLabel="Year"
                 yAxisLabel="Signal Level"
@@ -1506,13 +1567,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               data={substantivenessHeatmapInRange}
               xLabels={filteredYears}
               yLabels={data.labels.substantivenessBands}
-              baseColor="#10b981"
+              baseColor="#64748b"
               valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={false}
               title="Risk Substantiveness Distribution"
-              subtitle="Disclosure quality for AI-risk language: Substantive, Moderate, Boilerplate."
+              subtitle="Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and fiscal year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency."
               tooltip="Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic."
               xAxisLabel="Year"
               yAxisLabel="Quality Band"
@@ -1559,8 +1620,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 5 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={filteredBlindSpotTrend}
-              xAxisKey="year"
+              data={trendTimeAxis === 'month' ? filteredMonthlyBlindSpotTrend : filteredBlindSpotTrend}
+              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
               colors={blindSpotColors}
               allowLineChart
@@ -1570,11 +1631,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               onLegendItemClick={(key) =>
                 setBlindSpotFilter(prev => (prev === key ? 'all' : (key as BlindSpotFilter)))
               }
-              title="Blind Spots by Year"
+              title={trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year'}
+              headerExtra={trendTimeToggle}
               subtitle={
                 blindSpotFilter === 'all'
-                  ? 'Yearly counts of annual reports with no AI mention at all, and with no AI risk mention.'
-                  : `Yearly counts of annual reports for ${formatLabel(blindSpotFilter)}.`
+                  ? `Stacked bar chart showing the number of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive: a report with no AI mention is also counted under no AI risk mention. The y-axis scale adjusts dynamically to the data shown.`
+                  : `Bar chart showing the number of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). The y-axis scale adjusts dynamically to the data shown.`
               }
               tooltip={
                 blindSpotFilter === 'all'
@@ -1589,12 +1651,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={noAiBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#ef4444"
+                  baseColor="#64748b"
                   valueFormatter={value => `${value}`}
                   showTotals={true}
                   showBlindSpots={false}
                   title="No AI Mention by Sector and Year"
-                  subtitle="Counts of annual reports with zero AI mention signal."
+                  subtitle="Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency."
                   tooltip="Each cell is the number of reports in that sector-year that do not mention AI at all."
                   xAxisLabel="Year"
                   yAxisLabel="Sector"
@@ -1603,12 +1665,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={noAiRiskBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#f59e0b"
+                  baseColor="#64748b"
                   valueFormatter={value => `${value}`}
                   showTotals={true}
                   showBlindSpots={false}
                   title="No AI Risk Mention by Sector and Year"
-                  subtitle="Counts of annual reports that do not disclose AI risk."
+                  subtitle="Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency."
                   tooltip="Each cell is the number of reports in that sector-year with no AI risk mention."
                   xAxisLabel="Year"
                   yAxisLabel="Sector"

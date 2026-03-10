@@ -23,6 +23,7 @@ const formatLabel = (val: string) => {
     no_ai_mention: 'No AI Mention',
     no_ai_risk_mention: 'No AI Risk Mention',
     none: 'Unspecified',
+    openai: 'OpenAI',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -84,6 +85,7 @@ interface StackedBarChartProps {
   title?: string;
   subtitle?: string;
   tooltip?: React.ReactNode;
+  headerExtra?: React.ReactNode;
   legendPosition?: 'bottom' | 'right';
   legendKeys?: string[];
   activeLegendKey?: string | null;
@@ -99,6 +101,7 @@ export function StackedBarChart({
   title,
   subtitle,
   tooltip,
+  headerExtra,
   legendPosition = 'bottom',
   legendKeys,
   activeLegendKey = null,
@@ -108,14 +111,16 @@ export function StackedBarChart({
   const showSideLegend = legendPosition === 'right';
   const visibleLegendKeys = [...(legendKeys ?? stackKeys)].reverse();
 
+  const hasMonthAxis = xAxisKey === 'month';
   const sharedAxisProps = {
     xAxis: {
       dataKey: xAxisKey,
       axisLine: false,
       tickLine: false,
-      tick: { fill: '#64748b', fontSize: 12 },
+      tick: { fill: '#64748b', fontSize: hasMonthAxis ? 10 : 12 },
       dy: 10,
-    } as const,
+      ...(hasMonthAxis ? { angle: -45, textAnchor: 'end' as const, height: 60 } : {}),
+    },
     yAxis: {
       axisLine: false,
       tickLine: false,
@@ -144,28 +149,33 @@ export function StackedBarChart({
           {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
       )}
-      {allowLineChart && (
-        <div className="absolute top-3 right-3 z-10 flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
-          <button
-            onClick={() => setChartType('bar')}
-            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
-            title="Bar chart"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="1" y="6" width="3" height="7" rx="0.5" fill="currentColor"/>
-              <rect x="5.5" y="3" width="3" height="10" rx="0.5" fill="currentColor"/>
-              <rect x="10" y="1" width="3" height="12" rx="0.5" fill="currentColor"/>
-            </svg>
-          </button>
-          <button
-            onClick={() => setChartType('line')}
-            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
-            title="Line chart"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+      {(allowLineChart || headerExtra) && (
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {headerExtra}
+          {allowLineChart && (
+            <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+              <button
+                onClick={() => setChartType('bar')}
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Bar chart"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="6" width="3" height="7" rx="0.5" fill="currentColor"/>
+                  <rect x="5.5" y="3" width="3" height="10" rx="0.5" fill="currentColor"/>
+                  <rect x="10" y="1" width="3" height="12" rx="0.5" fill="currentColor"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => setChartType('line')}
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                title="Line chart"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div className={showSideLegend ? 'flex flex-col gap-4 lg:flex-row lg:items-start' : ''}>
@@ -281,6 +291,7 @@ interface GenericHeatmapProps {
   title?: string;
   subtitle?: string;
   tooltip?: React.ReactNode;
+  headerExtra?: React.ReactNode;
   xAxisLabel?: string;
   yAxisLabel?: string;
   compact?: boolean;
@@ -294,7 +305,7 @@ export function GenericHeatmap({
   xLabels,
   yLabels,
   valueFormatter = (v) => v.toString(),
-  baseColor = '#0ea5e9',
+  baseColor = '#64748b',
   xLabelFormatter = (val) => val.toString(),
   yLabelFormatter = (val) => val.toString(),
   showTotals = true,
@@ -302,6 +313,7 @@ export function GenericHeatmap({
   title,
   subtitle,
   tooltip,
+  headerExtra,
   xAxisLabel,
   yAxisLabel,
   compact = false,
@@ -357,14 +369,18 @@ export function GenericHeatmap({
   const cellHeight = rowHeight ?? (needsScroll ? Math.max(36, inferredCellHeight - 4) : inferredCellHeight);
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-      {title && (
-        <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          {title}
-          {tooltip && <InfoTooltip content={tooltip} />}
-        </h3>
+    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm relative">
+      {(title || headerExtra) && (
+        <div className="mb-3 flex items-start justify-between gap-4">
+          {title ? (
+            <h3 className="flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {title}
+              {tooltip && <InfoTooltip content={tooltip} />}
+            </h3>
+          ) : <div />}
+          {headerExtra && <div className="shrink-0">{headerExtra}</div>}
+        </div>
       )}
-      {title && <div className="mb-3" />}
       <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
         className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
