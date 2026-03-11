@@ -81,6 +81,8 @@ interface StackedBarChartProps {
   xAxisKey: string;
   stackKeys: string[];
   colors?: Record<string, string>;
+  yAxisTickFormatter?: (value: number) => string;
+  tooltipValueFormatter?: (value: number, name: string) => string | number;
   allowLineChart?: boolean;
   title?: string;
   subtitle?: string;
@@ -97,6 +99,8 @@ export function StackedBarChart({
   xAxisKey,
   stackKeys,
   colors = COLORS,
+  yAxisTickFormatter,
+  tooltipValueFormatter,
   allowLineChart = false,
   title,
   subtitle,
@@ -125,6 +129,7 @@ export function StackedBarChart({
       axisLine: false,
       tickLine: false,
       tick: { fill: '#64748b', fontSize: 12 },
+      tickFormatter: yAxisTickFormatter,
     } as const,
   };
 
@@ -138,7 +143,10 @@ export function StackedBarChart({
       color: '#1e293b',
     },
     itemStyle: { color: '#1e293b' },
-    formatter: (value: number, name: string) => [value, formatLabel(name)] as [number, string],
+    formatter: (value: number, name: string) => [
+      tooltipValueFormatter ? tooltipValueFormatter(value, name) : value,
+      formatLabel(name),
+    ] as [string | number, string],
   };
 
   return (
@@ -440,7 +448,7 @@ export function GenericHeatmap({
                   key={`${x}-${y}`}
                   className={`relative group flex items-center justify-center ${isBlindSpot ? 'bg-slate-50' : 'bg-white'}`}
                   style={{ height: cellHeight }}
-                  title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${val}`}
+                  title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${valueFormatter(val)}`}
                 >
                   {isBlindSpot ? (
                     // Blind spot indicator - diagonal stripes pattern

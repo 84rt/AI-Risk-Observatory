@@ -14,8 +14,8 @@ export function PageNav() {
 
   return (
     <nav className="border-b border-slate-200/70 bg-[#f6f3ef]">
-      <div className="mx-auto max-w-7xl px-6 py-3 flex items-center gap-6">
-        <Link href="/" className="font-semibold text-slate-900 hover:text-slate-700">
+      <div className="mx-auto max-w-7xl px-6 flex items-center gap-6">
+        <Link href="/" className="py-3 font-semibold text-slate-900 hover:text-slate-700">
           AI Risk Observatory
         </Link>
         <div className="h-4 w-px bg-slate-300" />
@@ -28,13 +28,16 @@ export function PageNav() {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors ${
+              className={`relative py-3 text-sm font-medium transition-colors ${
                 isActive
                   ? 'text-slate-900'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               {link.label}
+              {isActive && (
+                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-amber-500" />
+              )}
             </Link>
           );
         })}

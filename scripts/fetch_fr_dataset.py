@@ -9,8 +9,10 @@ Phases
    → data/FR_dataset/companies.csv    (key fields + market_segment)
 
 2. Filing manifest
-   For each company: GET /filings/?lei=...&types=10-K,10-K-ESEF
-   Pick one filing per company × release_year (ESEF preferred, highest id as tie-break)
+   For each company: GET /filings/?lei=...&types=10-K,10-K-ESEF,10-K-AFS,AR
+   Persist every annual-report-related filing to a raw manifest, then derive a
+   canonical manifest by grouping per company × fiscal_year and preferring ESEF.
+   → data/FR_dataset/manifest_raw.csv
    → data/FR_dataset/manifest.csv
    → data/FR_dataset/phase2_checkpoint.json  (resumable)
 
@@ -76,6 +78,14 @@ CACHE_DIRS = [
 LSE_EXCHANGE_ID = 10        # London Stock Exchange id in FR API
 MIN_YEAR        = "2021"    # only include filings released 2021-present
 RATE_LIMIT_SEC  = 0.4       # pause between requests
+ANNUAL_REPORT_TYPE_CODES = ("10-K", "10-K-ESEF", "10-K-AFS", "AR")
+ANNUAL_REPORT_TYPES_PARAM = ",".join(ANNUAL_REPORT_TYPE_CODES)
+TYPE_PRIORITY = {
+    "10-K-ESEF": 4,
+    "10-K": 3,
+    "10-K-AFS": 2,
+    "AR": 1,
+}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -250,15 +260,77 @@ def select_winner(candidates: list[dict]) -> dict:
 
     Priority: ESEF > regular; tie-break: highest id (most recent submission).
     """
-    esef = [f for f in candidates if f.get("filing_type", {}).get("code") == "10-K-ESEF"]
-    pool = esef if esef else candidates
-    return max(pool, key=lambda f: f["id"])
+    def type_code(candidate: dict) -> str:
+        if "filing_type__code" in candidate:
+            return candidate.get("filing_type__code", "")
+        return (candidate.get("filing_type") or {}).get("code", "")
+
+    def candidate_id(candidate: dict) -> int:
+        raw_id = candidate.get("pk", candidate.get("id", 0))
+        return int(raw_id)
+
+    return max(
+        candidates,
+        key=lambda candidate: (TYPE_PRIORITY.get(type_code(candidate), 0), candidate_id(candidate)),
+    )
+
+
+def filing_to_manifest_row(
+    filing: dict,
+    *,
+    lei: str,
+    name: str,
+    segment: str,
+    fiscal_year: str,
+    candidates_count: int,
+) -> dict:
+    ft = filing.get("filing_type") or {}
+    release_year = (filing.get("release_datetime") or "")[:4]
+    return {
+        "pk":                str(filing["id"]),
+        "company__lei":      lei,
+        "company__name":     name,
+        "market_segment":    segment,
+        "fiscal_year":       fiscal_year,
+        "release_year":      release_year,
+        "release_datetime":  filing.get("release_datetime", ""),
+        "title":             filing.get("title", ""),
+        "filing_type__code": ft.get("code", ""),
+        "filing_type__name": ft.get("name", ""),
+        "is_esef":           ft.get("code") == "10-K-ESEF",
+        "candidates_count":  candidates_count,
+    }
+
+
+def infer_fiscal_year_key(filing: dict) -> str | None:
+    release_yr = (filing.get("release_datetime") or "")[:4]
+    if release_yr < MIN_YEAR:
+        return None
+    fy = extract_fiscal_year(filing.get("title", ""))
+    if fy is None or fy > int(release_yr) + 1:
+        return release_yr
+    return str(fy)
+
+
+def build_canonical_manifest(raw_manifest: list[dict]) -> list[dict]:
+    by_company_fy: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for row in raw_manifest:
+        by_company_fy[(row["company__lei"], row["fiscal_year"])].append(row)
+
+    manifest: list[dict] = []
+    for _, candidates in sorted(by_company_fy.items()):
+        winner = dict(select_winner(candidates))
+        winner["candidates_count"] = len(candidates)
+        manifest.append(winner)
+    return manifest
 
 
 def phase2_manifest(companies: list[dict]) -> list[dict]:
     checkpoint_path = OUT_DIR / "phase2_checkpoint.json"
-    out_json = OUT_DIR / "manifest.json"
-    out_csv  = OUT_DIR / "manifest.csv"
+    raw_json  = OUT_DIR / "manifest_raw.json"
+    raw_csv   = OUT_DIR / "manifest_raw.csv"
+    out_json  = OUT_DIR / "manifest.json"
+    out_csv   = OUT_DIR / "manifest.csv"
 
     # Load checkpoint
     checkpoint: dict[str, dict] = {}
@@ -266,21 +338,31 @@ def phase2_manifest(companies: list[dict]) -> list[dict]:
         with open(checkpoint_path) as f:
             checkpoint = json.load(f)
 
-    # Load existing manifest entries
-    manifest: list[dict] = []
-    if out_json.exists():
-        with open(out_json) as f:
-            manifest = json.load(f)
+    raw_manifest: list[dict] = []
+    if raw_json.exists():
+        with open(raw_json) as f:
+            raw_manifest = json.load(f)
+    elif checkpoint:
+        print("Phase 2 raw manifest missing; rebuilding phase 2 from scratch.")
+        checkpoint = {}
+
+    if raw_manifest and not checkpoint:
+        for lei in {row["company__lei"] for row in raw_manifest}:
+            checkpoint[lei] = {"status": "raw_loaded", "years": 0}
 
     done_leis = set(checkpoint.keys())
     pending   = [c for c in companies if c.get("lei") and c["lei"] not in done_leis]
     print(f"Phase 2: {len(done_leis)} companies done, {len(pending)} remaining")
 
     def save_checkpoint():
+        manifest = build_canonical_manifest(raw_manifest)
         with open(checkpoint_path, "w") as f:
             json.dump(checkpoint, f)
+        with open(raw_json, "w") as f:
+            json.dump(raw_manifest, f, indent=2)
         with open(out_json, "w") as f:
             json.dump(manifest, f, indent=2)
+        return manifest
 
     for i, company in enumerate(pending, start=1):
         lei     = company["lei"]
@@ -290,7 +372,7 @@ def phase2_manifest(companies: list[dict]) -> list[dict]:
         try:
             r = api_get("/filings/", {
                 "lei":      lei,
-                "types":    "10-K,10-K-ESEF",
+                "types":    ANNUAL_REPORT_TYPES_PARAM,
                 "ordering": "-release_datetime",
                 "page_size": 100,
             })
@@ -313,73 +395,63 @@ def phase2_manifest(companies: list[dict]) -> list[dict]:
 
         # Group by FISCAL YEAR (inferred from title), filter to >= MIN_YEAR.
         # Falls back to release_year when no year is found in the title.
-        # This prevents late-filed reports from being deduped against the
-        # following year's report when both land in the same release_year.
         by_fiscal_year: dict[str, list] = defaultdict(list)
         for f in filings:
-            release_yr = (f.get("release_datetime") or "")[:4]
-            if release_yr < MIN_YEAR:
+            fiscal_yr = infer_fiscal_year_key(f)
+            if fiscal_yr is None:
                 continue
-            fy = extract_fiscal_year(f.get("title", ""))
-            # Clamp: fall back to release_year only when no year is found in
-            # the title OR when the inferred FY is implausibly in the future
-            # (> 1 year ahead of release).  Do NOT clamp pre-MIN_YEAR fiscal
-            # years to release_year — that would force FY2020 reports (filed
-            # in 2021) into the FY2021 bucket, wrongly competing with actual
-            # FY2021 reports.
-            if fy is None or fy > int(release_yr) + 1:
-                fiscal_yr = release_yr
-            else:
-                fiscal_yr = str(fy)
-            f["_release_year"] = release_yr   # preserve for the manifest row
+            f["_release_year"] = (f.get("release_datetime") or "")[:4]
             by_fiscal_year[fiscal_yr].append(f)
 
-        # Warn when a bucket holds filings that span multiple release years
-        # (confirms a late-filer was correctly separated from its fiscal year).
+        company_raw_rows = []
         for fy_key, candidates in by_fiscal_year.items():
             rel_years = {c["_release_year"] for c in candidates}
             if len(rel_years) > 1:
                 print(f"    NOTE: {name} FY{fy_key} has candidates from "
                       f"release_years {sorted(rel_years)} — late filer detected")
 
-        year_entries = []
         for fy_key, candidates in sorted(by_fiscal_year.items()):
-            winner      = select_winner(candidates)
-            ft          = winner.get("filing_type") or {}
-            release_yr  = winner.get("_release_year",
-                                     (winner.get("release_datetime") or "")[:4])
-            year_entries.append({
-                "pk":                str(winner["id"]),
-                "company__lei":      lei,
-                "company__name":     name,
-                "market_segment":    segment,
-                "fiscal_year":       fy_key,
-                "release_year":      release_yr,
-                "release_datetime":  winner.get("release_datetime", ""),
-                "title":             winner.get("title", ""),
-                "filing_type__code": ft.get("code", ""),
-                "filing_type__name": ft.get("name", ""),
-                "is_esef":           ft.get("code") == "10-K-ESEF",
-                "candidates_count":  len(candidates),
-            })
+            for filing in candidates:
+                filing["_release_year"] = (filing.get("release_datetime") or "")[:4]
+                company_raw_rows.append(filing_to_manifest_row(
+                    filing,
+                    lei=lei,
+                    name=name,
+                    segment=segment,
+                    fiscal_year=fy_key,
+                    candidates_count=len(candidates),
+                ))
 
-        manifest.extend(year_entries)
-        checkpoint[lei] = {"status": "ok", "years": len(year_entries)}
+        raw_manifest.extend(company_raw_rows)
+        checkpoint[lei] = {"status": "ok", "years": len(by_fiscal_year), "filings": len(company_raw_rows)}
 
-        suffix = f"({len(year_entries)} years)" if year_entries else "(no filings)"
+        suffix = (
+            f"({len(company_raw_rows)} filings across {len(by_fiscal_year)} report groups)"
+            if company_raw_rows else "(no filings)"
+        )
         print(f"  [{i}/{len(pending)}] {name} {suffix}", flush=True)
 
         if i % 50 == 0 or i == len(pending):
-            save_checkpoint()
-            print(f"  Checkpoint saved ({len(manifest)} manifest entries total)")
+            manifest = save_checkpoint()
+            print(
+                f"  Checkpoint saved ({len(raw_manifest)} raw filings, "
+                f"{len(manifest)} canonical manifest entries total)"
+            )
 
     # Final save + CSV
-    save_checkpoint()
+    manifest = save_checkpoint()
     csv_fields = [
         "pk", "company__lei", "company__name", "market_segment",
         "fiscal_year", "release_year", "release_datetime", "title",
         "filing_type__code", "filing_type__name", "is_esef", "candidates_count",
     ]
+    with open(raw_csv, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=csv_fields)
+        w.writeheader()
+        for row in sorted(raw_manifest, key=lambda r: (
+            r["company__lei"], r["fiscal_year"], r["release_datetime"], int(r["pk"])
+        )):
+            w.writerow(row)
     with open(out_csv, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=csv_fields)
         w.writeheader()
@@ -387,7 +459,10 @@ def phase2_manifest(companies: list[dict]) -> list[dict]:
             w.writerow(row)
 
     unique_cos = len({r["company__lei"] for r in manifest})
-    print(f"Phase 2 done: {len(manifest)} entries across {unique_cos} companies")
+    print(
+        f"Phase 2 done: {len(raw_manifest)} raw filings, "
+        f"{len(manifest)} canonical entries across {unique_cos} companies"
+    )
     fy_counts = Counter(r["fiscal_year"] for r in manifest)
     for fy, cnt in sorted(fy_counts.items()):
         print(f"  FY{fy}: {cnt} filings")
@@ -533,9 +608,16 @@ def write_summary(
     seg_counts = Counter(r["market_segment"]  for r in status_rows if r["md_status"] in AVAILABLE)
     all_status = Counter(r["md_status"]       for r in status_rows)
 
+    raw_manifest_entries = 0
+    raw_manifest_path = OUT_DIR / "manifest_raw.json"
+    if raw_manifest_path.exists():
+        with open(raw_manifest_path) as f:
+            raw_manifest_entries = len(json.load(f))
+
     summary = {
         "total_companies_in_fr":              len(companies),
         "companies_with_filings_2021_plus":   len({r["company__lei"] for r in manifest}),
+        "total_raw_manifest_entries":         raw_manifest_entries,
         "total_manifest_entries":             len(manifest),
         "markdown_available":                 sum(1 for r in status_rows if r["md_status"] in AVAILABLE),
         "markdown_by_fiscal_year":            dict(sorted(fy_counts.items())),

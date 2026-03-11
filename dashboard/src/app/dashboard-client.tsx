@@ -117,6 +117,36 @@ type TrendTimeAxis = 'year' | 'month';
 type RiskSectorView = 'cni' | 'isic';
 type SignalQualityFilter = 'all' | 'risk_signal' | 'adoption_signal' | 'vendor_signal' | 'substantiveness';
 type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
+type MetricMode = 'count' | 'pct_reports';
+type ChartRow = Record<string, string | number | null | undefined>;
+type HeatmapCell = { x: string | number; y: string | number; value: number };
+
+const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
+const toPercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
+const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const convertTrendRowsToPercent = (
+  rows: ChartRow[],
+  axisKey: 'year' | 'month',
+  keys: string[],
+  totals: Map<string | number, number>
+): ChartRow[] =>
+  rows.map(row => {
+    const axisValue = row[axisKey];
+    const total = totals.get(axisValue as string | number) || 0;
+    const nextRow: ChartRow = { [axisKey]: axisValue };
+    keys.forEach(key => {
+      nextRow[key] = toPercent(toNumber(row[key]), total);
+    });
+    return nextRow;
+  });
+const convertHeatmapToPercent = (
+  cells: HeatmapCell[],
+  denominatorForCell: (cell: HeatmapCell) => number
+): HeatmapCell[] =>
+  cells.map(cell => ({
+    ...cell,
+    value: toPercent(cell.value, denominatorForCell(cell)),
+  }));
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
@@ -130,10 +160,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [vendorFilter, setVendorFilter] = useState<string>('all');
   const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
+  const [metricMode, setMetricMode] = useState<MetricMode>('count');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const activeData = data.datasets[datasetKey];
   const reportBaselineData = data.datasets.perReport;
+  const canShowReportShare =
+    activeView !== 4 && (activeView === 5 || datasetKey === 'perReport');
+  const effectiveMetricMode: MetricMode = canShowReportShare ? metricMode : 'count';
+  const isReportShareMode = effectiveMetricMode === 'pct_reports';
   const availableYears = activeData.years;
   const maxYearIndex = Math.max(availableYears.length - 1, 0);
 
@@ -426,6 +461,76 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     });
   }, [reportBaselineData.blindSpotTrendMonthly, selectedStartYear, selectedEndYear]);
 
+  const reportTotalsByYear = useMemo(
+    () =>
+      new Map(
+        reportBaselineData.blindSpotTrend.map(row => [
+          Number(row.year),
+          Number(row.total_reports) || 0,
+        ])
+      ),
+    [reportBaselineData.blindSpotTrend]
+  );
+
+  const reportTotalsByMonth = useMemo(
+    () =>
+      new Map(
+        reportBaselineData.blindSpotTrendMonthly.map(row => [
+          String(row.month),
+          Number(row.total_reports) || 0,
+        ])
+      ),
+    [reportBaselineData.blindSpotTrendMonthly]
+  );
+
+  const reportTotalsBySectorYearInRange = useMemo(
+    () =>
+      reportBaselineData.reportCountBySectorYear.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [reportBaselineData.reportCountBySectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const reportTotalsByIsicSectorYearInRange = useMemo(
+    () =>
+      reportBaselineData.reportCountByIsicSectorYear.filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [reportBaselineData.reportCountByIsicSectorYear, selectedStartYear, selectedEndYear]
+  );
+
+  const reportTotalsBySectorYearMap = useMemo(
+    () =>
+      new Map(
+        reportTotalsBySectorYearInRange.map(cell => [`${cell.x}|||${cell.y}`, cell.value])
+      ),
+    [reportTotalsBySectorYearInRange]
+  );
+
+  const reportTotalsByIsicSectorYearMap = useMemo(
+    () =>
+      new Map(
+        reportTotalsByIsicSectorYearInRange.map(cell => [`${cell.x}|||${cell.y}`, cell.value])
+      ),
+    [reportTotalsByIsicSectorYearInRange]
+  );
+
+  const reportTotalsBySectorInRange = useMemo(() => {
+    const counts = new Map<string, number>();
+    reportTotalsBySectorYearInRange.forEach(cell => {
+      counts.set(cell.y, (counts.get(cell.y) || 0) + cell.value);
+    });
+    return counts;
+  }, [reportTotalsBySectorYearInRange]);
+
+  const reportTotalsByIsicSectorInRange = useMemo(() => {
+    const counts = new Map<string, number>();
+    reportTotalsByIsicSectorYearInRange.forEach(cell => {
+      counts.set(cell.y, (counts.get(cell.y) || 0) + cell.value);
+    });
+    return counts;
+  }, [reportTotalsByIsicSectorYearInRange]);
+
   const filteredMonthlyRiskTrend = useMemo(() => {
     if (riskFilter === 'all') return monthlyRiskTrendInRange;
     return monthlyRiskTrendInRange.map(row => ({
@@ -465,6 +570,66 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       [blindSpotFilter]: row[blindSpotFilter] || 0,
     }));
   }, [blindSpotFilter, monthlyBlindSpotTrendInRange]);
+
+  const displayRiskTrend = useMemo(() => {
+    const source = trendTimeAxis === 'month' ? filteredMonthlyRiskTrend : filteredRiskTrend;
+    if (!isReportShareMode) return source;
+    return convertTrendRowsToPercent(
+      source,
+      trendTimeAxis === 'month' ? 'month' : 'year',
+      riskFilter === 'all' ? riskStackKeys : [riskFilter],
+      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+    );
+  }, [
+    trendTimeAxis,
+    filteredMonthlyRiskTrend,
+    filteredRiskTrend,
+    isReportShareMode,
+    riskFilter,
+    riskStackKeys,
+    reportTotalsByMonth,
+    reportTotalsByYear,
+  ]);
+
+  const displayAdoptionTrend = useMemo(() => {
+    const source = trendTimeAxis === 'month' ? filteredMonthlyAdoptionTrend : filteredAdoptionTrend;
+    if (!isReportShareMode) return source;
+    return convertTrendRowsToPercent(
+      source,
+      trendTimeAxis === 'month' ? 'month' : 'year',
+      adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter],
+      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+    );
+  }, [
+    trendTimeAxis,
+    filteredMonthlyAdoptionTrend,
+    filteredAdoptionTrend,
+    isReportShareMode,
+    adoptionFilter,
+    adoptionStackKeys,
+    reportTotalsByMonth,
+    reportTotalsByYear,
+  ]);
+
+  const displayVendorTrend = useMemo(() => {
+    const source = trendTimeAxis === 'month' ? filteredMonthlyVendorTrend : filteredVendorTrend;
+    if (!isReportShareMode) return source;
+    return convertTrendRowsToPercent(
+      source,
+      trendTimeAxis === 'month' ? 'month' : 'year',
+      effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter],
+      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+    );
+  }, [
+    trendTimeAxis,
+    filteredMonthlyVendorTrend,
+    filteredVendorTrend,
+    isReportShareMode,
+    effectiveVendorFilter,
+    vendorStackKeys,
+    reportTotalsByMonth,
+    reportTotalsByYear,
+  ]);
 
   const riskSignalHeatmapInRange = useMemo(
     () =>
@@ -711,6 +876,29 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const riskHeatmapBaseColor = riskFilter === 'all'
     ? '#64748b'
     : (riskColors[riskFilter] || '#64748b');
+  const riskHeatmapReportTotalsInRange =
+    riskSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
+  const riskHeatmapReportTotalsByYearMap =
+    riskSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
+  const displayRiskHeatmapData = useMemo(() => {
+    if (!isReportShareMode) return riskHeatmapData;
+    if (riskFilter === 'all') {
+      return convertHeatmapToPercent(
+        riskHeatmapData,
+        cell => riskHeatmapReportTotalsInRange.get(String(cell.y)) || 0
+      );
+    }
+    return convertHeatmapToPercent(
+      riskHeatmapData,
+      cell => riskHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [
+    isReportShareMode,
+    riskFilter,
+    riskHeatmapData,
+    riskHeatmapReportTotalsInRange,
+    riskHeatmapReportTotalsByYearMap,
+  ]);
   const adoptionHeatmapYLabels = adoptionSectorView === 'cni' ? data.sectors : data.isicSectors;
   const adoptionHeatmapSectorData = adoptionSectorView === 'cni' ? adoptionBySectorInRange : adoptionByIsicSectorInRange;
   const adoptionHeatmapSectorYearData = adoptionSectorView === 'cni' ? adoptionBySectorYearInRange : adoptionByIsicSectorYearInRange;
@@ -724,6 +912,29 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const adoptionHeatmapBaseColor = adoptionFilter === 'all'
     ? '#64748b'
     : (adoptionColors[adoptionFilter] || '#64748b');
+  const adoptionHeatmapReportTotalsInRange =
+    adoptionSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
+  const adoptionHeatmapReportTotalsByYearMap =
+    adoptionSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
+  const displayAdoptionHeatmapData = useMemo(() => {
+    if (!isReportShareMode) return adoptionHeatmapData;
+    if (adoptionFilter === 'all') {
+      return convertHeatmapToPercent(
+        adoptionHeatmapData,
+        cell => adoptionHeatmapReportTotalsInRange.get(String(cell.y)) || 0
+      );
+    }
+    return convertHeatmapToPercent(
+      adoptionHeatmapData,
+      cell => adoptionHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [
+    isReportShareMode,
+    adoptionFilter,
+    adoptionHeatmapData,
+    adoptionHeatmapReportTotalsInRange,
+    adoptionHeatmapReportTotalsByYearMap,
+  ]);
   const vendorHeatmapYLabels = vendorSectorView === 'cni' ? data.sectors : data.isicSectors;
   const vendorHeatmapSectorData = vendorSectorView === 'cni' ? vendorBySectorInRange : vendorByIsicSectorInRange;
   const vendorHeatmapSectorYearData = vendorSectorView === 'cni' ? vendorBySectorYearInRange : vendorByIsicSectorYearInRange;
@@ -739,6 +950,29 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const vendorHeatmapBaseColor = effectiveVendorFilter === 'all'
     ? '#64748b'
     : (vendorColors[effectiveVendorFilter] || '#64748b');
+  const vendorHeatmapReportTotalsInRange =
+    vendorSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
+  const vendorHeatmapReportTotalsByYearMap =
+    vendorSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
+  const displayVendorHeatmapData = useMemo(() => {
+    if (!isReportShareMode) return vendorHeatmapData;
+    if (effectiveVendorFilter === 'all') {
+      return convertHeatmapToPercent(
+        vendorHeatmapData,
+        cell => vendorHeatmapReportTotalsInRange.get(String(cell.y)) || 0
+      );
+    }
+    return convertHeatmapToPercent(
+      vendorHeatmapData,
+      cell => vendorHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [
+    isReportShareMode,
+    effectiveVendorFilter,
+    vendorHeatmapData,
+    vendorHeatmapReportTotalsInRange,
+    vendorHeatmapReportTotalsByYearMap,
+  ]);
   const filteredBlindSpotTrend = useMemo(() => {
     if (blindSpotFilter === 'all') return blindSpotTrendInRange;
     return blindSpotTrendInRange.map(row => ({
@@ -746,25 +980,74 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       [blindSpotFilter]: row[blindSpotFilter] || 0,
     }));
   }, [blindSpotFilter, blindSpotTrendInRange]);
+  const displayBlindSpotTrend = useMemo(() => {
+    const source = trendTimeAxis === 'month' ? filteredMonthlyBlindSpotTrend : filteredBlindSpotTrend;
+    if (!isReportShareMode) return source;
+    return convertTrendRowsToPercent(
+      source,
+      trendTimeAxis === 'month' ? 'month' : 'year',
+      blindSpotFilter === 'all'
+        ? ['no_ai_mention', 'no_ai_risk_mention']
+        : [blindSpotFilter],
+      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+    );
+  }, [
+    trendTimeAxis,
+    filteredMonthlyBlindSpotTrend,
+    filteredBlindSpotTrend,
+    isReportShareMode,
+    blindSpotFilter,
+    reportTotalsByMonth,
+    reportTotalsByYear,
+  ]);
   const blindSpotHeatmapData = blindSpotFilter === 'no_ai_mention'
     ? noAiBySectorYearInRange
     : blindSpotFilter === 'no_ai_risk_mention'
       ? noAiRiskBySectorYearInRange
       : null;
+  const displayBlindSpotHeatmapData = useMemo(() => {
+    if (!blindSpotHeatmapData || !isReportShareMode) return blindSpotHeatmapData;
+    return convertHeatmapToPercent(
+      blindSpotHeatmapData,
+      cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [blindSpotHeatmapData, isReportShareMode, reportTotalsBySectorYearMap]);
+  const displayNoAiBySectorYearInRange = useMemo(() => {
+    if (!isReportShareMode) return noAiBySectorYearInRange;
+    return convertHeatmapToPercent(
+      noAiBySectorYearInRange,
+      cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [isReportShareMode, noAiBySectorYearInRange, reportTotalsBySectorYearMap]);
+  const displayNoAiRiskBySectorYearInRange = useMemo(() => {
+    if (!isReportShareMode) return noAiRiskBySectorYearInRange;
+    return convertHeatmapToPercent(
+      noAiRiskBySectorYearInRange,
+      cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+    );
+  }, [isReportShareMode, noAiRiskBySectorYearInRange, reportTotalsBySectorYearMap]);
   const blindSpotHeatmapTitle = blindSpotFilter === 'no_ai_mention'
     ? 'No AI Mention by Sector and Year'
     : blindSpotFilter === 'no_ai_risk_mention'
       ? 'No AI Risk Mention by Sector and Year'
       : '';
   const blindSpotHeatmapSubtitle = blindSpotFilter === 'no_ai_mention'
-    ? 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
+    ? isReportShareMode
+      ? 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
+      : 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
     : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
+      ? isReportShareMode
+        ? 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
+        : 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
       : '';
   const blindSpotHeatmapTooltip = blindSpotFilter === 'no_ai_mention'
-    ? 'Each cell is the number of reports in that sector-year that do not mention AI at all.'
+    ? isReportShareMode
+      ? 'Each cell is the share of reports in that sector-year that do not mention AI at all.'
+      : 'Each cell is the number of reports in that sector-year that do not mention AI at all.'
     : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'Each cell is the number of reports in that sector-year with no AI risk mention.'
+      ? isReportShareMode
+        ? 'Each cell is the share of reports in that sector-year with no AI risk mention.'
+        : 'Each cell is the number of reports in that sector-year with no AI risk mention.'
       : '';
   const blindSpotHeatmapColor = '#64748b';
   const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
@@ -785,6 +1068,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
+  const stackedChartYAxisFormatter = isReportShareMode
+    ? (value: number) => `${Math.round(value)}%`
+    : undefined;
+  const stackedChartTooltipFormatter = (value: number) =>
+    isReportShareMode ? formatPercent(value) : formatNumber(value);
+  const riskHeatmapValueFormatter = (value: number) =>
+    isReportShareMode ? formatPercent(value) : `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`;
+  const blindSpotHeatmapValueFormatter = (value: number) =>
+    isReportShareMode ? formatPercent(value) : `${value}`;
 
   const makeSectorToggle = (
     current: RiskSectorView,
@@ -842,6 +1134,33 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       </button>
     </div>
   );
+
+  const metricModeToggle = canShowReportShare ? (
+    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setMetricMode('count')}
+        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+          effectiveMetricMode === 'count'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        Count
+      </button>
+      <button
+        type="button"
+        onClick={() => setMetricMode('pct_reports')}
+        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+          effectiveMetricMode === 'pct_reports'
+            ? 'bg-slate-900 text-white'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        % of Reports
+      </button>
+    </div>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
@@ -952,19 +1271,23 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             </div>
 
             {/* Dataset toggle */}
-            <select
-              value={datasetKey}
-              onChange={event => {
-                const nextDatasetKey = event.target.value as DatasetKey;
-                setDatasetKey(nextDatasetKey);
-                const nextYears = data.datasets[nextDatasetKey].years;
-                setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
-              }}
-              className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-            >
-              <option value="perReport">Per Report</option>
-              <option value="perChunk">Per Excerpt</option>
-            </select>
+            {activeView !== 5 && (
+              <select
+                value={datasetKey}
+                onChange={event => {
+                  const nextDatasetKey = event.target.value as DatasetKey;
+                  setDatasetKey(nextDatasetKey);
+                  const nextYears = data.datasets[nextDatasetKey].years;
+                  setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
+                }}
+                className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+              >
+                <option value="perReport">Per Report</option>
+                <option value="perChunk">Per Excerpt</option>
+              </select>
+            )}
+
+            {metricModeToggle}
 
             {/* Risk-specific controls */}
             {activeView === 1 && (
@@ -1256,10 +1579,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="space-y-8">
             {/* Risk Trend Over Time */}
             <StackedBarChart
-              data={trendTimeAxis === 'month' ? filteredMonthlyRiskTrend : filteredRiskTrend}
+              data={displayRiskTrend}
               xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
               colors={riskColors}
+              yAxisTickFormatter={stackedChartYAxisFormatter}
+              tooltipValueFormatter={stackedChartTooltipFormatter}
               allowLineChart
               legendPosition="right"
               legendKeys={riskStackKeys}
@@ -1267,10 +1592,18 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="Risk Trend Over Time"
               headerExtra={trendTimeToggle}
-              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`}
+              subtitle={
+                isReportShareMode
+                  ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category. Because a single report can carry multiple risk labels, stacked totals can exceed 100%.`
+                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`
+              }
               tooltip={
                 <>
-                  <p>Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.</p>
+                  <p>
+                    {isReportShareMode
+                      ? 'Each segment shows the share of reports in that period tagged with the risk category.'
+                      : 'Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.'}
+                  </p>
                   <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year&apos;s bar; segments are not mutually exclusive.</p>
                   <p className="mt-2">Year-on-year growth may also reflect shifts in disclosure requirements or reporting culture rather than changes in actual risk levels — see the About page for more detail.</p>
                   <p className="mt-2">Click a legend item to isolate a single category.</p>
@@ -1280,32 +1613,47 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {/* Risk by Sector Heatmap */}
             <GenericHeatmap
-              data={riskHeatmapData}
+              data={displayRiskHeatmapData}
               xLabels={riskHeatmapXLabels}
               yLabels={riskHeatmapYLabels}
               baseColor={riskHeatmapBaseColor}
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
+              valueFormatter={riskHeatmapValueFormatter}
               xLabelFormatter={formatLabel}
-              showTotals={true}
+              showTotals={!isReportShareMode}
               showBlindSpots={true}
               title={riskFilter === 'all' ? 'Risk Distribution by Sector' : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`}
               subtitle={
-                riskFilter === 'all'
-                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} containing each risk type within each sector; darker cells indicate higher counts relative to the dataset maximum.`
-                  : `Heatmap of ${formatLabel(riskFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(riskFilter)} mentions in that sector-year.`
+                isReportShareMode
+                  ? riskFilter === 'all'
+                    ? `Heatmap of report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Each cell shows the percentage of reports in that sector, across the selected years, that mention the risk type at least once.`
+                    : `Heatmap of ${formatLabel(riskFilter)} report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(riskFilter)}.`
+                  : riskFilter === 'all'
+                    ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} containing each risk type within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                    : `Heatmap of ${formatLabel(riskFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(riskFilter)} mentions in that sector-year.`
               }
               tooltip={
-                riskFilter === 'all'
-                  ? <>
-                      <p>Colour intensity is scaled relative to the full dataset, not absolute counts — two cells with the same shade may differ in raw numbers, and a dark cell means relatively more {datasetKey === 'perReport' ? 'reports' : 'passages'} than lighter cells in this view.</p>
-                      <p className="mt-2">To track how a specific risk has evolved across sectors over time, select it from the &apos;Focus on Risk Type&apos; control above; this switches the columns from risk categories to individual years.</p>
-                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
-                    </>
-                  : <>
-                      <p>Colour intensity is scaled relative to the full dataset — two cells with the same shade may differ in raw numbers.</p>
-                      <p className="mt-2">Clearing the risk-type filter returns the view to all categories, with columns showing each risk category again.</p>
-                      <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
-                    </>
+                isReportShareMode
+                  ? riskFilter === 'all'
+                    ? <>
+                        <p>Each cell is normalised by the total number of reports in that sector across the selected years, so sectors of different sizes can be compared directly.</p>
+                        <p className="mt-2">Because one report can mention multiple risk categories, row totals are hidden in percentage mode and category percentages should not be summed as a market share.</p>
+                        <p className="mt-2">Select one risk type above to switch the columns from risk categories to years.</p>
+                      </>
+                    : <>
+                        <p>Each cell is the share of reports in that sector-year mentioning the selected risk category.</p>
+                        <p className="mt-2">Clearing the risk-type filter returns the categorical sector view.</p>
+                      </>
+                  : riskFilter === 'all'
+                    ? <>
+                        <p>Colour intensity is scaled relative to the full dataset, not absolute counts — two cells with the same shade may differ in raw numbers, and a dark cell means relatively more {datasetKey === 'perReport' ? 'reports' : 'passages'} than lighter cells in this view.</p>
+                        <p className="mt-2">To track how a specific risk has evolved across sectors over time, select it from the &apos;Focus on Risk Type&apos; control above; this switches the columns from risk categories to individual years.</p>
+                        <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
+                      </>
+                    : <>
+                        <p>Colour intensity is scaled relative to the full dataset — two cells with the same shade may differ in raw numbers.</p>
+                        <p className="mt-2">Clearing the risk-type filter returns the view to all categories, with columns showing each risk category again.</p>
+                        <p className="mt-2">For analysis of regulatory disclosure requirements that may shape reporting patterns, see the About page.</p>
+                      </>
               }
               xAxisLabel={riskFilter === 'all' ? 'Risk Type' : 'Year'}
               yAxisLabel={riskHeatmapAxisSectorLabel}
@@ -1346,10 +1694,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 2 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={trendTimeAxis === 'month' ? filteredMonthlyAdoptionTrend : filteredAdoptionTrend}
+              data={displayAdoptionTrend}
               xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter]}
               colors={adoptionColors}
+              yAxisTickFormatter={stackedChartYAxisFormatter}
+              tooltipValueFormatter={stackedChartTooltipFormatter}
               allowLineChart
               legendPosition="right"
               legendKeys={adoptionStackKeys}
@@ -1357,41 +1707,60 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
               title="Adoption Type Over Time"
               headerExtra={trendTimeToggle}
-              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`}
+              subtitle={
+                isReportShareMode
+                  ? `Stacked bar chart showing the percentage of annual reports referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
+                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
+              }
               tooltip={
                 <>
-                  <p>Each bar is stacked by adoption type: Non-LLM, LLM, and Agentic.</p>
+                  <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the adoption type.' : 'Each bar is stacked by adoption type: Non-LLM, LLM, and Agentic.'}</p>
                   <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple adoption types and can therefore contribute to more than one segment within the same year.</p>
                   <p className="mt-2">Click a legend item to isolate one adoption type.</p>
                 </>
               }
             />
             <GenericHeatmap
-              data={adoptionHeatmapData}
+              data={displayAdoptionHeatmapData}
               xLabels={adoptionHeatmapXLabels}
               yLabels={adoptionHeatmapYLabels}
               baseColor={adoptionHeatmapBaseColor}
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
+              valueFormatter={riskHeatmapValueFormatter}
               xLabelFormatter={formatLabel}
-              showTotals={true}
+              showTotals={!isReportShareMode}
               showBlindSpots={true}
               title={adoptionFilter === 'all' ? 'Adoption Intensity by Sector' : `${formatLabel(adoptionFilter)} Mentions by Sector and Year`}
               subtitle={
-                adoptionFilter === 'all'
-                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} mentioning each adoption maturity level within each sector; darker cells indicate higher counts relative to the dataset maximum.`
-                  : `Heatmap of ${formatLabel(adoptionFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(adoptionFilter)} mentions in that sector-year.`
+                isReportShareMode
+                  ? adoptionFilter === 'all'
+                    ? `Heatmap of report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Each cell shows the percentage of reports in that sector, across the selected years, mentioning the adoption type at least once.`
+                    : `Heatmap of ${formatLabel(adoptionFilter)} report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(adoptionFilter)}.`
+                  : adoptionFilter === 'all'
+                    ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} mentioning each adoption maturity level within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                    : `Heatmap of ${formatLabel(adoptionFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(adoptionFilter)} mentions in that sector-year.`
               }
               tooltip={
-                adoptionFilter === 'all'
-                  ? <>
-                      <p>Colour intensity is scaled relative to the full dataset, not absolute counts — darker cells indicate relatively more adoption mentions in this view.</p>
-                      <p className="mt-2">Hatched cells indicate no observed adoption mentions for that sector/type pairing.</p>
-                      <p className="mt-2">Select one adoption type above to switch the columns from adoption types to years.</p>
-                    </>
-                  : <>
-                      <p>This filtered view shows how one adoption type evolves across sectors over time.</p>
-                      <p className="mt-2">Clearing the filter returns the categorical view with all adoption types.</p>
-                    </>
+                isReportShareMode
+                  ? adoptionFilter === 'all'
+                    ? <>
+                        <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
+                        <p className="mt-2">Because one report can mention multiple adoption types, percentage totals are hidden in this mode.</p>
+                        <p className="mt-2">Select one adoption type above to switch the columns from adoption types to years.</p>
+                      </>
+                    : <>
+                        <p>This filtered view shows the share of reports in each sector-year mentioning one adoption type.</p>
+                        <p className="mt-2">Clearing the filter returns the categorical sector view.</p>
+                      </>
+                  : adoptionFilter === 'all'
+                    ? <>
+                        <p>Colour intensity is scaled relative to the full dataset, not absolute counts — darker cells indicate relatively more adoption mentions in this view.</p>
+                        <p className="mt-2">Hatched cells indicate no observed adoption mentions for that sector/type pairing.</p>
+                        <p className="mt-2">Select one adoption type above to switch the columns from adoption types to years.</p>
+                      </>
+                    : <>
+                        <p>This filtered view shows how one adoption type evolves across sectors over time.</p>
+                        <p className="mt-2">Clearing the filter returns the categorical view with all adoption types.</p>
+                      </>
               }
               xAxisLabel={adoptionFilter === 'all' ? 'Adoption Type' : 'Year'}
               yAxisLabel={adoptionSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
@@ -1425,10 +1794,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 3 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={trendTimeAxis === 'month' ? filteredMonthlyVendorTrend : filteredVendorTrend}
+              data={displayVendorTrend}
               xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter]}
               colors={vendorColors}
+              yAxisTickFormatter={stackedChartYAxisFormatter}
+              tooltipValueFormatter={stackedChartTooltipFormatter}
               allowLineChart
               legendPosition="right"
               legendKeys={vendorStackKeys}
@@ -1436,10 +1807,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
               title="Vendor References Over Time"
               headerExtra={trendTimeToggle}
-              subtitle={`Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`}
+              subtitle={
+                isReportShareMode
+                  ? `Stacked bar chart showing the percentage of annual reports referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
+                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`
+              }
               tooltip={
                 <>
-                  <p>Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).</p>
+                  <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).'}</p>
                   <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
                   <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
                   <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
@@ -1447,31 +1822,46 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               }
             />
             <GenericHeatmap
-              data={vendorHeatmapData}
+              data={displayVendorHeatmapData}
               xLabels={vendorHeatmapXLabels}
               yLabels={vendorHeatmapYLabels}
               baseColor={vendorHeatmapBaseColor}
-              valueFormatter={value => `${value} ${datasetKey === 'perReport' ? 'reports' : 'excerpts'}`}
+              valueFormatter={riskHeatmapValueFormatter}
               xLabelFormatter={formatLabel}
-              showTotals={true}
+              showTotals={!isReportShareMode}
               showBlindSpots={true}
               title={effectiveVendorFilter === 'all' ? 'Vendor Concentration by Sector' : `${formatLabel(effectiveVendorFilter)} Mentions by Sector and Year`}
               subtitle={
-                effectiveVendorFilter === 'all'
-                  ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} naming each vendor within each sector; darker cells indicate higher counts relative to the dataset maximum.`
-                  : `Heatmap of ${formatLabel(effectiveVendorFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(effectiveVendorFilter)} mentions in that sector-year.`
+                isReportShareMode
+                  ? effectiveVendorFilter === 'all'
+                    ? `Heatmap of report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Each cell shows the percentage of reports in that sector, across the selected years, naming the vendor tag at least once.`
+                    : `Heatmap of ${formatLabel(effectiveVendorFilter)} report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(effectiveVendorFilter)}.`
+                  : effectiveVendorFilter === 'all'
+                    ? `Heatmap of ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Colour intensity encodes the number of ${datasetKey === 'perReport' ? 'annual reports' : 'passages'} naming each vendor within each sector; darker cells indicate higher counts relative to the dataset maximum.`
+                    : `Heatmap of ${formatLabel(effectiveVendorFilter)} ${datasetKey === 'perReport' ? 'report' : 'passage'} counts by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Colour intensity encodes relative frequency; darker cells indicate a higher concentration of ${formatLabel(effectiveVendorFilter)} mentions in that sector-year.`
               }
               tooltip={
-                effectiveVendorFilter === 'all'
-                  ? <>
-                      <p>Colour intensity is scaled relative to the full dataset, not absolute counts — darker cells indicate relatively higher mention concentration in this view.</p>
-                      <p className="mt-2">Hatched cells indicate no observed mentions for that sector/vendor pairing.</p>
-                      <p className="mt-2">Select one vendor above to switch columns from vendor tags to years.</p>
-                    </>
-                  : <>
-                      <p>This filtered view shows how one vendor tag evolves across sectors over time.</p>
-                      <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
-                    </>
+                isReportShareMode
+                  ? effectiveVendorFilter === 'all'
+                    ? <>
+                        <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
+                        <p className="mt-2">Because one report can mention multiple vendors, percentage totals are hidden in this mode.</p>
+                        <p className="mt-2">Select one vendor above to switch columns from vendor tags to years.</p>
+                      </>
+                    : <>
+                        <p>This filtered view shows the share of reports in each sector-year mentioning one vendor tag.</p>
+                        <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
+                      </>
+                  : effectiveVendorFilter === 'all'
+                    ? <>
+                        <p>Colour intensity is scaled relative to the full dataset, not absolute counts — darker cells indicate relatively higher mention concentration in this view.</p>
+                        <p className="mt-2">Hatched cells indicate no observed mentions for that sector/vendor pairing.</p>
+                        <p className="mt-2">Select one vendor above to switch columns from vendor tags to years.</p>
+                      </>
+                    : <>
+                        <p>This filtered view shows how one vendor tag evolves across sectors over time.</p>
+                        <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
+                      </>
               }
               xAxisLabel={effectiveVendorFilter === 'all' ? 'Vendor' : 'Year'}
               yAxisLabel={vendorSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
@@ -1620,10 +2010,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {activeView === 5 && (
           <div className="space-y-8">
             <StackedBarChart
-              data={trendTimeAxis === 'month' ? filteredMonthlyBlindSpotTrend : filteredBlindSpotTrend}
+              data={displayBlindSpotTrend}
               xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
               stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
               colors={blindSpotColors}
+              yAxisTickFormatter={stackedChartYAxisFormatter}
+              tooltipValueFormatter={stackedChartTooltipFormatter}
               allowLineChart
               legendPosition="right"
               legendKeys={['no_ai_mention', 'no_ai_risk_mention']}
@@ -1634,13 +2026,19 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               title={trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year'}
               headerExtra={trendTimeToggle}
               subtitle={
-                blindSpotFilter === 'all'
-                  ? `Stacked bar chart showing the number of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive: a report with no AI mention is also counted under no AI risk mention. The y-axis scale adjusts dynamically to the data shown.`
-                  : `Bar chart showing the number of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). The y-axis scale adjusts dynamically to the data shown.`
+                isReportShareMode
+                  ? blindSpotFilter === 'all'
+                    ? `Stacked bar chart showing the percentage of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive, so stacked totals can exceed 100%.`
+                    : `Bar chart showing the percentage of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis).`
+                  : blindSpotFilter === 'all'
+                    ? `Stacked bar chart showing the number of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive: a report with no AI mention is also counted under no AI risk mention. The y-axis scale adjusts dynamically to the data shown.`
+                    : `Bar chart showing the number of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). The y-axis scale adjusts dynamically to the data shown.`
               }
               tooltip={
                 blindSpotFilter === 'all'
-                  ? 'This report-level view compares two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
+                  ? isReportShareMode
+                    ? 'This report-level view compares the share of reports exhibiting two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
+                    : 'This report-level view compares two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
                   : `${formatLabel(blindSpotFilter)} is currently isolated. Clear the filter to compare both blind-spot types together.`
               }
             />
@@ -1648,43 +2046,59 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {blindSpotFilter === 'all' ? (
               <div className="grid gap-8 xl:grid-cols-2">
                 <GenericHeatmap
-                  data={noAiBySectorYearInRange}
+                  data={displayNoAiBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
                   baseColor="#64748b"
-                  valueFormatter={value => `${value}`}
-                  showTotals={true}
+                  valueFormatter={blindSpotHeatmapValueFormatter}
+                  showTotals={!isReportShareMode}
                   showBlindSpots={false}
                   title="No AI Mention by Sector and Year"
-                  subtitle="Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency."
-                  tooltip="Each cell is the number of reports in that sector-year that do not mention AI at all."
+                  subtitle={
+                    isReportShareMode
+                      ? 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
+                      : 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
+                  }
+                  tooltip={
+                    isReportShareMode
+                      ? 'Each cell is the share of reports in that sector-year that do not mention AI at all.'
+                      : 'Each cell is the number of reports in that sector-year that do not mention AI at all.'
+                  }
                   xAxisLabel="Year"
                   yAxisLabel="Sector"
                 />
                 <GenericHeatmap
-                  data={noAiRiskBySectorYearInRange}
+                  data={displayNoAiRiskBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
                   baseColor="#64748b"
-                  valueFormatter={value => `${value}`}
-                  showTotals={true}
+                  valueFormatter={blindSpotHeatmapValueFormatter}
+                  showTotals={!isReportShareMode}
                   showBlindSpots={false}
                   title="No AI Risk Mention by Sector and Year"
-                  subtitle="Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency."
-                  tooltip="Each cell is the number of reports in that sector-year with no AI risk mention."
+                  subtitle={
+                    isReportShareMode
+                      ? 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
+                      : 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the count of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
+                  }
+                  tooltip={
+                    isReportShareMode
+                      ? 'Each cell is the share of reports in that sector-year with no AI risk mention.'
+                      : 'Each cell is the number of reports in that sector-year with no AI risk mention.'
+                  }
                   xAxisLabel="Year"
                   yAxisLabel="Sector"
                 />
               </div>
             ) : (
-              blindSpotHeatmapData && (
+              displayBlindSpotHeatmapData && (
                 <GenericHeatmap
-                  data={blindSpotHeatmapData}
+                  data={displayBlindSpotHeatmapData}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
                   baseColor={blindSpotHeatmapColor}
-                  valueFormatter={value => `${value}`}
-                  showTotals={true}
+                  valueFormatter={blindSpotHeatmapValueFormatter}
+                  showTotals={!isReportShareMode}
                   showBlindSpots={false}
                   title={blindSpotHeatmapTitle}
                   subtitle={blindSpotHeatmapSubtitle}

@@ -510,6 +510,16 @@ def check_not_in_fr(
             if release_yr < MIN_YEAR:
                 continue
             fiscal_yr, _conf = fiscal_year_from_filing(title, release_dt)
+            # Fallback: if fiscal year can't be determined from title,
+            # use release_year (for annual reports published in-year)
+            # or release_year - 1 (for H1 publications covering prior FY)
+            if fiscal_yr is None and release_yr >= MIN_YEAR:
+                try:
+                    release_month = int(release_dt[5:7])
+                except (ValueError, IndexError):
+                    release_month = 12
+                fiscal_yr = str(int(release_yr) - 1) if release_month <= 6 else release_yr
+                _conf = "LOW"
             if fiscal_yr is None or fiscal_yr not in TARGET_YEARS:
                 continue
             f["_release_year"] = release_yr
@@ -682,6 +692,16 @@ def check_year_gaps(
             if release_yr < MIN_YEAR:
                 continue
             fiscal_yr, fy_conf = fiscal_year_from_filing(title, release_dt)
+            # Fallback: if fiscal year can't be determined from title,
+            # use release_year (for annual reports published in-year)
+            # or release_year - 1 (for H1 publications covering prior FY)
+            if fiscal_yr is None and release_yr >= MIN_YEAR:
+                try:
+                    release_month = int(release_dt[5:7])
+                except (ValueError, IndexError):
+                    release_month = 12
+                fiscal_yr = str(int(release_yr) - 1) if release_month <= 6 else release_yr
+                fy_conf = "LOW"
             if fiscal_yr is None or fiscal_yr not in TARGET_YEARS:
                 continue
             f["_release_year"] = release_yr

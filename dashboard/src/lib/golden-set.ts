@@ -73,6 +73,8 @@ export type GoldenDataset = {
   blindSpotTrend: Record<string, number>[];
   noAiBySectorYear: { x: number; y: string; value: number }[];
   noAiRiskBySectorYear: { x: number; y: string; value: number }[];
+  reportCountBySectorYear: { x: number; y: string; value: number }[];
+  reportCountByIsicSectorYear: { x: number; y: string; value: number }[];
 };
 
 const ANNOTATIONS_PATH = path.join(
@@ -627,7 +629,8 @@ const addMonthCount = (
 const buildDataset = (
   reports: ReportData[],
   years: number[],
-  sectors: string[]
+  sectors: string[],
+  isicSectors: string[]
 ): GoldenDataset => {
   // Collect all unique months from reports
   const monthSet = new Set<string>();
@@ -664,6 +667,8 @@ const buildDataset = (
   const blindSpotYearCounts = new Map<number, { total: number; noAi: number; noAiRisk: number }>();
   const noAiBySectorYearCounts = new Map<string, number>();
   const noAiRiskBySectorYearCounts = new Map<string, number>();
+  const reportCountBySectorYearCounts = new Map<string, number>();
+  const reportCountByIsicSectorYearCounts = new Map<string, number>();
 
   const companies = new Set<string>();
   let aiSignalReports = 0;
@@ -692,6 +697,15 @@ const buildDataset = (
     blindSpotYearCounts.set(year, yearBlindSpot);
 
     const sectorYearKey = `${year}|||${report.sector}`;
+    reportCountBySectorYearCounts.set(
+      sectorYearKey,
+      (reportCountBySectorYearCounts.get(sectorYearKey) || 0) + 1
+    );
+    const isicSectorYearKey = `${year}|||${report.isicSector}`;
+    reportCountByIsicSectorYearCounts.set(
+      isicSectorYearKey,
+      (reportCountByIsicSectorYearCounts.get(isicSectorYearKey) || 0) + 1
+    );
     if (!hasSignal) {
       noAiBySectorYearCounts.set(sectorYearKey, (noAiBySectorYearCounts.get(sectorYearKey) || 0) + 1);
     }
@@ -944,6 +958,8 @@ const buildDataset = (
 
   const noAiBySectorYear: { x: number; y: string; value: number }[] = [];
   const noAiRiskBySectorYear: { x: number; y: string; value: number }[] = [];
+  const reportCountBySectorYear: { x: number; y: string; value: number }[] = [];
+  const reportCountByIsicSectorYear: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
     sectors.forEach(sector => {
       const key = `${year}|||${sector}`;
@@ -956,6 +972,19 @@ const buildDataset = (
         x: year,
         y: sector,
         value: noAiRiskBySectorYearCounts.get(key) || 0,
+      });
+      reportCountBySectorYear.push({
+        x: year,
+        y: sector,
+        value: reportCountBySectorYearCounts.get(key) || 0,
+      });
+    });
+    isicSectors.forEach(sector => {
+      const key = `${year}|||${sector}`;
+      reportCountByIsicSectorYear.push({
+        x: year,
+        y: sector,
+        value: reportCountByIsicSectorYearCounts.get(key) || 0,
       });
     });
   });
@@ -998,6 +1027,8 @@ const buildDataset = (
     blindSpotTrend,
     noAiBySectorYear,
     noAiRiskBySectorYear,
+    reportCountBySectorYear,
+    reportCountByIsicSectorYear,
   };
 };
 
@@ -1037,8 +1068,8 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       riskSignalLevels,
     },
     datasets: {
-      perReport: buildDataset(perReportData, years, resolvedCniSectors),
-      perChunk: buildDataset(perChunkData, years, resolvedCniSectors),
+      perReport: buildDataset(perReportData, years, resolvedCniSectors, resolvedIsicSectors),
+      perChunk: buildDataset(perChunkData, years, resolvedCniSectors, resolvedIsicSectors),
     },
   };
 };
