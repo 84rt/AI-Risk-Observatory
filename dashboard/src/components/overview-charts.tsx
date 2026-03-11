@@ -150,7 +150,7 @@ export function StackedBarChart({
   };
 
   return (
-    <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm relative">
+    <div className="w-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
       {title && (
         <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
@@ -161,10 +161,10 @@ export function StackedBarChart({
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
           {headerExtra}
           {allowLineChart && (
-            <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+            <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
               <button
                 onClick={() => setChartType('bar')}
-                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Bar chart"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -175,7 +175,7 @@ export function StackedBarChart({
               </button>
               <button
                 onClick={() => setChartType('line')}
-                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Line chart"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -377,7 +377,7 @@ export function GenericHeatmap({
   const cellHeight = rowHeight ?? (needsScroll ? Math.max(36, inferredCellHeight - 4) : inferredCellHeight);
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm relative">
+    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
       {(title || headerExtra) && (
         <div className="mb-3 flex items-start justify-between gap-4">
           {title ? (

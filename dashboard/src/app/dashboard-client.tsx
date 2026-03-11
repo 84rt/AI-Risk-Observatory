@@ -1088,7 +1088,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setter('cni')}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'cni'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1099,7 +1099,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setter('isic')}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'isic'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1115,7 +1115,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setTrendTimeAxis('year')}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'year'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1126,7 +1126,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setTrendTimeAxis('month')}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'month'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1142,7 +1142,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setMetricMode('count')}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'count'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1153,7 +1153,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         onClick={() => setMetricMode('pct_reports')}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'pct_reports'
-            ? 'bg-slate-900 text-white'
+            ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1168,18 +1168,24 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6">
           {/* Row 1: View tabs */}
-          <div className="flex items-center gap-2 py-2">
+          <div className="flex items-center gap-1 py-2">
             {VIEWS.map(item => (
               <button
                 key={item.id}
-                onClick={() => setActiveView(item.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                onClick={() => {
+                  setActiveView(item.id);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`relative rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
                   activeView === item.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-900'
                 }`}
               >
                 {item.title}
+                {activeView === item.id && (
+                  <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-amber-500" />
+                )}
               </button>
             ))}
           </div>
@@ -1424,7 +1430,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
       <main className="mx-auto max-w-7xl px-6 py-12">
         <div className="mb-10">
-          <h2 className="text-2xl font-semibold text-slate-900">{view.heading}</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">
+            <span className="mr-2 inline-block h-5 w-1 rounded-full bg-amber-500 align-middle" />
+            {view.heading}
+          </h2>
           {activeView === 1 ? (
             <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
@@ -1663,7 +1672,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               headerExtra={makeSectorToggle(riskSectorView, setRiskSectorView)}
             />
 
-            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
               <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
                 Risk Category Definitions
                 <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -1770,7 +1779,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />
 
-            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
               <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
                 Adoption Type Definitions
                 <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -1871,7 +1880,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />
 
-            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
               <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
                 Vendor Tag Definitions
                 <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -1969,7 +1978,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yAxisLabel="Quality Band"
             />
             )}
-            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
               <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
                 Quality Metric Definitions
                 <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -2109,7 +2118,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               )
             )}
 
-            <details className="group rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
               <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
                 Blind Spot Definitions
                 <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
