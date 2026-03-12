@@ -21,6 +21,7 @@ export type GoldenDashboardData = {
   years: number[];
   sectors: string[];
   isicSectors: string[];
+  marketSegments: string[];
   labels: {
     mentionTypes: string[];
     adoptionTypes: string[];
@@ -33,6 +34,7 @@ export type GoldenDashboardData = {
     perReport: GoldenDataset;
     perChunk: GoldenDataset;
   };
+  byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }>;
 };
 
 export type GoldenDataset = {
@@ -198,9 +200,10 @@ const parseCompanySectors = () => {
     return {
       cniSectorMap: new Map<string, string>(),
       isicSectorMap: new Map<string, string>(),
+      marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],
-      companySectors: [] as { company_name: string; cniSector: string; isicSector: string }[],
+      companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
     };
   }
 
@@ -211,9 +214,10 @@ const parseCompanySectors = () => {
     return {
       cniSectorMap: new Map<string, string>(),
       isicSectorMap: new Map<string, string>(),
+      marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],
-      companySectors: [] as { company_name: string; cniSector: string; isicSector: string }[],
+      companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
     };
   }
   const headers = parseCsvRow(header);
@@ -224,17 +228,19 @@ const parseCompanySectors = () => {
   const isicSectorIndex = headers.indexOf('isic_section_name') >= 0
     ? headers.indexOf('isic_section_name')
     : headers.indexOf('isic_sector_name');
+  const marketSegmentIndex = headers.indexOf('market_segment');
 
   const cniSectorMap = new Map<string, string>();
   const isicSectorMap = new Map<string, string>();
+  const marketSegmentMap = new Map<string, string>();
   const cniSectors: string[] = [];
   const isicSectors: string[] = [];
-  const companySectors: { company_name: string; cniSector: string; isicSector: string }[] = [];
+  const companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[] = [];
   const cniSectorSet = new Set<string>();
   const isicSectorSet = new Set<string>();
 
   if (nameIndex < 0 || cniSectorIndex < 0) {
-    return { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors };
+    return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors };
   }
 
   lines.forEach(line => {
@@ -244,10 +250,14 @@ const parseCompanySectors = () => {
     const isicSector = isicSectorIndex >= 0
       ? (cells[isicSectorIndex]?.trim() || 'Unknown')
       : 'Unknown';
+    const marketSegment = marketSegmentIndex >= 0
+      ? (cells[marketSegmentIndex]?.trim() || 'Other')
+      : 'Other';
     if (!name) return;
     cniSectorMap.set(toKey(name), cniSector);
     isicSectorMap.set(toKey(name), isicSector);
-    companySectors.push({ company_name: name, cniSector, isicSector });
+    marketSegmentMap.set(toKey(name), marketSegment);
+    companySectors.push({ company_name: name, cniSector, isicSector, marketSegment });
     if (!cniSectorSet.has(cniSector)) {
       cniSectorSet.add(cniSector);
       cniSectors.push(cniSector);
@@ -258,7 +268,7 @@ const parseCompanySectors = () => {
     }
   });
 
-  return { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors };
+  return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors };
 };
 
 const parseAnnotations = (filepath: string) => {
@@ -380,6 +390,7 @@ type ReportData = {
   release_month: string;
   sector: string;
   isicSector: string;
+  marketSegment: string;
   mentionTypes: Set<string>;
   adoptionTypes: Set<string>;
   riskLabels: Set<string>;
@@ -397,13 +408,15 @@ const makeEmptyReportData = (
   reportYear: number,
   sector: string,
   isicSector: string,
-  releaseMonth: string = ''
+  releaseMonth: string = '',
+  marketSegment: string = 'Other'
 ): ReportData => ({
   company_name: companyName,
   report_year: reportYear,
   release_month: releaseMonth,
   sector,
   isicSector,
+  marketSegment,
   mentionTypes: new Set(),
   adoptionTypes: new Set(),
   riskLabels: new Set(),
@@ -420,8 +433,9 @@ const aggregateToReports = (
   annotations: GoldenAnnotation[],
   cniSectorMap: Map<string, string>,
   isicSectorMap: Map<string, string>,
+  marketSegmentMap: Map<string, string>,
   years: number[],
-  companySectors: { company_name: string; cniSector: string; isicSector: string }[],
+  companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
   documentMonths: Map<string, string>
 ): ReportData[] => {
   const reportMap = new Map<string, ReportData>();
@@ -437,7 +451,8 @@ const aggregateToReports = (
           item.report_year,
           cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
           isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
-          documentMonths.get(item.document_id) || ''
+          documentMonths.get(item.document_id) || '',
+          marketSegmentMap.get(toKey(item.company_name)) || 'Other'
         )
       );
     }
@@ -536,6 +551,7 @@ const annotationsAsChunks = (
   annotations: GoldenAnnotation[],
   cniSectorMap: Map<string, string>,
   isicSectorMap: Map<string, string>,
+  marketSegmentMap: Map<string, string>,
   documentMonths: Map<string, string>
 ): ReportData[] => {
   return annotations.map(item => {
@@ -592,6 +608,7 @@ const annotationsAsChunks = (
       release_month: documentMonths.get(item.document_id) || '',
       sector: cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
       isicSector: isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
+      marketSegment: marketSegmentMap.get(toKey(item.company_name)) || 'Other',
       mentionTypes: new Set(item.mention_types || []),
       adoptionTypes: filteredAdoption,
       riskLabels: filteredRisk,
@@ -1033,7 +1050,7 @@ const buildDataset = (
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { cniSectorMap, isicSectorMap, cniSectors, isicSectors, companySectors } = parseCompanySectors();
+  const { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
   const documentMonths = loadDocumentMonths();
 
@@ -1044,21 +1061,34 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   const resolvedCniSectors = cniSectors.length ? cniSectors : ['Unknown'];
   const extraIsicSectors = isicSectors.filter(section => !ALL_ISIC_SECTION_NAMES.includes(section));
   const resolvedIsicSectors = [...ALL_ISIC_SECTION_NAMES, ...extraIsicSectors];
+  const resolvedMarketSegments = ['FTSE 350', 'Main Market', 'AIM'];
 
   const perReportData = aggregateToReports(
     annotations,
     cniSectorMap,
     isicSectorMap,
+    marketSegmentMap,
     years,
     companySectors,
     documentMonths
   );
-  const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, documentMonths);
+  const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, marketSegmentMap, documentMonths);
+
+  const byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }> = {};
+  resolvedMarketSegments.forEach(segment => {
+    const segReportData = perReportData.filter(r => r.marketSegment === segment);
+    const segChunkData = perChunkData.filter(r => r.marketSegment === segment);
+    byMarketSegment[segment] = {
+      perReport: buildDataset(segReportData, years, resolvedCniSectors, resolvedIsicSectors),
+      perChunk: buildDataset(segChunkData, years, resolvedCniSectors, resolvedIsicSectors),
+    };
+  });
 
   return {
     years,
     sectors: resolvedCniSectors,
     isicSectors: resolvedIsicSectors,
+    marketSegments: resolvedMarketSegments,
     labels: {
       mentionTypes,
       adoptionTypes,
@@ -1071,5 +1101,6 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       perReport: buildDataset(perReportData, years, resolvedCniSectors, resolvedIsicSectors),
       perChunk: buildDataset(perChunkData, years, resolvedCniSectors, resolvedIsicSectors),
     },
+    byMarketSegment,
   };
 };

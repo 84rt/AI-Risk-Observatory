@@ -94,6 +94,7 @@ def main() -> None:
             company_id = record.get("company_id") or record.get("company_number") or document_id
             company_name = record.get("company_name") or company_id
             report_year = int(record.get("year"))
+            market_segment = record.get("market_segment", "Other")
             markdown_path = Path(record["markdown_path"])
             if not markdown_path.exists():
                 raise FileNotFoundError(f"Missing markdown file at {markdown_path}")
@@ -112,6 +113,8 @@ def main() -> None:
                 drop_table_rule_lines=not args.keep_table_rule_lines,
                 drop_listing_rows=not args.keep_listing_signature_rows,
             )
+            for chunk in chunks:
+                chunk["market_segment"] = market_segment
             all_chunks.extend(chunks)
 
             if db:

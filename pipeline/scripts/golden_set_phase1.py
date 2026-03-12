@@ -114,6 +114,7 @@ def download_reports(
         sector = company.get("sector", "Unknown")
         company_id = company.get("company_id") or make_company_id(company_number, lei, company_name)
         ticker = company.get("ticker") or company_id
+        market_segment = company.get("market_segment", "Other")
 
         for year in years:
             record = {
@@ -123,6 +124,7 @@ def download_reports(
                 "ticker": ticker,
                 "lei": lei,
                 "cni_sector": sector,
+                "market_segment": market_segment,
                 "year": int(year),
                 "run_id": run_id,
                 "status": "pending",
@@ -303,6 +305,7 @@ def preprocess_manifest(
         company_number = rec.get("company_number")
         year = rec["year"]
         sector = rec.get("cni_sector", "Unknown")
+        market_segment = rec.get("market_segment", "Other")
 
         try:
             if fmt == "ixbrl":
@@ -330,6 +333,7 @@ def preprocess_manifest(
                 "ticker": rec.get("ticker"),
                 "lei": rec.get("lei"),
                 "cni_sector": sector,
+                "market_segment": market_segment,
                 "year": year,
                 "source_format": fmt,
                 "raw_path": str(raw_path),

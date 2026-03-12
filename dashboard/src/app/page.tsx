@@ -12,10 +12,36 @@ export default function HomePage() {
       : `${data.years[0] ?? 'N/A'}`;
 
   const riskLabels = data.labels.riskLabels;
-  const heroRiskTrend = data.datasets.perReport.riskTrend.map(row => ({
-    year: Number(row.year),
-    risk: riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0),
-  }));
+
+  const heroSeries = [
+    {
+      label: 'Risk mentions',
+      subtitle: 'AI mentioned as a risk by public companies',
+      color: '#f97316',
+      data: data.datasets.perReport.riskTrend.map(row => ({
+        year: Number(row.year),
+        value: riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0),
+      })),
+    },
+    {
+      label: 'Workforce impact',
+      subtitle: 'Companies reporting workforce impact from AI',
+      color: '#8b5cf6',
+      data: data.datasets.perReport.riskTrend.map(row => ({
+        year: Number(row.year),
+        value: Number(row.workforce_impacts) || 0,
+      })),
+    },
+    {
+      label: 'LLM adoption',
+      subtitle: 'Companies reporting LLM adoption',
+      color: '#0ea5e9',
+      data: data.datasets.perReport.adoptionTrend.map(row => ({
+        year: Number(row.year),
+        value: Number(row.llm) || 0,
+      })),
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
@@ -26,41 +52,46 @@ export default function HomePage() {
           <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-sky-200/70 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-emerald-200/60 blur-3xl" />
         </div>
-        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-            AI Risk Observatory
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600 sm:text-xl">
-            Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their{' '}
-            <a
-              href="https://en.wikipedia.org/wiki/Annual_report"
-              className="underline decoration-slate-400 hover:text-slate-700"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              annual reports
-            </a>.
-          </p>
+        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16">
+          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between">
+            {/* Left — text & stats */}
+            <div className="text-center lg:text-left lg:max-w-lg">
+              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                AI Risk Observatory
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg text-slate-600 sm:text-xl">
+                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their{' '}
+                <a
+                  href="https://en.wikipedia.org/wiki/Annual_report"
+                  className="underline decoration-slate-400 hover:text-slate-700"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  annual reports
+                </a>.
+              </p>
 
-          {/* Stats */}
-          <div className="mx-auto mt-8 flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500">
-            <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-              <span className="text-amber-600">{perReportSummary.totalCompanies}</span> Companies
-            </span>
-            <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-              <span className="text-amber-600">{perReportSummary.totalReports}</span> Annual Reports
-            </span>
-            <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-              <span className="text-amber-600">{perChunkSummary.totalReports}</span> Extracted Chunks
-            </span>
-            <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-              <span className="text-amber-600">{yearRange}</span>
-            </span>
-          </div>
+              {/* Stats */}
+              <div className="mt-8 flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 lg:justify-start">
+                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-amber-600">{perReportSummary.totalCompanies}</span> Companies
+                </span>
+                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-amber-600">{perReportSummary.totalReports}</span> Annual Reports
+                </span>
+                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-amber-600">{perChunkSummary.totalReports}</span> Extracted Chunks
+                </span>
+                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-amber-600">{yearRange}</span>
+                </span>
+              </div>
+            </div>
 
-          {/* Hero risk chart */}
-          <div className="mx-auto mt-10 flex justify-center">
-            <HeroRiskChart data={heroRiskTrend} />
+            {/* Right — chart */}
+            <div className="flex-shrink-0">
+              <HeroRiskChart series={heroSeries} />
+            </div>
           </div>
         </div>
       </header>

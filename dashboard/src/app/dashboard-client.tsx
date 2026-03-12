@@ -161,10 +161,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
   const [metricMode, setMetricMode] = useState<MetricMode>('count');
+  const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
-  const activeData = data.datasets[datasetKey];
-  const reportBaselineData = data.datasets.perReport;
+  const resolvedDatasets =
+    marketSegmentFilter === 'all'
+      ? data.datasets
+      : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets);
+  const activeData = resolvedDatasets[datasetKey];
+  const reportBaselineData = resolvedDatasets.perReport;
   const canShowReportShare =
     activeView !== 4 && (activeView === 5 || datasetKey === 'perReport');
   const effectiveMetricMode: MetricMode = canShowReportShare ? metricMode : 'count';
@@ -734,7 +739,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       { totalReports: 0, riskMentionReports: 0 }
     );
 
-    const excerptRiskMentions = data.datasets.perChunk.mentionTrend.reduce((sum, row) => {
+    const excerptRiskMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
       const year = Number(row.year);
       if (year < selectedStartYear || year > selectedEndYear) return sum;
       return sum + (Number(row.risk) || 0);
@@ -748,7 +753,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     };
   }, [
     blindSpotTrendInRange,
-    data.datasets.perChunk.mentionTrend,
+    resolvedDatasets.perChunk.mentionTrend,
     selectedStartYear,
     selectedEndYear,
     filteredYears.length,
@@ -766,7 +771,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       return sum + (Number(row.adoption) || 0);
     }, 0);
 
-    const excerptAdoptionMentions = data.datasets.perChunk.mentionTrend.reduce((sum, row) => {
+    const excerptAdoptionMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
       const year = Number(row.year);
       if (year < selectedStartYear || year > selectedEndYear) return sum;
       return sum + (Number(row.adoption) || 0);
@@ -781,7 +786,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [
     blindSpotTrendInRange,
     reportBaselineData.mentionTrend,
-    data.datasets.perChunk.mentionTrend,
+    resolvedDatasets.perChunk.mentionTrend,
     selectedStartYear,
     selectedEndYear,
     filteredYears.length,
@@ -799,7 +804,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       return sum + (Number(row.vendor) || 0);
     }, 0);
 
-    const excerptVendorMentions = data.datasets.perChunk.mentionTrend.reduce((sum, row) => {
+    const excerptVendorMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
       const year = Number(row.year);
       if (year < selectedStartYear || year > selectedEndYear) return sum;
       return sum + (Number(row.vendor) || 0);
@@ -814,7 +819,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [
     blindSpotTrendInRange,
     reportBaselineData.mentionTrend,
-    data.datasets.perChunk.mentionTrend,
+    resolvedDatasets.perChunk.mentionTrend,
     selectedStartYear,
     selectedEndYear,
     filteredYears.length,
@@ -1292,6 +1297,21 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <option value="perChunk">Per Excerpt</option>
               </select>
             )}
+
+            {/* Market segment filter */}
+            <select
+              value={marketSegmentFilter}
+              onChange={event => {
+                setMarketSegmentFilter(event.target.value);
+                setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
+              }}
+              className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+            >
+              <option value="all">All Companies</option>
+              {data.marketSegments.map(segment => (
+                <option key={segment} value={segment}>{segment}</option>
+              ))}
+            </select>
 
             {metricModeToggle}
 

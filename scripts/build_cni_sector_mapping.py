@@ -47,11 +47,14 @@ import os
 import sys
 from pathlib import Path
 
-REPO_ROOT  = Path(__file__).resolve().parents[1]
-DATA_DIR   = REPO_ROOT / "data"
-REF_DIR    = DATA_DIR / "reference"
-RUNS_DIR   = REF_DIR / "cni_batch_runs"
-CHECKPOINT = REF_DIR / "cni_batch_checkpoint.json"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR  = REPO_ROOT / "data"
+REF_DIR   = DATA_DIR / "reference"
+RUNS_DIR  = REF_DIR / "cni_batch_runs"
+
+
+def checkpoint_path(tag: str) -> Path:
+    return REF_DIR / f"cni_batch_checkpoint_{tag}.json"
 
 # ── CNI sector taxonomy (official UK post-2024) ───────────────────────────────
 
@@ -343,7 +346,24 @@ def build_sector_list() -> str:
     return "\n".join(f"  {s}: {CNI_DESCRIPTIONS[s]}" for s in CNI_SECTORS)
 
 
-def phase_submit(model: str = "gemini-2.5-flash") -> None:
+# Response schema — enforces exact sector names via enum, eliminating all
+# normalisation guesswork. The model MUST return names from this list.
+RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sectors": {
+            "type": "array",
+            "items": {"type": "string", "enum": CNI_SECTORS},
+            "minItems": 1,
+            "maxItems": 3,
+        },
+        "reasoning": {"type": "string"},
+    },
+    "required": ["sectors"],
+}
+
+
+def phase_submit(model: str = "gemini-3-flash-preview", tag: str = "") -> None:
     print("=== Phase 2: Submit batch ===\n")
 
     load_env()
@@ -398,14 +418,27 @@ def phase_submit(model: str = "gemini-2.5-flash") -> None:
                     "system_instruction": {"parts": [{"text": system_text}]},
                     "generation_config": {
                         "temperature": 0.0,
-                        "max_output_tokens": 256,
+                        "max_output_tokens": 2048,
                         "response_mime_type": "application/json",
+                        "response_json_schema": RESPONSE_SCHEMA,
+                        "thinking_config": {"thinking_budget": 512},
                     },
                 },
             }
             f.write(json.dumps(line) + "\n")
 
+    # Pre-submission validation: parse first 3 lines back to catch format bugs
     print(f"Wrote {len(pending)} requests → {jsonl_path.name}")
+    print("Validating JSONL...")
+    with jsonl_path.open() as f:
+        for i, line in enumerate(f):
+            if i >= 3:
+                break
+            parsed = json.loads(line)
+            assert "key" in parsed and "request" in parsed, f"Line {i}: missing key/request"
+            req = parsed["request"]
+            assert "contents" in req and "system_instruction" in req, f"Line {i}: missing contents/system_instruction"
+    print(f"  OK — first 3 requests validated")
 
     # Submit via Gemini Batch API
     from google import genai
@@ -444,27 +477,30 @@ def phase_submit(model: str = "gemini-2.5-flash") -> None:
         "submitted_at": __import__("datetime").datetime.now().isoformat(),
         # Store index → lei mapping for result collection
         "index_to_lei": {str(i): row["lei"] for i, row in enumerate(pending)},
+        "tag": tag,
     }
-    CHECKPOINT.write_text(json.dumps(checkpoint, indent=2))
-    print(f"\nCheckpoint saved → {CHECKPOINT.relative_to(REPO_ROOT)}")
-    print(f"\nRun --phase status to check progress.")
-    print(f"Run --phase collect once the job succeeds.")
+    cp_path = checkpoint_path(tag)
+    cp_path.write_text(json.dumps(checkpoint, indent=2))
+    print(f"\nCheckpoint saved → {cp_path.relative_to(REPO_ROOT)}")
+    print(f"\nRun --phase status --tag {tag} to check progress.")
+    print(f"Run --phase collect --tag {tag} once the job succeeds.")
 
 
 # ── Phase 3 helper: status ────────────────────────────────────────────────────
 
-def phase_status() -> None:
+def phase_status(tag: str = "") -> None:
     print("=== Batch status ===\n")
     load_env()
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         print("ERROR: GEMINI_API_KEY not set.", file=sys.stderr)
         sys.exit(1)
-    if not CHECKPOINT.exists():
-        print("No checkpoint found. Run --phase submit first.")
+    cp_path = checkpoint_path(tag)
+    if not cp_path.exists():
+        print(f"No checkpoint found at {cp_path.name}. Run --phase submit --tag {tag} first.")
         return
 
-    cp = json.loads(CHECKPOINT.read_text())
+    cp = json.loads(cp_path.read_text())
     job_name = cp["job_name"]
 
     from google import genai
@@ -484,7 +520,7 @@ def phase_status() -> None:
 
 # ── Phase 4: Collect results ──────────────────────────────────────────────────
 
-def phase_collect() -> None:
+def phase_collect(tag: str = "") -> None:
     print("=== Phase 3: Collect results ===\n")
 
     load_env()
@@ -492,11 +528,12 @@ def phase_collect() -> None:
     if not api_key:
         print("ERROR: GEMINI_API_KEY not set.", file=sys.stderr)
         sys.exit(1)
-    if not CHECKPOINT.exists():
-        print("No checkpoint found. Run --phase submit first.")
+    cp_path = checkpoint_path(tag)
+    if not cp_path.exists():
+        print(f"No checkpoint found at {cp_path.name}. Run --phase submit --tag {tag} first.")
         return
 
-    cp          = json.loads(CHECKPOINT.read_text())
+    cp          = json.loads(cp_path.read_text())
     job_name    = cp["job_name"]
     index_to_lei = cp["index_to_lei"]
 
@@ -534,30 +571,57 @@ def phase_collect() -> None:
 
     # Parse results
     llm_results: dict[str, list[str]] = {}  # lei → sectors list
-    errors = 0
+    parse_errors: list[dict] = []
 
     for entry in output_lines:
         key = str(entry.get("key", ""))
         lei = index_to_lei.get(key)
         if not lei:
-            errors += 1
+            parse_errors.append({"key": key, "lei": None, "reason": "key not in index"})
+            continue
+
+        # Check for API-level error on this request
+        if entry.get("error"):
+            parse_errors.append({"key": key, "lei": lei, "reason": f"api_error: {entry['error']}"})
+            llm_results[lei] = ["Other"]
             continue
 
         try:
             candidates = entry.get("response", {}).get("candidates", [])
-            text = candidates[0]["content"]["parts"][0]["text"]
+            if not candidates:
+                raise ValueError("no candidates")
+
+            finish_reason = candidates[0].get("finishReason", "")
+            if finish_reason == "MAX_TOKENS":
+                raise ValueError(f"MAX_TOKENS — increase max_output_tokens")
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if not parts:
+                raise ValueError(f"empty parts (finishReason={finish_reason})")
+
+            text = parts[0].get("text", "")
             parsed = json.loads(text)
             sectors = parsed.get("sectors", [])
-            # Validate each sector
+            # response_schema enforces enum values, but validate anyway
             valid = [s for s in sectors if s in CNI_SECTORS]
             if not valid:
-                valid = ["Other"]
-            llm_results[lei] = valid[:3]  # cap at 3
+                raise ValueError(f"no valid sectors in: {sectors}")
+            llm_results[lei] = valid[:3]
+
         except Exception as e:
-            errors += 1
+            parse_errors.append({"key": key, "lei": lei, "reason": str(e)})
             llm_results[lei] = ["Other"]
 
-    print(f"Parsed: {len(llm_results)} results, {errors} errors")
+    succeeded = len(llm_results) - len([e for e in parse_errors if e.get("lei")])
+    print(f"Parsed: {len(llm_results)} results | {len(parse_errors)} errors")
+
+    if parse_errors:
+        errors_path = REF_DIR / "cni_batch_errors.json"
+        errors_path.write_text(json.dumps(parse_errors, indent=2))
+        print(f"Error details → {errors_path.relative_to(REPO_ROOT)}")
+        # Show first 5
+        for e in parse_errors[:5]:
+            print(f"  key={e['key']} lei={e.get('lei','?')}: {e['reason']}")
 
     # Merge into existing output
     existing  = load_existing_output()
@@ -632,20 +696,26 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", choices=["static", "submit", "status", "collect"],
                     default="static", help="Which phase to run (default: static)")
-    ap.add_argument("--model", default="gemini-2.5-flash",
-                    help="Gemini model for batch submit (default: gemini-2.5-flash)")
+    ap.add_argument("--model", default="gemini-3-flash-preview",
+                    help="Gemini model for batch submit (default: gemini-3-flash-preview)")
+    ap.add_argument("--tag", default="",
+                    help="Label for this batch run — used to name the checkpoint file "
+                         "so multiple batches can run in parallel (e.g. --tag flash3)")
     ap.add_argument("--dry-run", action="store_true",
                     help="Phase 1 only: preview counts without writing files")
     args = ap.parse_args()
 
+    # Default tag to model name (sanitised) if not provided
+    tag = args.tag or args.model.replace("/", "-").replace(".", "-")
+
     if args.phase == "static":
         phase_static(dry_run=args.dry_run)
     elif args.phase == "submit":
-        phase_submit(model=args.model)
+        phase_submit(model=args.model, tag=tag)
     elif args.phase == "status":
-        phase_status()
+        phase_status(tag=tag)
     elif args.phase == "collect":
-        phase_collect()
+        phase_collect(tag=tag)
 
 
 if __name__ == "__main__":
