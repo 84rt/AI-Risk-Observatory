@@ -84,6 +84,7 @@ interface StackedBarChartProps {
   yAxisTickFormatter?: (value: number) => string;
   tooltipValueFormatter?: (value: number, name: string) => string | number;
   allowLineChart?: boolean;
+  showChartTypeToggle?: boolean;
   title?: string;
   subtitle?: string;
   tooltip?: React.ReactNode;
@@ -102,6 +103,7 @@ export function StackedBarChart({
   yAxisTickFormatter,
   tooltipValueFormatter,
   allowLineChart = false,
+  showChartTypeToggle,
   title,
   subtitle,
   tooltip,
@@ -112,6 +114,8 @@ export function StackedBarChart({
   onLegendItemClick,
 }: StackedBarChartProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
+  const activeChartType = allowLineChart ? chartType : 'bar';
+  const showChartModeToggle = showChartTypeToggle ?? allowLineChart;
   const showSideLegend = legendPosition === 'right';
   const visibleLegendKeys = [...(legendKeys ?? stackKeys)].reverse();
 
@@ -134,7 +138,7 @@ export function StackedBarChart({
   };
 
   const tooltipProps = {
-    cursor: chartType === 'bar' ? { fill: '#f8fafc' } : { stroke: '#e2e8f0' },
+    cursor: activeChartType === 'bar' ? { fill: '#f8fafc' } : { stroke: '#e2e8f0' },
     contentStyle: {
       backgroundColor: '#fff',
       borderRadius: '6px',
@@ -157,14 +161,14 @@ export function StackedBarChart({
           {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
       )}
-      {(allowLineChart || headerExtra) && (
+      {(showChartModeToggle || headerExtra) && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
           {headerExtra}
-          {allowLineChart && (
+          {showChartModeToggle && (
             <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
               <button
                 onClick={() => setChartType('bar')}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Bar chart"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -173,15 +177,17 @@ export function StackedBarChart({
                   <rect x="10" y="1" width="3" height="12" rx="0.5" fill="currentColor"/>
                 </svg>
               </button>
-              <button
-                onClick={() => setChartType('line')}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${chartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
-                title="Line chart"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              {allowLineChart && (
+                <button
+                  onClick={() => setChartType('line')}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                  title="Line chart"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -189,7 +195,7 @@ export function StackedBarChart({
       <div className={showSideLegend ? 'flex flex-col gap-4 lg:flex-row lg:items-start' : ''}>
         <div className={showSideLegend ? 'h-[460px] w-full lg:flex-1' : 'h-[460px]'}>
           <ResponsiveContainer width="100%" height="100%">
-            {chartType === 'line' ? (
+            {activeChartType === 'line' ? (
               <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis {...sharedAxisProps.xAxis} />
@@ -295,6 +301,9 @@ interface GenericHeatmapProps {
   xLabelFormatter?: (val: string | number) => string;
   yLabelFormatter?: (val: string | number) => string;
   showTotals?: boolean;
+  totalsMode?: 'sum' | 'average';
+  totalsLabel?: string;
+  totalValueFormatter?: (val: number) => string;
   showBlindSpots?: boolean;
   title?: string;
   subtitle?: string;
@@ -317,6 +326,9 @@ export function GenericHeatmap({
   xLabelFormatter = (val) => val.toString(),
   yLabelFormatter = (val) => val.toString(),
   showTotals = true,
+  totalsMode = 'sum',
+  totalsLabel,
+  totalValueFormatter,
   showBlindSpots = true,
   title,
   subtitle,
@@ -375,6 +387,21 @@ export function GenericHeatmap({
         ? 52
         : 40;
   const cellHeight = rowHeight ?? (needsScroll ? Math.max(36, inferredCellHeight - 4) : inferredCellHeight);
+  const summaryLabel = totalsLabel ?? (totalsMode === 'average' ? 'Avg' : 'Total');
+  const formatSummaryValue = totalValueFormatter ?? valueFormatter;
+  const averageOrZero = (sum: number, count: number) => (count > 0 ? sum / count : 0);
+  const getRowSummaryValue = (y: string | number) =>
+    totalsMode === 'average'
+      ? averageOrZero(rowTotals.get(y) || 0, xLabels.length)
+      : (rowTotals.get(y) || 0);
+  const getColumnSummaryValue = (x: string | number) =>
+    totalsMode === 'average'
+      ? averageOrZero(colTotals.get(x) || 0, yLabels.length)
+      : (colTotals.get(x) || 0);
+  const getGrandSummaryValue = () =>
+    totalsMode === 'average'
+      ? averageOrZero(grandTotal, xLabels.length * yLabels.length)
+      : grandTotal;
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
@@ -417,7 +444,7 @@ export function GenericHeatmap({
         ))}
         {showTotals && (
           <div className={`bg-slate-100 px-1 py-2 text-[10px] font-bold text-slate-600 text-center flex items-center justify-center min-h-[60px] ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
-            Total
+            {summaryLabel}
           </div>
         )}
 
@@ -480,7 +507,7 @@ export function GenericHeatmap({
             {showTotals && (
               <div className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
                 <span className="text-sm font-semibold text-slate-600">
-                  {rowTotals.get(y) || 0}
+                  {formatSummaryValue(getRowSummaryValue(y))}
                 </span>
               </div>
             )}
@@ -491,18 +518,18 @@ export function GenericHeatmap({
         {showTotals && (
           <div className="contents">
             <div className="bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 flex items-center" style={{ height: cellHeight }}>
-              Total
+              {summaryLabel}
             </div>
             {xLabels.map(x => (
               <div key={`total-${x}`} className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
                 <span className="text-sm font-semibold text-slate-600">
-                  {colTotals.get(x) || 0}
+                  {formatSummaryValue(getColumnSummaryValue(x))}
                 </span>
               </div>
             ))}
             <div className="bg-slate-100 flex items-center justify-center" style={{ height: cellHeight }}>
               <span className="text-sm font-bold text-slate-700">
-                {grandTotal}
+                {formatSummaryValue(getGrandSummaryValue())}
               </span>
             </div>
           </div>

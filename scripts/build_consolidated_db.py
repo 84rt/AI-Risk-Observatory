@@ -31,6 +31,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR  = REPO_ROOT / "data"
 OUT_DIR   = DATA_DIR / "FR_consolidated"
+REFINED_SEGMENTS_CSV = DATA_DIR / "reference" / "market_segments_refined.csv"
 
 TARGET_YEARS  = {"2021", "2022", "2023", "2024", "2025"}
 ANNUAL_TYPES  = {"AR", "10-K", "10-K-ESEF", "10-K-AFS",
@@ -146,6 +147,28 @@ def load_metadata() -> dict[str, dict]:
     return meta
 
 
+def load_refined_segments() -> dict[str, dict[str, str]]:
+    """Return lei -> refined market-segment info if available."""
+    if not REFINED_SEGMENTS_CSV.exists():
+        return {}
+
+    refined: dict[str, dict[str, str]] = {}
+    with open(REFINED_SEGMENTS_CSV) as f:
+        for r in csv.DictReader(f):
+            lei = r.get("lei", "")
+            if lei:
+                refined[lei] = {
+                    "market_segment_refined": r.get("market_segment_refined", ""),
+                    "market_segment_refined_source": r.get(
+                        "market_segment_refined_source", ""
+                    ),
+                    "market_segment_refined_authoritative": r.get(
+                        "market_segment_refined_authoritative", ""
+                    ),
+                }
+    return refined
+
+
 def scan_local_files() -> dict[str, Path]:
     """Return pk → canonical local path (first match by SOURCE_PRIORITY)."""
     pk_path: dict[str, Path] = {}
@@ -174,6 +197,7 @@ def main():
     proc_status               = load_proc_status()
     universe_leis, seg, uname = load_universe()
     all_meta                  = load_metadata()
+    refined_segments          = load_refined_segments()
     pk_path                   = scan_local_files()
 
     # ── Filter to eligible PKs ────────────────────────────────────────────────
@@ -196,7 +220,20 @@ def main():
         # Fill segment from universe if missing
         if not m["market_segment"]:
             m["market_segment"] = seg.get(lei, "")
-        eligible.append({**m, "src_path": src_path})
+        eligible.append(
+            {
+                **m,
+                **refined_segments.get(
+                    lei,
+                    {
+                        "market_segment_refined": "",
+                        "market_segment_refined_source": "",
+                        "market_segment_refined_authoritative": "",
+                    },
+                ),
+                "src_path": src_path,
+            }
+        )
 
     print(f"Eligible PKs: {len(eligible)}")
 
@@ -224,6 +261,24 @@ def main():
     print(f"  FTSE 350: {sum(1 for r in selected if r['market_segment']=='FTSE 350')}")
     print(f"  AIM:      {sum(1 for r in selected if r['market_segment']=='AIM')}")
     print(f"  Other:    {sum(1 for r in selected if r['market_segment']=='Other')}")
+    if any(r.get("market_segment_refined") for r in selected):
+        print("  Refined:")
+        print(
+            f"    Main Market: "
+            f"{sum(1 for r in selected if r.get('market_segment_refined') == 'Main Market')}"
+        )
+        print(
+            f"    AIM:         "
+            f"{sum(1 for r in selected if r.get('market_segment_refined') == 'AIM')}"
+        )
+        print(
+            f"    AQSE:        "
+            f"{sum(1 for r in selected if r.get('market_segment_refined') == 'AQSE')}"
+        )
+        print(
+            f"    Other:       "
+            f"{sum(1 for r in selected if r.get('market_segment_refined') == 'Other')}"
+        )
 
     if dry_run:
         print("\nDry run — no files written.")
@@ -260,7 +315,9 @@ def main():
 
     # ── Write metadata.csv ────────────────────────────────────────────────────
     meta_path = OUT_DIR / "metadata.csv"
-    fields = ["pk", "lei", "company", "market_segment", "release_year",
+    fields = ["pk", "lei", "company", "market_segment_depricated",
+              "market_segment_refined", "market_segment_refined_source",
+              "market_segment_refined_authoritative", "release_year",
               "release_datetime", "fiscal_year", "filing_type", "title",
               "meta_source", "src_path"]
 
@@ -268,7 +325,13 @@ def main():
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for rec in selected:
-            writer.writerow({**rec, "src_path": str(rec["src_path"])})
+            writer.writerow(
+                {
+                    **rec,
+                    "market_segment_depricated": rec.get("market_segment", ""),
+                    "src_path": str(rec["src_path"]),
+                }
+            )
 
     print(f"\nDone.")
     print(f"  Written:  {written}")

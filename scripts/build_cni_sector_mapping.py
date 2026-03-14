@@ -690,11 +690,106 @@ def phase_collect(tag: str = "") -> None:
         print(f"  {s:<20s}  {n:4}")
 
 
+# ── Phase: load-db ────────────────────────────────────────────────────────────
+
+DB_PATH = REPO_ROOT / "pipeline" / "pipeline" / "data" / "airo.db"
+
+CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS company_cni_sectors (
+    lei                 TEXT PRIMARY KEY,
+    company_name        TEXT NOT NULL,
+    cni_sector_primary  TEXT,
+    cni_sectors         TEXT,
+    cni_sector_count    INTEGER,
+    isic_code           TEXT,
+    isic_name           TEXT,
+    isic_section_code   TEXT,
+    isic_section_name   TEXT,
+    source              TEXT,
+    loaded_at           TEXT NOT NULL
+)
+"""
+
+def phase_load_db() -> None:
+    import sqlite3
+    from datetime import datetime
+
+    print("=== Load CNI sectors into database ===\n")
+
+    rows = list(load_existing_output().values())
+    if not rows:
+        print("No data found. Run --phase static first.")
+        return
+
+    classified = [r for r in rows if r.get("cni_sector_primary")]
+    print(f"Rows to load: {len(classified)} classified + {len(rows) - len(classified)} unclassified = {len(rows)} total")
+    print(f"Database: {DB_PATH.relative_to(REPO_ROOT)}")
+
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(CREATE_TABLE_SQL)
+
+    loaded_at = datetime.now().isoformat()
+    upserted = 0
+    for r in rows:
+        conn.execute("""
+            INSERT INTO company_cni_sectors
+                (lei, company_name, cni_sector_primary, cni_sectors, cni_sector_count,
+                 isic_code, isic_name, isic_section_code, isic_section_name, source, loaded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(lei) DO UPDATE SET
+                company_name        = excluded.company_name,
+                cni_sector_primary  = excluded.cni_sector_primary,
+                cni_sectors         = excluded.cni_sectors,
+                cni_sector_count    = excluded.cni_sector_count,
+                isic_code           = excluded.isic_code,
+                isic_name           = excluded.isic_name,
+                isic_section_code   = excluded.isic_section_code,
+                isic_section_name   = excluded.isic_section_name,
+                source              = excluded.source,
+                loaded_at           = excluded.loaded_at
+        """, (
+            r.get("lei"), r.get("company_name"),
+            r.get("cni_sector_primary") or None,
+            r.get("cni_sectors") or None,
+            int(r["cni_sector_count"]) if r.get("cni_sector_count") else None,
+            r.get("isic_code") or None,
+            r.get("isic_name") or None,
+            r.get("isic_section_code") or None,
+            r.get("isic_section_name") or None,
+            r.get("source"), loaded_at,
+        ))
+        upserted += 1
+
+    conn.commit()
+
+    # Summary query
+    total   = conn.execute("SELECT COUNT(*) FROM company_cni_sectors").fetchone()[0]
+    by_src  = conn.execute("""
+        SELECT source, COUNT(*) FROM company_cni_sectors GROUP BY source ORDER BY COUNT(*) DESC
+    """).fetchall()
+    by_sect = conn.execute("""
+        SELECT cni_sector_primary, COUNT(*) FROM company_cni_sectors
+        WHERE cni_sector_primary IS NOT NULL
+        GROUP BY cni_sector_primary ORDER BY COUNT(*) DESC
+    """).fetchall()
+
+    conn.close()
+
+    print(f"\nUpserted {upserted} rows → company_cni_sectors ({total} total in table)")
+    print("\n── By source ─────────────────────────────────────────────")
+    for src, n in by_src:
+        print(f"  {(src or 'NULL'):<20s}  {n:4}")
+    print("\n── By CNI sector (primary) ───────────────────────────────")
+    for sect, n in by_sect:
+        print(f"  {(sect or 'NULL'):<25s}  {n:4}")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", choices=["static", "submit", "status", "collect"],
+    ap.add_argument("--phase", choices=["static", "submit", "status", "collect", "load-db"],
                     default="static", help="Which phase to run (default: static)")
     ap.add_argument("--model", default="gemini-3-flash-preview",
                     help="Gemini model for batch submit (default: gemini-3-flash-preview)")
@@ -716,6 +811,8 @@ def main() -> None:
         phase_status(tag=tag)
     elif args.phase == "collect":
         phase_collect(tag=tag)
+    elif args.phase == "load-db":
+        phase_load_db()
 
 
 if __name__ == "__main__":

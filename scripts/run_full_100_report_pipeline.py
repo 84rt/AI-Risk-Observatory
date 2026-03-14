@@ -732,7 +732,11 @@ def write_phase1_annotations(
                 "company_id": chunk.get("company_id"),
                 "company_name": chunk.get("company_name"),
                 "report_year": chunk.get("report_year"),
-                "market_segment": chunk.get("market_segment", "Other"),
+                "market_segment": (
+                    chunk.get("market_segment_refined")
+                    or chunk.get("market_segment_depricated")
+                    or chunk.get("market_segment", "Other")
+                ),
                 "report_sections": chunk.get("report_sections"),
                 "chunk_text": chunk.get("chunk_text"),
                 "matched_keywords": chunk.get("matched_keywords"),
