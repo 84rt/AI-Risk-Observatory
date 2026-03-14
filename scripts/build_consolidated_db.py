@@ -32,6 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR  = REPO_ROOT / "data"
 OUT_DIR   = DATA_DIR / "FR_consolidated"
 REFINED_SEGMENTS_CSV = DATA_DIR / "reference" / "market_segments_refined.csv"
+CNI_SEGMENTS_CSV = DATA_DIR / "reference" / "company_cni_sectors.csv"
 
 TARGET_YEARS  = {"2021", "2022", "2023", "2024", "2025"}
 ANNUAL_TYPES  = {"AR", "10-K", "10-K-ESEF", "10-K-AFS",
@@ -169,6 +170,44 @@ def load_refined_segments() -> dict[str, dict[str, str]]:
     return refined
 
 
+def load_company_cni() -> dict[str, dict[str, str]]:
+    """Return lei -> company CNI / ISIC attributes if available."""
+    if not CNI_SEGMENTS_CSV.exists():
+        return {}
+
+    with open(CNI_SEGMENTS_CSV) as f:
+        rows = list(csv.DictReader(f))
+
+    sectors_by_isic: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        code = (row.get("isic_code") or "").strip()
+        primary = (row.get("cni_sector_primary") or "").strip()
+        if code and primary:
+            sectors_by_isic[code].add(primary)
+
+    ambiguous_isic_codes = {
+        code for code, sectors in sectors_by_isic.items() if len(sectors) > 1
+    }
+
+    cni: dict[str, dict[str, str]] = {}
+    for row in rows:
+        lei = row.get("lei", "")
+        if lei:
+            isic_code = (row.get("isic_code") or "").strip()
+            cni[lei] = {
+                "cni_sector_primary": row.get("cni_sector_primary", ""),
+                "cni_sectors": row.get("cni_sectors", ""),
+                "cni_sector_count": row.get("cni_sector_count", ""),
+                "cni_source": row.get("source", ""),
+                "isic_code": row.get("isic_code", ""),
+                "isic_name": row.get("isic_name", ""),
+                "isic_section_code": row.get("isic_section_code", ""),
+                "isic_section_name": row.get("isic_section_name", ""),
+                "cni_isic_ambiguous": "true" if isic_code in ambiguous_isic_codes else "false",
+            }
+    return cni
+
+
 def scan_local_files() -> dict[str, Path]:
     """Return pk → canonical local path (first match by SOURCE_PRIORITY)."""
     pk_path: dict[str, Path] = {}
@@ -198,6 +237,7 @@ def main():
     universe_leis, seg, uname = load_universe()
     all_meta                  = load_metadata()
     refined_segments          = load_refined_segments()
+    company_cni               = load_company_cni()
     pk_path                   = scan_local_files()
 
     # ── Filter to eligible PKs ────────────────────────────────────────────────
@@ -229,6 +269,20 @@ def main():
                         "market_segment_refined": "",
                         "market_segment_refined_source": "",
                         "market_segment_refined_authoritative": "",
+                    },
+                ),
+                **company_cni.get(
+                    lei,
+                    {
+                        "cni_sector_primary": "",
+                        "cni_sectors": "",
+                        "cni_sector_count": "",
+                        "cni_source": "",
+                        "isic_code": "",
+                        "isic_name": "",
+                        "isic_section_code": "",
+                        "isic_section_name": "",
+                        "cni_isic_ambiguous": "",
                     },
                 ),
                 "src_path": src_path,
@@ -279,6 +333,15 @@ def main():
             f"    Other:       "
             f"{sum(1 for r in selected if r.get('market_segment_refined') == 'Other')}"
         )
+    if any(r.get("cni_sector_primary") for r in selected):
+        print("  CNI primary:")
+        cni_counts = defaultdict(int)
+        for rec in selected:
+            sector = rec.get("cni_sector_primary", "")
+            if sector:
+                cni_counts[sector] += 1
+        for sector, count in sorted(cni_counts.items(), key=lambda item: (-item[1], item[0])):
+            print(f"    {sector:<16s} {count}")
 
     if dry_run:
         print("\nDry run — no files written.")
@@ -315,11 +378,31 @@ def main():
 
     # ── Write metadata.csv ────────────────────────────────────────────────────
     meta_path = OUT_DIR / "metadata.csv"
-    fields = ["pk", "lei", "company", "market_segment_depricated",
-              "market_segment_refined", "market_segment_refined_source",
-              "market_segment_refined_authoritative", "release_year",
-              "release_datetime", "fiscal_year", "filing_type", "title",
-              "meta_source", "src_path"]
+    fields = [
+        "pk",
+        "lei",
+        "company",
+        "market_segment_depricated",
+        "market_segment_refined",
+        "market_segment_refined_source",
+        "market_segment_refined_authoritative",
+        "cni_sector_primary",
+        "cni_sectors",
+        "cni_sector_count",
+        "cni_source",
+        "cni_isic_ambiguous",
+        "isic_code",
+        "isic_name",
+        "isic_section_code",
+        "isic_section_name",
+        "release_year",
+        "release_datetime",
+        "fiscal_year",
+        "filing_type",
+        "title",
+        "meta_source",
+        "src_path",
+    ]
 
     with open(meta_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")

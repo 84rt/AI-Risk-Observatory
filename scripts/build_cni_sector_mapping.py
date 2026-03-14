@@ -94,6 +94,21 @@ CNI_DESCRIPTIONS = {
     "Other":              "Not a CNI sector.",
 }
 
+# Company-specific overrides for cases where the FR API leaves industry metadata
+# blank but we have a verified local correction.
+MANUAL_COMPANY_OVERRIDES: dict[str, dict[str, object]] = {
+    "2138001MKE18HLW9YX42": {
+        "isic_code": "0729",
+        "isic_name": "Mining of other non-ferrous metal ores",
+        "isic_section_code": "B",
+        "isic_section_name": "Mining and quarrying",
+        # Mining alone does not imply a clear CNI relationship here, so keep the
+        # manual assignment conservative.
+        "cni_sectors": ["Other"],
+        "source": "manual_override",
+    },
+}
+
 # ── Static ISIC → CNI rules ───────────────────────────────────────────────────
 # Only codes with a CLEAR and UNAMBIGUOUS CNI relationship.
 # Lookup order: exact 4-digit → 3-digit prefix → 2-digit prefix.
@@ -151,6 +166,34 @@ def lookup_isic(code: str) -> str | None:
         return PREFIX_3_RULES[prefix3]
     prefix2 = code[:2]
     return PREFIX_2_RULES.get(prefix2)
+
+
+def apply_company_override(lei: str, fr: dict, name: str) -> tuple[dict, dict[str, object] | None]:
+    """Merge any verified company-level override into the FR payload."""
+    merged = {
+        "company_name": name,
+        "isic_code": "",
+        "isic_name": "",
+        "isic_section_code": "",
+        "isic_section_name": "",
+        "description": "",
+        "tagline": "",
+        **fr,
+    }
+    override = MANUAL_COMPANY_OVERRIDES.get(lei)
+    if not override:
+        return merged, None
+    for key in (
+        "isic_code",
+        "isic_name",
+        "isic_section_code",
+        "isic_section_name",
+        "description",
+        "tagline",
+    ):
+        if key in override:
+            merged[key] = override[key]
+    return merged, override
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -260,13 +303,23 @@ def phase_static(dry_run: bool = False) -> None:
     no_isic:    list[dict]  = []
 
     for lei, name in sorted(universe.items(), key=lambda x: x[1]):
-        fr = fr_data.get(lei, {"company_name": name, "isic_code": "", "isic_name": "",
-                                "isic_section_code": "", "isic_section_name": "",
-                                "description": "", "tagline": ""})
+        fr, override = apply_company_override(
+            lei,
+            fr_data.get(lei, {}),
+            name,
+        )
         code   = fr.get("isic_code", "")
         sector = lookup_isic(code) if code else None
 
-        if sector:
+        if override and override.get("cni_sectors"):
+            static_rows.append(make_row(
+                lei,
+                name,
+                list(override["cni_sectors"]),
+                fr,
+                str(override.get("source", "manual_override")),
+            ))
+        elif sector:
             static_rows.append(make_row(lei, name, [sector], fr, "static"))
         elif code:
             needs_llm.append({"lei": lei, "company_name": name, **fr})

@@ -16,8 +16,51 @@ Pipeline reads/writes under the repo-level `data/` tree:
 - Processed manifest: `data/processed/<run_id>/documents_manifest.json`
 - AI-mention chunks: `data/processed/<run_id>/chunks/chunks.jsonl`
 - Results and annotations: `data/results/`, `data/annotations/`
-- Database: `data/db/airo.db`
+- Database: `pipeline/pipeline/data/airo.db`
 Note: classifier API calls log prompt/response char counts and token estimates at DEBUG in `data/logs/pipeline/classifier_runs/*.log`.
+
+## Metadata surfaces
+
+The main metadata file for the whole company-year universe is:
+- `data/reference/target_manifest.csv`
+
+This is the closest thing to a master manifest for the database:
+- one row per `(company, fiscal_year)`
+- includes companies/years even when no consolidated markdown file exists yet
+
+At a high level, `target_manifest.csv` contains:
+- company identifiers and names
+- legacy and refined market-segment fields
+- CNI and ISIC classification fields
+- fiscal-year fields and fiscal-year provenance
+- FR filing linkage/status fields
+- Companies House date/jurisdiction fields
+
+The metadata file for the actual consolidated markdown corpus is:
+- `data/FR_consolidated/metadata.csv`
+
+This is a subset of the broader manifest:
+- one row per retained filing/document in `data/FR_consolidated/`
+- only includes filings with a consolidated markdown file on disk
+
+At a high level, `data/FR_consolidated/metadata.csv` contains:
+- filing/document identifiers
+- company identifiers and names
+- refined market-segment fields
+- CNI and ISIC classification fields
+- release-year / fiscal-year / filing-type fields
+- title, source, and source-path fields
+
+Reference mapping tables used to populate those metadata files:
+- `data/reference/market_segments_refined.csv` — canonical refined market mapping (`Main Market`, `AIM`, `AQSE`, `Other`)
+- `data/reference/company_cni_sectors.csv` — canonical company-level CNI/ISIC mapping
+- `data/reference/cni_distribution_summary.csv` — derived sector distribution summary, not a row-level metadata source
+
+Notes:
+- `market_segment_refined` is the canonical market field for downstream work.
+- `cni_sector_primary` is the canonical single-label CNI field for grouping and charts.
+- `cni_sectors` preserves multi-label CNI assignments when present.
+- `cni_isic_ambiguous=true` means the same ISIC code maps to multiple primary CNI sectors in the current universe, so the CNI assignment should be treated as company-level rather than a universal ISIC rule.
 
 ## Reconcile LLM vs Human Annotations (from a testbed run)
 

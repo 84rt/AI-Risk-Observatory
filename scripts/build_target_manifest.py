@@ -33,6 +33,8 @@ from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
 DATA = BASE / "data"
+REFINED_SEGMENTS_CSV = DATA / "reference" / "market_segments_refined.csv"
+CNI_SEGMENTS_CSV = DATA / "reference" / "company_cni_sectors.csv"
 
 TARGET_YEARS = {2021, 2022, 2023, 2024, 2025, 2026}
 CH_POA_CSV   = DATA / "FR_dataset/ch_period_of_accounts.csv"
@@ -48,6 +50,62 @@ def to_fr_status(md_status: str) -> str:
         "FAILED":     "fr_failed",
         "SKIPPED":    "fr_skipped",
     }.get(md_status, f"fr_{md_status.lower()}" if md_status else "fr_no_status")
+
+
+def load_refined_segments() -> dict[str, dict[str, str]]:
+    if not REFINED_SEGMENTS_CSV.exists():
+        return {}
+
+    refined: dict[str, dict[str, str]] = {}
+    with REFINED_SEGMENTS_CSV.open() as f:
+        for row in csv.DictReader(f):
+            lei = row.get("lei", "")
+            if lei:
+                refined[lei] = {
+                    "market_segment_refined": row.get("market_segment_refined", ""),
+                    "market_segment_refined_source": row.get(
+                        "market_segment_refined_source", ""
+                    ),
+                    "market_segment_refined_authoritative": row.get(
+                        "market_segment_refined_authoritative", ""
+                    ),
+                }
+    return refined
+
+
+def load_company_cni() -> dict[str, dict[str, str]]:
+    if not CNI_SEGMENTS_CSV.exists():
+        return {}
+
+    rows = list(csv.DictReader(CNI_SEGMENTS_CSV.open()))
+    sectors_by_isic: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        code = (row.get("isic_code") or "").strip()
+        primary = (row.get("cni_sector_primary") or "").strip()
+        if code and primary:
+            sectors_by_isic[code].add(primary)
+
+    ambiguous_isic_codes = {
+        code for code, sectors in sectors_by_isic.items() if len(sectors) > 1
+    }
+
+    cni: dict[str, dict[str, str]] = {}
+    for row in rows:
+        lei = row.get("lei", "")
+        if lei:
+            isic_code = (row.get("isic_code") or "").strip()
+            cni[lei] = {
+                "cni_sector_primary": row.get("cni_sector_primary", ""),
+                "cni_sectors": row.get("cni_sectors", ""),
+                "cni_sector_count": row.get("cni_sector_count", ""),
+                "cni_source": row.get("source", ""),
+                "isic_code": row.get("isic_code", ""),
+                "isic_name": row.get("isic_name", ""),
+                "isic_section_code": row.get("isic_section_code", ""),
+                "isic_section_name": row.get("isic_section_name", ""),
+                "cni_isic_ambiguous": "true" if isic_code in ambiguous_isic_codes else "false",
+            }
+    return cni
 
 
 # ── Load CH period-of-accounts (made_up_date) if available ───────────────────
@@ -107,6 +165,9 @@ with open(DATA / "FR_dataset/manifest.csv") as f:
         total_manifest += 1
 print(f"  {total_manifest} rows in 2021-2025 (across {len(manifest_by_lei)} companies)")
 
+refined_segments = load_refined_segments()
+company_cni = load_company_cni()
+
 # ── Build manifest rows ───────────────────────────────────────────────────────
 print("Building target manifest...")
 
@@ -115,6 +176,18 @@ MANIFEST_FIELDS = [
     "company_name",
     "ch_company_number",
     "market_segment",
+    "market_segment_refined",
+    "market_segment_refined_source",
+    "market_segment_refined_authoritative",
+    "cni_sector_primary",
+    "cni_sectors",
+    "cni_sector_count",
+    "cni_source",
+    "cni_isic_ambiguous",
+    "isic_code",
+    "isic_name",
+    "isic_section_code",
+    "isic_section_name",
     "ch_jurisdiction",
     "fiscal_year",           # always a valid integer string, never blank
     "fiscal_year_source",    # fr_manifest | ch_made_up_date | interpolated_fr_gap
@@ -132,6 +205,12 @@ NO_FY_FIELDS = [
     "company_name",
     "ch_company_number",
     "market_segment",
+    "market_segment_refined",
+    "cni_sector_primary",
+    "cni_sectors",
+    "cni_source",
+    "isic_code",
+    "isic_name",
     "ch_jurisdiction",
     "ch_submission_years",   # pipe-separated CH submission years, for manual investigation
 ]
@@ -143,11 +222,47 @@ no_fy_rows:    list[dict] = []
 def make_row(lei, name, ch_num, segment, jurisdiction, fiscal_year, fy_source,
              fr_pk="", fr_type="", fr_esef="", fr_status="not_in_fr",
              md_size="", ch_mud="", ch_sub="") -> dict:
+    refined = refined_segments.get(
+        lei,
+        {
+            "market_segment_refined": "",
+            "market_segment_refined_source": "",
+            "market_segment_refined_authoritative": "",
+        },
+    )
+    cni = company_cni.get(
+        lei,
+        {
+            "cni_sector_primary": "",
+            "cni_sectors": "",
+            "cni_sector_count": "",
+            "cni_source": "",
+            "cni_isic_ambiguous": "",
+            "isic_code": "",
+            "isic_name": "",
+            "isic_section_code": "",
+            "isic_section_name": "",
+        },
+    )
     return {
         "lei":               lei,
         "company_name":      name,
         "ch_company_number": ch_num,
         "market_segment":    segment,
+        "market_segment_refined": refined["market_segment_refined"],
+        "market_segment_refined_source": refined["market_segment_refined_source"],
+        "market_segment_refined_authoritative": refined[
+            "market_segment_refined_authoritative"
+        ],
+        "cni_sector_primary": cni["cni_sector_primary"],
+        "cni_sectors":       cni["cni_sectors"],
+        "cni_sector_count":  cni["cni_sector_count"],
+        "cni_source":        cni["cni_source"],
+        "cni_isic_ambiguous": cni["cni_isic_ambiguous"],
+        "isic_code":         cni["isic_code"],
+        "isic_name":         cni["isic_name"],
+        "isic_section_code": cni["isic_section_code"],
+        "isic_section_name": cni["isic_section_name"],
         "ch_jurisdiction":   jurisdiction,
         "fiscal_year":       str(fiscal_year),
         "fiscal_year_source": fy_source,
@@ -233,6 +348,14 @@ for lei, ch_row in ch.items():
             "company_name":      name,
             "ch_company_number": ch_num,
             "market_segment":    segment,
+            "market_segment_refined": refined_segments.get(lei, {}).get(
+                "market_segment_refined", ""
+            ),
+            "cni_sector_primary": company_cni.get(lei, {}).get("cni_sector_primary", ""),
+            "cni_sectors":        company_cni.get(lei, {}).get("cni_sectors", ""),
+            "cni_source":         company_cni.get(lei, {}).get("cni_source", ""),
+            "isic_code":          company_cni.get(lei, {}).get("isic_code", ""),
+            "isic_name":          company_cni.get(lei, {}).get("isic_name", ""),
             "ch_jurisdiction":   juris,
             "ch_submission_years": sub_years,
         })
@@ -278,6 +401,16 @@ for src, n in sorted(source_counts.items(), key=lambda x: -x[1]):
 
 print("\n── market_segment ────────────────────────────────────────────")
 for seg, n in sorted(segment_counts.items(), key=lambda x: -x[1]):
+    print(f"  {seg:<20s}  {n:5,}")
+
+refined_counts = Counter(r["market_segment_refined"] for r in manifest_rows)
+print("\n── market_segment_refined ────────────────────────────────────")
+for seg, n in sorted(refined_counts.items(), key=lambda x: -x[1]):
+    print(f"  {seg:<20s}  {n:5,}")
+
+cni_counts = Counter(r["cni_sector_primary"] for r in manifest_rows)
+print("\n── cni_sector_primary ────────────────────────────────────────")
+for seg, n in sorted(cni_counts.items(), key=lambda x: -x[1]):
     print(f"  {seg:<20s}  {n:5,}")
 
 print(f"\n── Company coverage ──────────────────────────────────────────")
