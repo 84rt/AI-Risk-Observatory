@@ -24,14 +24,6 @@ export default function RootLayout({
       <body
         className={`${onest.variable} antialiased bg-background text-foreground min-h-screen flex flex-col`}
       >
-        <div className="border-b border-amber-300/60 bg-amber-50/80 px-6 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-800">
-          <svg className="mr-1.5 -mt-px inline-block h-3 w-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 1.5L1 14h14L8 1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-            <path d="M8 6.5v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            <circle cx="8" cy="12" r="0.7" fill="currentColor" />
-          </svg>
-          WIP — Data and labels are in active iteration
-        </div>
         <PageNav />
         <main className="flex-1">
           {children}

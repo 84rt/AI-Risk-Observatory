@@ -37,7 +37,7 @@ const formatLabel = (val: string) => {
 export function InfoTooltip({ content }: { content: React.ReactNode }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 
-  const handleEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleEnter = (e: React.SyntheticEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setPos({ x: rect.left + rect.width / 2, y: rect.top });
   };
@@ -50,6 +50,8 @@ export function InfoTooltip({ content }: { content: React.ReactNode }) {
         aria-label="Chart information"
         onMouseEnter={handleEnter}
         onMouseLeave={() => setPos(null)}
+        onFocus={handleEnter}
+        onBlur={() => setPos(null)}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
           <circle cx="5" cy="5" r="4.3" stroke="currentColor" strokeWidth="1.1" />
@@ -167,7 +169,10 @@ export function StackedBarChart({
           {showChartModeToggle && (
             <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
               <button
+                type="button"
                 onClick={() => setChartType('bar')}
+                aria-label="Show bar chart"
+                aria-pressed={activeChartType === 'bar'}
                 className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Bar chart"
               >
@@ -179,7 +184,10 @@ export function StackedBarChart({
               </button>
               {allowLineChart && (
                 <button
+                  type="button"
                   onClick={() => setChartType('line')}
+                  aria-label="Show line chart"
+                  aria-pressed={activeChartType === 'line'}
                   className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                   title="Line chart"
                 >
