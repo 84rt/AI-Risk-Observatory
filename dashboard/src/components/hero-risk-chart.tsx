@@ -21,25 +21,6 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
   const [phase, setPhase] = useState<Phase>('visible');
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  const goTo = useCallback((next: number) => {
-    setPhase('exiting');
-    setTimeout(() => {
-      setDisplayIndex(next);
-      setPhase('entering');
-      // After Recharts redraw starts, mark visible
-      setTimeout(() => setPhase('visible'), 50);
-    }, 500);
-  }, []);
-
-  const cycle = useCallback(() => {
-    goTo(-1); // sentinel: means "next"
-  }, [goTo]);
-
-  // Resolve the sentinel in the setState
-  useEffect(() => {
-    if (phase === 'exiting') return;
-  }, [phase]);
-
   // Override goTo to handle cycling
   const handleCycle = useCallback(() => {
     setPhase('exiting');
@@ -168,7 +149,10 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
           {series.map((_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => onDotClick(i)}
+              aria-label={`Show ${series[i]?.label ?? `series ${i + 1}`}`}
+              aria-pressed={i === displayIndex}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 i === displayIndex
                   ? 'w-4 bg-amber-500'

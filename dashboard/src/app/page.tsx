@@ -12,6 +12,12 @@ export default function HomePage() {
       : `${data.years[0] ?? 'N/A'}`;
 
   const riskLabels = data.labels.riskLabels;
+  const latestYear = data.years[data.years.length - 1] ?? 'N/A';
+  const riskReports = perReportSummary.riskReports;
+  const riskCoverage =
+    perReportSummary.totalReports > 0
+      ? ((riskReports / perReportSummary.totalReports) * 100).toFixed(1)
+      : '0.0';
 
   const heroSeries = [
     {
@@ -117,6 +123,47 @@ export default function HomePage() {
         </a>
       </section>
 
+      <section className="mx-auto max-w-5xl px-6 pb-14">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/85 p-6 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                Dataset Status
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                Current public snapshot
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+                The dashboard currently covers {perReportSummary.totalCompanies} companies across {perReportSummary.totalReports} report-year filings. Labels and sector mappings are still being iterated, but the status is now surfaced here instead of as a permanent global warning banner.
+              </p>
+            </div>
+            <Link
+              href="/data?view=risk"
+              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Start With Risk Trends
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Coverage Window</p>
+              <p className="mt-2 text-xl font-semibold text-slate-900">{yearRange}</p>
+              <p className="mt-1 text-sm text-slate-500">Latest filing year in the current snapshot: {latestYear}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Risk Disclosure</p>
+              <p className="mt-2 text-xl font-semibold text-slate-900">{riskCoverage}%</p>
+              <p className="mt-1 text-sm text-slate-500">{riskReports} reports mention AI risk at least once</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Evidence Base</p>
+              <p className="mt-2 text-xl font-semibold text-slate-900">{perChunkSummary.totalReports}</p>
+              <p className="mt-1 text-sm text-slate-500">Extracted excerpts supporting the dashboard aggregates</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Navigation cards */}
       <section className="mx-auto max-w-3xl px-6 pb-20">
         <div className="grid gap-6 sm:grid-cols-2">
@@ -128,7 +175,7 @@ export default function HomePage() {
               Data
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              Interactive charts and heatmaps covering AI risk categories, adoption types, vendor references, signal quality, and disclosure blind spots across sectors and years.
+              Interactive charts and heatmaps covering AI risk categories, adoption types, vendor references, signal quality, and disclosure blind spots across sectors and years, now with shareable filtered URLs and selection summaries.
             </p>
             <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
               Explore the data &rarr;
