@@ -72,3 +72,6 @@ next-env.d.ts
 
 /context/reference/
 aqse.csv
+
+OCR_test/
+OCR_test/*

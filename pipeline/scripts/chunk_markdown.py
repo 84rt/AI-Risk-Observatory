@@ -5,10 +5,52 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PIPELINE_ROOT))
+
+try:
+    from tqdm import tqdm
+except ModuleNotFoundError:
+    class tqdm:  # type: ignore[no-redef]
+        def __init__(self, iterable, desc="", unit="item"):
+            self._iterable = list(iterable)
+            self.desc = desc or "Progress"
+            self.unit = unit
+            self.total = len(self._iterable)
+            self._index = 0
+            self._postfix = ""
+            self._last_emit = 0.0
+
+        def __iter__(self):
+            for item in self._iterable:
+                yield item
+                self._index += 1
+                now = time.time()
+                should_emit = (
+                    self._index == 1
+                    or self._index == self.total
+                    or self._index % 10 == 0
+                    or (now - self._last_emit) >= 2.0
+                )
+                if should_emit:
+                    self._last_emit = now
+                    pct = (self._index / self.total * 100) if self.total else 100.0
+                    suffix = f" | {self._postfix}" if self._postfix else ""
+                    print(
+                        f"{self.desc}: {self._index}/{self.total} {self.unit}s ({pct:.1f}%)"
+                        f"{suffix}",
+                        flush=True,
+                    )
+
+        def set_postfix_str(self, value: str) -> None:
+            self._postfix = value
+
 from src.config import get_settings
-from src.database import Database
 from src.markdown_chunker import chunk_markdown
 
 
@@ -85,11 +127,16 @@ def main() -> None:
         raise RuntimeError(f"No documents listed in {manifest_path}")
 
     all_chunks = []
-    db = Database() if args.save_db else None
+    db = None
+    if args.save_db:
+        from src.database import Database
+
+        db = Database()
     session = db.get_session() if db else None
 
     try:
-        for record in documents:
+        progress = tqdm(documents, desc="Chunking reports", unit="report")
+        for record in progress:
             document_id = record.get("document_id")
             company_id = record.get("company_id") or record.get("company_number") or document_id
             company_name = record.get("company_name") or company_id
@@ -116,6 +163,9 @@ def main() -> None:
             for chunk in chunks:
                 chunk["market_segment"] = market_segment
             all_chunks.extend(chunks)
+            progress.set_postfix_str(
+                f"{company_name[:32]} FY{report_year} chunks={len(chunks)} total={len(all_chunks)}"
+            )
 
             if db:
                 db.upsert_processed_document(

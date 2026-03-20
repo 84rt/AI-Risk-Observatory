@@ -180,6 +180,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Prepare/check only; do not submit or poll batch jobs.",
     )
+    p.add_argument(
+        "--shard-count",
+        type=int,
+        default=1,
+        help="Split the chunk set into this many contiguous shards for phase1 submission.",
+    )
+    p.add_argument(
+        "--shard-index",
+        type=int,
+        default=1,
+        help="1-based shard number to run when --shard-count > 1.",
+    )
     return p.parse_args()
 
 
@@ -253,6 +265,34 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             rows.append(json.loads(line))
     return rows
+
+
+def validate_shard_args(shard_index: int, shard_count: int) -> None:
+    if shard_count < 1:
+        raise ValueError("--shard-count must be >= 1")
+    if shard_index < 1:
+        raise ValueError("--shard-index must be >= 1")
+    if shard_index > shard_count:
+        raise ValueError("--shard-index cannot be greater than --shard-count")
+
+
+def select_shard(
+    rows: list[dict[str, Any]],
+    shard_index: int,
+    shard_count: int,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    validate_shard_args(shard_index, shard_count)
+    total = len(rows)
+    start = (total * (shard_index - 1)) // shard_count
+    end = (total * shard_index) // shard_count
+    return rows[start:end], {
+        "index": shard_index,
+        "count": shard_count,
+        "start_offset": start,
+        "end_offset": end,
+        "size": end - start,
+        "total": total,
+    }
 
 
 def parse_years(raw: str) -> list[int]:
@@ -787,15 +827,31 @@ def main() -> None:
     if not chunks_path.exists():
         raise FileNotFoundError(f"Missing chunks file: {chunks_path}")
 
-    chunks = load_jsonl(chunks_path)
-    if not chunks:
+    all_chunks = load_jsonl(chunks_path)
+    if not all_chunks:
         raise SystemExit(f"No chunks found in {chunks_path}")
+    chunks, shard_info = select_shard(
+        all_chunks,
+        shard_index=args.shard_index,
+        shard_count=args.shard_count,
+    )
+    if not chunks:
+        raise SystemExit(
+            f"Selected shard {args.shard_index}/{args.shard_count} contains no chunks."
+        )
 
     expected_years = parse_years(args.expected_years)
     print("=" * 60)
     print("FULL PIPELINE ORCHESTRATOR")
     print("=" * 60)
     print(f"Chunks:        {chunks_path}")
+    if args.shard_count > 1:
+        print(
+            "Shard:         "
+            f"{shard_info['index']}/{shard_info['count']} "
+            f"(offsets {shard_info['start_offset']}:{shard_info['end_offset']})"
+        )
+        print(f"Chunks total:  {shard_info['total']}")
     print(f"Chunks count:  {len(chunks)}")
     print(f"Model:         {args.model}")
     print(f"Run suffix:    {args.run_suffix}")
@@ -806,6 +862,8 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "args": vars(args),
         "chunks_path": str(chunks_path),
+        "chunks_total": len(all_chunks),
+        "selected_shard": shard_info,
         "steps": {},
     }
 
@@ -858,7 +916,10 @@ def main() -> None:
     # Step 2: Phase1 mention-type batch
     # ------------------------------------------------------------------
     model_slug = slugify(args.model)
-    p1_run_id = f"p1-mention_type-{model_slug}-{args.run_suffix}"
+    shard_suffix = ""
+    if args.shard_count > 1:
+        shard_suffix = f"-s{args.shard_index}of{args.shard_count}"
+    p1_run_id = f"p1-mention_type-{model_slug}-{args.run_suffix}{shard_suffix}"
     p1_jsonl = prepare_phase1_batch_jsonl(
         run_id=p1_run_id,
         chunks=chunks,
