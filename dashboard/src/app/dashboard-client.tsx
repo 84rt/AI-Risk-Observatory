@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
@@ -11,7 +10,6 @@ type AdoptionFilter = 'all' | string;
 
 type View = {
   id: number;
-  slug: string;
   title: string;
   heading: string;
   description: string;
@@ -20,35 +18,30 @@ type View = {
 const VIEWS: View[] = [
   {
     id: 1,
-    slug: 'risk',
     title: 'Risk',
     heading: 'AI Risk Mentioned',
     description: 'AI risk categories over time and across sectors.',
   },
   {
     id: 2,
-    slug: 'adoption',
     title: 'Adoption',
     heading: 'Adoption Type Mentioned',
     description: 'AI adoption type (non-LLM, LLM, agentic) across sectors and over time.',
   },
   {
     id: 3,
-    slug: 'vendors',
     title: 'Vendors',
     heading: 'Vendors',
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
   {
     id: 4,
-    slug: 'signal-quality',
     title: 'Signal Quality',
     heading: 'Signal Quality',
     description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
   {
     id: 5,
-    slug: 'blind-spots',
     title: 'Blind Spots',
     heading: 'Blind Spots',
     description: 'Where disclosures are absent: reports that do not mention AI at all, and reports that do not mention AI risk.',
@@ -127,76 +120,10 @@ type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
 type MetricMode = 'count' | 'pct_reports';
 type ChartRow = Record<string, string | number | null | undefined>;
 type HeatmapCell = { x: string | number; y: string | number; value: number };
-type InsightCard = { label: string; value: string; detail: string };
 
 const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
 const toPercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
-const DEFAULT_VIEW_ID = 1;
-const DATASET_KEYS: DatasetKey[] = ['perReport', 'perChunk'];
-const TREND_AXES: TrendTimeAxis[] = ['year', 'month'];
-const SECTOR_VIEWS: RiskSectorView[] = ['cni', 'isic'];
-const SIGNAL_QUALITY_FILTERS: SignalQualityFilter[] = [
-  'all',
-  'risk_signal',
-  'adoption_signal',
-  'vendor_signal',
-  'substantiveness',
-];
-const BLIND_SPOT_FILTERS: BlindSpotFilter[] = ['all', 'no_ai_mention', 'no_ai_risk_mention'];
-const METRIC_MODES: MetricMode[] = ['count', 'pct_reports'];
-
-const isOneOf = <T extends string>(value: string | null, allowed: readonly T[]): value is T =>
-  value !== null && allowed.includes(value as T);
-const getViewById = (id: number) => VIEWS.find(item => item.id === id) ?? VIEWS[0];
-const getViewIdFromSlug = (slug: string | null) =>
-  VIEWS.find(item => item.slug === slug)?.id ?? DEFAULT_VIEW_ID;
-const getYearIndex = (years: number[], rawYear: string | null, fallback: number) => {
-  const parsedYear = Number(rawYear);
-  if (!Number.isFinite(parsedYear) || years.length === 0) return fallback;
-  const exactIndex = years.indexOf(parsedYear);
-  if (exactIndex >= 0) return exactIndex;
-
-  let nearestIndex = fallback;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  years.forEach((year, index) => {
-    const distance = Math.abs(year - parsedYear);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestIndex = index;
-    }
-  });
-  return nearestIndex;
-};
-const sumSeriesKey = (rows: ChartRow[], key: string) =>
-  rows.reduce((sum, row) => sum + toNumber(row[key]), 0);
-const getTopKey = (keys: string[], getValue: (key: string) => number) =>
-  keys.reduce<{ key: string | null; value: number }>(
-    (best, key) => {
-      const value = getValue(key);
-      return value > best.value ? { key, value } : best;
-    },
-    { key: null, value: 0 }
-  );
-const getTopAverageRow = (cells: HeatmapCell[]) => {
-  const grouped = new Map<string, { total: number; count: number }>();
-  cells.forEach(cell => {
-    const key = String(cell.y);
-    const current = grouped.get(key) ?? { total: 0, count: 0 };
-    current.total += cell.value;
-    current.count += 1;
-    grouped.set(key, current);
-  });
-
-  let best: { label: string | null; value: number } = { label: null, value: 0 };
-  grouped.forEach((entry, label) => {
-    const average = entry.count > 0 ? entry.total / entry.count : 0;
-    if (average > best.value) best = { label, value: average };
-  });
-  return best;
-};
-const formatCompactValue = (value: number) =>
-  new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 const convertTrendRowsToPercent = (
   rows: ChartRow[],
   axisKey: 'year' | 'month',
@@ -222,90 +149,21 @@ const convertHeatmapToPercent = (
   }));
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [activeView, setActiveView] = useState(1);
+  const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
+  const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>('year');
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
+  const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter>('all');
+  const [riskSectorView, setRiskSectorView] = useState<RiskSectorView>('cni');
+  const [adoptionSectorView, setAdoptionSectorView] = useState<RiskSectorView>('cni');
+  const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>('cni');
+  const [vendorFilter, setVendorFilter] = useState<string>('all');
+  const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
+  const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
+  const [metricMode, setMetricMode] = useState<MetricMode>('count');
+  const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
 
-  const parseUrlState = () => {
-    const viewParam = searchParams.get('view');
-    const datasetParam = searchParams.get('dataset');
-    const axisParam = searchParams.get('axis');
-    const riskSectorParam = searchParams.get('risk_sector');
-    const adoptionSectorParam = searchParams.get('adoption_sector');
-    const vendorSectorParam = searchParams.get('vendor_sector');
-    const qualityParam = searchParams.get('quality');
-    const blindSpotParam = searchParams.get('blind_spot');
-    const metricParam = searchParams.get('metric');
-    const riskParam = searchParams.get('risk');
-    const adoptionParam = searchParams.get('adoption');
-    const vendorParam = searchParams.get('vendor');
-
-    const activeViewFromUrl = getViewIdFromSlug(viewParam);
-    const datasetFromUrl: DatasetKey = isOneOf(datasetParam, DATASET_KEYS)
-      ? datasetParam
-      : 'perReport';
-    const marketSegmentFromUrl = searchParams.get('segment');
-    const normalizedMarketSegment =
-      marketSegmentFromUrl && data.marketSegments.includes(marketSegmentFromUrl)
-        ? marketSegmentFromUrl
-        : 'all';
-    const datasetsForSelection =
-      normalizedMarketSegment === 'all'
-        ? data.datasets
-        : (data.byMarketSegment[normalizedMarketSegment] ?? data.datasets);
-    const availableYearsForSelection = datasetsForSelection[datasetFromUrl].years;
-    const fallbackEndIndex = Math.max(availableYearsForSelection.length - 1, 0);
-    const initialStartIndex = getYearIndex(
-      availableYearsForSelection,
-      searchParams.get('start'),
-      0
-    );
-    const initialEndIndex = getYearIndex(
-      availableYearsForSelection,
-      searchParams.get('end'),
-      fallbackEndIndex
-    );
-    const boundedStartIndex = Math.min(initialStartIndex, initialEndIndex);
-    const boundedEndIndex = Math.max(initialStartIndex, initialEndIndex);
-
-    return {
-      activeView: activeViewFromUrl,
-      datasetKey: datasetFromUrl,
-      trendTimeAxis: isOneOf(axisParam, TREND_AXES) ? axisParam : 'year',
-      riskFilter: riskParam ?? 'all',
-      adoptionFilter: adoptionParam ?? 'all',
-      riskSectorView: isOneOf(riskSectorParam, SECTOR_VIEWS) ? riskSectorParam : 'cni',
-      adoptionSectorView: isOneOf(adoptionSectorParam, SECTOR_VIEWS) ? adoptionSectorParam : 'cni',
-      vendorSectorView: isOneOf(vendorSectorParam, SECTOR_VIEWS) ? vendorSectorParam : 'cni',
-      vendorFilter: vendorParam ?? 'all',
-      signalQualityFilter: isOneOf(qualityParam, SIGNAL_QUALITY_FILTERS) ? qualityParam : 'all',
-      blindSpotFilter: isOneOf(blindSpotParam, BLIND_SPOT_FILTERS) ? blindSpotParam : 'all',
-      metricMode: isOneOf(metricParam, METRIC_MODES) ? metricParam : 'count',
-      marketSegmentFilter: normalizedMarketSegment,
-      yearRangeIndices: {
-        start: boundedStartIndex,
-        end: boundedEndIndex,
-      },
-    };
-  };
-
-  const initialUrlState = parseUrlState();
-  const [activeView, setActiveView] = useState(initialUrlState.activeView);
-  const [datasetKey, setDatasetKey] = useState<DatasetKey>(initialUrlState.datasetKey);
-  const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>(initialUrlState.trendTimeAxis);
-  const [riskFilter, setRiskFilter] = useState<RiskFilter>(initialUrlState.riskFilter);
-  const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter>(initialUrlState.adoptionFilter);
-  const [riskSectorView, setRiskSectorView] = useState<RiskSectorView>(initialUrlState.riskSectorView);
-  const [adoptionSectorView, setAdoptionSectorView] = useState<RiskSectorView>(initialUrlState.adoptionSectorView);
-  const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>(initialUrlState.vendorSectorView);
-  const [vendorFilter, setVendorFilter] = useState<string>(initialUrlState.vendorFilter);
-  const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>(initialUrlState.signalQualityFilter);
-  const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>(initialUrlState.blindSpotFilter);
-  const [metricMode, setMetricMode] = useState<MetricMode>(initialUrlState.metricMode);
-  const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>(initialUrlState.marketSegmentFilter);
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-  const view = getViewById(activeView);
+  const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const resolvedDatasets =
     marketSegmentFilter === 'all'
       ? data.datasets
@@ -328,7 +186,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const effectiveVendorFilter =
     vendorFilter !== 'all' && !vendorStackKeys.includes(vendorFilter) ? 'all' : vendorFilter;
 
-  const [yearRangeIndices, setYearRangeIndices] = useState(initialUrlState.yearRangeIndices);
+  const [yearRangeIndices, setYearRangeIndices] = useState(() => ({
+    start: 0,
+    end: Math.max(data.years.length - 1, 0),
+  }));
 
   const startIndex = Math.min(yearRangeIndices.start, maxYearIndex);
   const endIndex = Math.min(Math.max(yearRangeIndices.end, startIndex), maxYearIndex);
@@ -340,53 +201,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     () => availableYears.slice(startIndex, endIndex + 1),
     [availableYears, startIndex, endIndex]
   );
-
-  useEffect(() => {
-    if (availableYears.length === 0) return;
-
-    const nextParams = new URLSearchParams();
-    nextParams.set('view', view.slug);
-    if (datasetKey !== 'perReport') nextParams.set('dataset', datasetKey);
-    if (trendTimeAxis !== 'year') nextParams.set('axis', trendTimeAxis);
-    if (marketSegmentFilter !== 'all') nextParams.set('segment', marketSegmentFilter);
-    if (metricMode !== 'count') nextParams.set('metric', metricMode);
-    if (selectedStartYear) nextParams.set('start', String(selectedStartYear));
-    if (selectedEndYear) nextParams.set('end', String(selectedEndYear));
-    if (riskFilter !== 'all') nextParams.set('risk', riskFilter);
-    if (adoptionFilter !== 'all') nextParams.set('adoption', adoptionFilter);
-    if (vendorFilter !== 'all') nextParams.set('vendor', vendorFilter);
-    if (signalQualityFilter !== 'all') nextParams.set('quality', signalQualityFilter);
-    if (blindSpotFilter !== 'all') nextParams.set('blind_spot', blindSpotFilter);
-    if (riskSectorView !== 'cni') nextParams.set('risk_sector', riskSectorView);
-    if (adoptionSectorView !== 'cni') nextParams.set('adoption_sector', adoptionSectorView);
-    if (vendorSectorView !== 'cni') nextParams.set('vendor_sector', vendorSectorView);
-
-    const nextQuery = nextParams.toString();
-    const currentQuery = searchParams.toString();
-    if (nextQuery !== currentQuery) {
-      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-    }
-  }, [
-    searchParams,
-    router,
-    pathname,
-    view.slug,
-    datasetKey,
-    trendTimeAxis,
-    marketSegmentFilter,
-    metricMode,
-    selectedStartYear,
-    selectedEndYear,
-    riskFilter,
-    adoptionFilter,
-    vendorFilter,
-    signalQualityFilter,
-    blindSpotFilter,
-    riskSectorView,
-    adoptionSectorView,
-    vendorSectorView,
-    availableYears.length,
-  ]);
 
   const selectedLeftPct =
     availableYears.length <= 1 ? 0 : (startIndex / maxYearIndex) * 100;
@@ -1243,8 +1057,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
-  const selectedDatasetLabel = datasetKey === 'perReport' ? 'Per report' : 'Per excerpt';
-  const marketSegmentLabel = marketSegmentFilter === 'all' ? 'All companies' : marketSegmentFilter;
   const stackedChartYAxisFormatter = isReportShareMode
     ? (value: number) => `${Math.round(value)}%`
     : undefined;
@@ -1252,243 +1064,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     isReportShareMode ? formatPercent(value) : formatNumber(value);
   const riskHeatmapValueFormatter = (value: number) => formatPercent(value);
   const blindSpotHeatmapValueFormatter = (value: number) => formatPercent(value);
-
-  const riskLeader = useMemo(
-    () =>
-      riskFilter === 'all'
-        ? getTopKey(riskStackKeys, key => sumSeriesKey(riskTrendInRange, key))
-        : { key: riskFilter, value: sumSeriesKey(riskTrendInRange, riskFilter) },
-    [riskFilter, riskStackKeys, riskTrendInRange]
-  );
-  const adoptionLeader = useMemo(
-    () =>
-      adoptionFilter === 'all'
-        ? getTopKey(adoptionStackKeys, key => sumSeriesKey(adoptionTrendInRange, key))
-        : { key: adoptionFilter, value: sumSeriesKey(adoptionTrendInRange, adoptionFilter) },
-    [adoptionFilter, adoptionStackKeys, adoptionTrendInRange]
-  );
-  const vendorLeader = useMemo(
-    () =>
-      effectiveVendorFilter === 'all'
-        ? getTopKey(vendorStackKeys, key => sumSeriesKey(vendorTrendInRange, key))
-        : { key: effectiveVendorFilter, value: sumSeriesKey(vendorTrendInRange, effectiveVendorFilter) },
-    [effectiveVendorFilter, vendorStackKeys, vendorTrendInRange]
-  );
-
-  const riskHotspot = useMemo(() => getTopAverageRow(displayRiskHeatmapData), [displayRiskHeatmapData]);
-  const adoptionHotspot = useMemo(() => getTopAverageRow(displayAdoptionHeatmapData), [displayAdoptionHeatmapData]);
-  const vendorHotspot = useMemo(() => getTopAverageRow(displayVendorHeatmapData), [displayVendorHeatmapData]);
-  const blindSpotHotspot = useMemo(
-    () =>
-      getTopAverageRow(
-        blindSpotFilter === 'no_ai_mention'
-          ? displayBlindSpotHeatmapData ?? []
-          : blindSpotFilter === 'no_ai_risk_mention'
-            ? displayBlindSpotHeatmapData ?? []
-            : displayNoAiRiskBySectorYearInRange
-      ),
-    [blindSpotFilter, displayBlindSpotHeatmapData, displayNoAiRiskBySectorYearInRange]
-  );
-
-  const selectionCards = useMemo<InsightCard[]>(
-    () => [
-      {
-        label: 'Selection',
-        value: marketSegmentLabel,
-        detail: `${riskSelectedYearSpan} · ${selectedDatasetLabel}`,
-      },
-      {
-        label: 'Reports',
-        value: formatNumber(reportBaselineData.summary.totalReports),
-        detail: `${formatNumber(reportBaselineData.summary.totalCompanies)} companies in scope`,
-      },
-      {
-        label: 'Mentions',
-        value: formatCompactValue(
-          activeView === 5
-            ? reportBaselineData.summary.aiSignalReports
-            : activeData.summary.aiSignalReports
-        ),
-        detail: activeView === 5 ? 'Blind-spot view stays on report baseline' : 'AI-linked observations in current mode',
-      },
-    ],
-    [
-      marketSegmentLabel,
-      riskSelectedYearSpan,
-      selectedDatasetLabel,
-      reportBaselineData.summary.totalReports,
-      reportBaselineData.summary.totalCompanies,
-      activeData.summary.aiSignalReports,
-      reportBaselineData.summary.aiSignalReports,
-      activeView,
-    ]
-  );
-
-  const insightCards = useMemo<InsightCard[]>(() => {
-    if (activeView === 1) {
-      return [
-        {
-          label: 'Risk Coverage',
-          value: formatPercent(toPercent(riskOverviewStats.riskMentionReports, riskOverviewStats.totalReports)),
-          detail: `${formatNumber(riskOverviewStats.riskMentionReports)} of ${formatNumber(riskOverviewStats.totalReports)} reports mention AI risk`,
-        },
-        {
-          label: 'Lead Category',
-          value: riskLeader.key ? formatLabel(riskLeader.key) : 'N/A',
-          detail: `${formatNumber(riskLeader.value)} mentions in the selected window`,
-        },
-        {
-          label: 'Highest-Signal Sector',
-          value: riskHotspot.label ? formatLabel(riskHotspot.label) : 'N/A',
-          detail: `Average sector intensity ${formatPercent(riskHotspot.value)}`,
-        },
-      ];
-    }
-
-    if (activeView === 2) {
-      return [
-        {
-          label: 'Adoption Coverage',
-          value: formatPercent(toPercent(adoptionOverviewStats.adoptionMentionReports, adoptionOverviewStats.totalReports)),
-          detail: `${formatNumber(adoptionOverviewStats.adoptionMentionReports)} reports mention adoption`,
-        },
-        {
-          label: 'Lead Mode',
-          value: adoptionLeader.key ? formatLabel(adoptionLeader.key) : 'N/A',
-          detail: `${formatNumber(adoptionLeader.value)} mentions in the selected window`,
-        },
-        {
-          label: 'Highest-Adoption Sector',
-          value: adoptionHotspot.label ? formatLabel(adoptionHotspot.label) : 'N/A',
-          detail: `Average sector intensity ${formatPercent(adoptionHotspot.value)}`,
-        },
-      ];
-    }
-
-    if (activeView === 3) {
-      return [
-        {
-          label: 'Vendor Coverage',
-          value: formatPercent(toPercent(vendorOverviewStats.vendorMentionReports, vendorOverviewStats.totalReports)),
-          detail: `${formatNumber(vendorOverviewStats.vendorMentionReports)} reports name or imply a vendor`,
-        },
-        {
-          label: 'Most Cited Vendor',
-          value: vendorLeader.key ? formatLabel(vendorLeader.key) : 'N/A',
-          detail: `${formatNumber(vendorLeader.value)} mentions in the selected window`,
-        },
-        {
-          label: 'Highest-Vendor Sector',
-          value: vendorHotspot.label ? formatLabel(vendorHotspot.label) : 'N/A',
-          detail: `Average sector intensity ${formatPercent(vendorHotspot.value)}`,
-        },
-      ];
-    }
-
-    if (activeView === 4) {
-      const totalSignals =
-        (showRiskSignalPanel ? signalQualityOverviewStats.riskSignalTotal : 0) +
-        (showAdoptionSignalPanel ? signalQualityOverviewStats.adoptionSignalTotal : 0) +
-        (showVendorSignalPanel ? signalQualityOverviewStats.vendorSignalTotal : 0);
-      return [
-        {
-          label: 'Explicit Risk Share',
-          value: formatPercent(toPercent(signalQualityOverviewStats.explicitRisk, signalQualityOverviewStats.riskSignalTotal)),
-          detail: `${formatNumber(signalQualityOverviewStats.explicitRisk)} explicit risk labels`,
-        },
-        {
-          label: 'Substantive Reports',
-          value: formatNumber(signalQualityOverviewStats.substantiveRisk),
-          detail: `${formatPercent(toPercent(signalQualityOverviewStats.substantiveRisk, signalQualityOverviewStats.substantivenessTotal))} of substantiveness outcomes are substantive`,
-        },
-        {
-          label: 'Visible Signal Volume',
-          value: formatCompactValue(totalSignals),
-          detail: 'Summed across the quality panels currently in view',
-        },
-      ];
-    }
-
-    return [
-      {
-        label: 'No AI Mention',
-        value: formatPercent(blindSpotOverviewStats.noAiMentionPct),
-        detail: `${formatNumber(blindSpotOverviewStats.noAiMention)} reports contain no AI mention`,
-      },
-      {
-        label: 'No AI Risk Mention',
-        value: formatPercent(blindSpotOverviewStats.noAiRiskMentionPct),
-        detail: `${formatNumber(blindSpotOverviewStats.noAiRiskMention)} reports omit AI risk`,
-      },
-      {
-        label: 'Highest Blind-Spot Sector',
-        value: blindSpotHotspot.label ? formatLabel(blindSpotHotspot.label) : 'N/A',
-        detail: `Average sector intensity ${formatPercent(blindSpotHotspot.value)}`,
-      },
-    ];
-  }, [
-    activeView,
-    riskOverviewStats,
-    riskLeader,
-    riskHotspot,
-    adoptionOverviewStats,
-    adoptionLeader,
-    adoptionHotspot,
-    vendorOverviewStats,
-    vendorLeader,
-    vendorHotspot,
-    signalQualityOverviewStats,
-    showRiskSignalPanel,
-    showAdoptionSignalPanel,
-    showVendorSignalPanel,
-    blindSpotOverviewStats,
-    blindSpotHotspot,
-  ]);
-
-  const activeFilterChips = useMemo(
-    () =>
-      [
-        { label: riskSelectedYearSpan },
-        activeView !== 5 && datasetKey !== 'perReport'
-          ? { label: selectedDatasetLabel, onClear: () => setDatasetKey('perReport') }
-          : null,
-        marketSegmentFilter !== 'all'
-          ? { label: marketSegmentFilter, onClear: () => setMarketSegmentFilter('all') }
-          : null,
-        canShowReportShare && metricMode !== 'count'
-          ? { label: '% of reports', onClear: () => setMetricMode('count') }
-          : null,
-        riskFilter !== 'all'
-          ? { label: formatLabel(riskFilter), onClear: () => setRiskFilter('all') }
-          : null,
-        adoptionFilter !== 'all'
-          ? { label: formatLabel(adoptionFilter), onClear: () => setAdoptionFilter('all') }
-          : null,
-        effectiveVendorFilter !== 'all'
-          ? { label: formatLabel(effectiveVendorFilter), onClear: () => setVendorFilter('all') }
-          : null,
-        signalQualityFilter !== 'all'
-          ? { label: formatLabel(signalQualityFilter), onClear: () => setSignalQualityFilter('all') }
-          : null,
-        blindSpotFilter !== 'all'
-          ? { label: formatLabel(blindSpotFilter), onClear: () => setBlindSpotFilter('all') }
-          : null,
-      ].filter(Boolean) as Array<{ label: string; onClear?: () => void }>,
-    [
-      riskSelectedYearSpan,
-      datasetKey,
-      activeView,
-      selectedDatasetLabel,
-      marketSegmentFilter,
-      canShowReportShare,
-      metricMode,
-      riskFilter,
-      adoptionFilter,
-      effectiveVendorFilter,
-      signalQualityFilter,
-      blindSpotFilter,
-    ]
-  );
 
   const makeSectorToggle = (
     current: RiskSectorView,
@@ -1498,7 +1073,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('cni')}
-        aria-pressed={current === 'cni'}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'cni'
             ? 'bg-amber-500 text-white'
@@ -1510,7 +1084,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('isic')}
-        aria-pressed={current === 'isic'}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'isic'
             ? 'bg-amber-500 text-white'
@@ -1527,7 +1100,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
-        aria-pressed={trendTimeAxis === 'year'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'year'
             ? 'bg-amber-500 text-white'
@@ -1539,7 +1111,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('month')}
-        aria-pressed={trendTimeAxis === 'month'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'month'
             ? 'bg-amber-500 text-white'
@@ -1556,7 +1127,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setMetricMode('count')}
-        aria-pressed={effectiveMetricMode === 'count'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'count'
             ? 'bg-amber-500 text-white'
@@ -1568,7 +1138,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setMetricMode('pct_reports')}
-        aria-pressed={effectiveMetricMode === 'pct_reports'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'pct_reports'
             ? 'bg-amber-500 text-white'
@@ -1586,16 +1155,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6">
           {/* Row 1: View tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto py-2">
+          <div className="flex items-center gap-1 py-2">
             {VIEWS.map(item => (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveView(item.id);
-                  setShowMobileFilters(false);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                aria-pressed={activeView === item.id}
                 className={`relative rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
                   activeView === item.id
                     ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
@@ -1610,31 +1177,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ))}
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-slate-200/60 py-2 md:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                {activeFilterChips.slice(0, 3).map(chip => (
-                  <span
-                    key={chip.label}
-                    className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm"
-                  >
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowMobileFilters(prev => !prev)}
-                aria-expanded={showMobileFilters}
-                className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
-              >
-                {showMobileFilters ? 'Hide Filters' : 'Show Filters'}
-              </button>
-            </div>
-          </div>
-
           {/* Row 2: Year range + dataset toggle + view-specific controls */}
-          <div className="hidden flex-wrap items-center gap-2 border-t border-slate-200/60 py-2 md:flex" data-controls>
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/60 py-2">
             <div className="w-[240px] rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
               <div
                 className="relative h-4"
@@ -1726,11 +1270,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 onChange={event => {
                   const nextDatasetKey = event.target.value as DatasetKey;
                   setDatasetKey(nextDatasetKey);
-                  const nextDatasets =
-                    marketSegmentFilter === 'all'
-                      ? data.datasets
-                      : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets);
-                  const nextYears = nextDatasets[nextDatasetKey].years;
+                  const nextYears = data.datasets[nextDatasetKey].years;
                   setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
                 }}
                 className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
@@ -1744,13 +1284,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <select
               value={marketSegmentFilter}
               onChange={event => {
-                const nextSegment = event.target.value;
-                setMarketSegmentFilter(nextSegment);
-                const nextDatasets =
-                  nextSegment === 'all'
-                    ? data.datasets
-                    : (data.byMarketSegment[nextSegment] ?? data.datasets);
-                setYearRangeIndices({ start: 0, end: Math.max(nextDatasets[datasetKey].years.length - 1, 0) });
+                setMarketSegmentFilter(event.target.value);
+                setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
               }}
               className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
             >
@@ -1892,180 +1427,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </>
             )}
           </div>
-
-          <div className={`${showMobileFilters ? 'flex' : 'hidden'} flex-wrap items-center gap-2 border-t border-slate-200/60 py-2 md:hidden`}>
-            <div className="w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm">
-              <div
-                className="relative h-4"
-                onMouseDown={event => {
-                  if (maxYearIndex === 0) return;
-                  if (event.target instanceof HTMLInputElement) return;
-                  updateYearRangeFromTrackClick(event.clientX, event.currentTarget);
-                }}
-                onTouchStart={event => {
-                  if (maxYearIndex === 0) return;
-                  if (event.target instanceof HTMLInputElement) return;
-                  const touch = event.touches[0];
-                  if (!touch) return;
-                  updateYearRangeFromTrackClick(touch.clientX, event.currentTarget);
-                }}
-              >
-                <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-200" />
-                <div
-                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-amber-500"
-                  style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={maxYearIndex}
-                  step={1}
-                  value={startIndex}
-                  onChange={event => {
-                    const nextStart = Number(event.target.value);
-                    setYearRangeIndices(prev => ({
-                      start: Math.min(nextStart, prev.end),
-                      end: prev.end,
-                    }));
-                  }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
-                  aria-label="Start year"
-                  disabled={maxYearIndex === 0}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={maxYearIndex}
-                  step={1}
-                  value={endIndex}
-                  onChange={event => {
-                    const nextEnd = Number(event.target.value);
-                    setYearRangeIndices(prev => ({
-                      start: prev.start,
-                      end: Math.max(nextEnd, prev.start),
-                    }));
-                  }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
-                  aria-label="End year"
-                  disabled={maxYearIndex === 0}
-                />
-              </div>
-              <div className="mt-1 text-xs font-medium text-slate-600">
-                {riskSelectedYearSpan}
-              </div>
-            </div>
-
-            {activeView !== 5 && (
-              <select
-                value={datasetKey}
-                onChange={event => {
-                  const nextDatasetKey = event.target.value as DatasetKey;
-                  setDatasetKey(nextDatasetKey);
-                  const nextDatasets =
-                    marketSegmentFilter === 'all'
-                      ? data.datasets
-                      : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets);
-                  const nextYears = nextDatasets[nextDatasetKey].years;
-                  setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
-                }}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="perReport">Per Report</option>
-                <option value="perChunk">Per Excerpt</option>
-              </select>
-            )}
-
-            <select
-              value={marketSegmentFilter}
-              onChange={event => {
-                const nextSegment = event.target.value;
-                setMarketSegmentFilter(nextSegment);
-                const nextDatasets =
-                  nextSegment === 'all'
-                    ? data.datasets
-                    : (data.byMarketSegment[nextSegment] ?? data.datasets);
-                setYearRangeIndices({ start: 0, end: Math.max(nextDatasets[datasetKey].years.length - 1, 0) });
-              }}
-              className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-            >
-              <option value="all">All Companies</option>
-              {data.marketSegments.map(segment => (
-                <option key={segment} value={segment}>{segment}</option>
-              ))}
-            </select>
-
-            {metricModeToggle}
-
-            {activeView === 1 && (
-              <select
-                id="risk-filter-mobile"
-                value={riskFilter}
-                onChange={e => setRiskFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="all">All Risk Types</option>
-                {data.labels.riskLabels.map(label => (
-                  <option key={label} value={label}>{formatLabel(label)}</option>
-                ))}
-              </select>
-            )}
-
-            {activeView === 2 && (
-              <select
-                id="adoption-filter-mobile"
-                value={adoptionFilter}
-                onChange={e => setAdoptionFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="all">All Adoption Types</option>
-                {data.labels.adoptionTypes.map(label => (
-                  <option key={label} value={label}>{formatLabel(label)}</option>
-                ))}
-              </select>
-            )}
-
-            {activeView === 3 && (
-              <select
-                id="vendor-filter-mobile"
-                value={effectiveVendorFilter}
-                onChange={e => setVendorFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="all">All Vendors</option>
-                {vendorStackKeys.map(label => (
-                  <option key={label} value={label}>{formatLabel(label)}</option>
-                ))}
-              </select>
-            )}
-
-            {activeView === 4 && (
-              <select
-                id="signal-quality-filter-mobile"
-                value={signalQualityFilter}
-                onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="all">All Quality Panels</option>
-                <option value="risk_signal">Risk Signal Strength</option>
-                <option value="adoption_signal">Adoption Signal Strength</option>
-                <option value="vendor_signal">Vendor Signal Strength</option>
-                <option value="substantiveness">Risk Substantiveness</option>
-              </select>
-            )}
-
-            {activeView === 5 && (
-              <select
-                id="blind-spot-filter-mobile"
-                value={blindSpotFilter}
-                onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
-              >
-                <option value="all">All Blind Spots</option>
-                <option value="no_ai_mention">No AI Mention</option>
-                <option value="no_ai_risk_mention">No AI Risk Mention</option>
-              </select>
-            )}
-          </div>
         </div>
       </div>
 
@@ -2075,51 +1436,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <span className="mr-2 inline-block h-5 w-1 rounded-full bg-amber-500 align-middle" />
             {view.heading}
           </h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">
-            {selectionCards.map(card => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{card.label}</p>
-                <p className="mt-2 text-xl font-semibold text-slate-900">{card.value}</p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-500">{card.detail}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {activeFilterChips.map(chip => (
-              chip.onClear ? (
-                <button
-                  key={chip.label}
-                  type="button"
-                  onClick={chip.onClear}
-                  className="rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
-                >
-                  {chip.label} ×
-                </button>
-              ) : (
-                <span
-                  key={chip.label}
-                  className="rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-slate-600"
-                >
-                  {chip.label}
-                </span>
-              )
-            ))}
-          </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            {insightCards.map(card => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-amber-200/60 bg-amber-50/70 p-4"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">{card.label}</p>
-                <p className="mt-2 text-xl font-semibold text-slate-900">{card.value}</p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-600">{card.detail}</p>
-              </div>
-            ))}
-          </div>
           {activeView === 1 ? (
             <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
