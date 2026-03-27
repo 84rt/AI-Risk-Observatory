@@ -152,8 +152,9 @@ const getViewById = (id: number) => VIEWS.find(item => item.id === id) ?? VIEWS[
 const getViewIdFromSlug = (slug: string | null) =>
   VIEWS.find(item => item.slug === slug)?.id ?? DEFAULT_VIEW_ID;
 const getYearIndex = (years: number[], rawYear: string | null, fallback: number) => {
+  if (rawYear === null || years.length === 0) return fallback;
   const parsedYear = Number(rawYear);
-  if (!Number.isFinite(parsedYear) || years.length === 0) return fallback;
+  if (!Number.isFinite(parsedYear)) return fallback;
   const exactIndex = years.indexOf(parsedYear);
   if (exactIndex >= 0) return exactIndex;
 
@@ -255,16 +256,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         : (data.byMarketSegment[normalizedMarketSegment] ?? data.datasets);
     const availableYearsForSelection = datasetsForSelection[datasetFromUrl].years;
     const fallbackEndIndex = Math.max(availableYearsForSelection.length - 1, 0);
-    const initialStartIndex = getYearIndex(
-      availableYearsForSelection,
-      searchParams.get('start'),
-      0
-    );
-    const initialEndIndex = getYearIndex(
-      availableYearsForSelection,
-      searchParams.get('end'),
-      fallbackEndIndex
-    );
+
+    const startParam = searchParams.get('start');
+    const endParam = searchParams.get('end');
+
+    const initialStartIndex = startParam
+      ? getYearIndex(availableYearsForSelection, startParam, 0)
+      : 0;
+    const initialEndIndex = endParam
+      ? getYearIndex(availableYearsForSelection, endParam, fallbackEndIndex)
+      : fallbackEndIndex;
+
     const boundedStartIndex = Math.min(initialStartIndex, initialEndIndex);
     const boundedEndIndex = Math.max(initialStartIndex, initialEndIndex);
 
@@ -1494,14 +1496,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     current: RiskSectorView,
     setter: (v: RiskSectorView) => void
   ) => (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setter('cni')}
         aria-pressed={current === 'cni'}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'cni'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1513,7 +1515,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         aria-pressed={current === 'isic'}
         className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'isic'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1523,14 +1525,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const trendTimeToggle = (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
         aria-pressed={trendTimeAxis === 'year'}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`rounded-[calc(var(--radius)-2px)] px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'year'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1540,9 +1542,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         type="button"
         onClick={() => setTrendTimeAxis('month')}
         aria-pressed={trendTimeAxis === 'month'}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`rounded-[calc(var(--radius)-2px)] px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'month'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1552,14 +1554,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const metricModeToggle = canShowReportShare ? (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setMetricMode('count')}
         aria-pressed={effectiveMetricMode === 'count'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'count'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1571,7 +1573,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         aria-pressed={effectiveMetricMode === 'pct_reports'}
         className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'pct_reports'
-            ? 'bg-amber-500 text-white'
+            ? 'bg-slate-900 text-white'
             : 'text-slate-600 hover:bg-slate-100'
         }`}
       >
@@ -1581,9 +1583,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   ) : null;
 
   return (
-    <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       {/* Sticky control bar */}
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/70 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6">
           {/* Row 1: View tabs */}
           <div className="flex items-center gap-1 overflow-x-auto py-2">
@@ -1596,7 +1598,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 aria-pressed={activeView === item.id}
-                className={`relative rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
+                className={`relative rounded-md px-3.5 py-1.5 text-sm font-medium transition-all ${
                   activeView === item.id
                     ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:bg-white/60 hover:text-slate-900'
@@ -1604,7 +1606,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               >
                 {item.title}
                 {activeView === item.id && (
-                  <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-amber-500" />
+                  <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-slate-900" />
                 )}
               </button>
             ))}
@@ -1626,7 +1628,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 type="button"
                 onClick={() => setShowMobileFilters(prev => !prev)}
                 aria-expanded={showMobileFilters}
-                className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                className="shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm"
               >
                 {showMobileFilters ? 'Hide Filters' : 'Show Filters'}
               </button>
@@ -1635,7 +1637,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
           {/* Row 2: Year range + dataset toggle + view-specific controls */}
           <div className="hidden flex-wrap items-center gap-2 border-t border-slate-200/60 py-2 md:flex" data-controls>
-            <div className="w-[240px] rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
+            <div className="w-[240px] rounded-md border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
               <div
                 className="relative h-4"
                 onMouseDown={event => {
@@ -1653,7 +1655,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               >
                 <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-200" />
                 <div
-                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-amber-500"
+                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-900"
                   style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
                 />
                 <input
@@ -1733,7 +1735,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   const nextYears = nextDatasets[nextDatasetKey].years;
                   setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
                 }}
-                className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="perReport">Per Report</option>
                 <option value="perChunk">Per Excerpt</option>
@@ -1752,7 +1754,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     : (data.byMarketSegment[nextSegment] ?? data.datasets);
                 setYearRangeIndices({ start: 0, end: Math.max(nextDatasets[datasetKey].years.length - 1, 0) });
               }}
-              className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+              className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
             >
               <option value="all">All Companies</option>
               {data.marketSegments.map(segment => (
@@ -1770,7 +1772,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="risk-filter"
                   value={riskFilter}
                   onChange={e => setRiskFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Risk Types</option>
                   {data.labels.riskLabels.map(label => (
@@ -1780,7 +1782,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {riskFilter !== 'all' && (
                   <button
                     onClick={() => setRiskFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1796,7 +1798,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="adoption-filter"
                   value={adoptionFilter}
                   onChange={e => setAdoptionFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Adoption Types</option>
                   {data.labels.adoptionTypes.map(label => (
@@ -1806,7 +1808,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {adoptionFilter !== 'all' && (
                   <button
                     onClick={() => setAdoptionFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1822,7 +1824,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="vendor-filter"
                   value={effectiveVendorFilter}
                   onChange={e => setVendorFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Vendors</option>
                   {vendorStackKeys.map(label => (
@@ -1832,7 +1834,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {effectiveVendorFilter !== 'all' && (
                   <button
                     onClick={() => setVendorFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1848,7 +1850,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="signal-quality-filter"
                   value={signalQualityFilter}
                   onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Quality Panels</option>
                   <option value="risk_signal">Risk Signal Strength</option>
@@ -1859,7 +1861,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {signalQualityFilter !== 'all' && (
                   <button
                     onClick={() => setSignalQualityFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1875,7 +1877,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="blind-spot-filter"
                   value={blindSpotFilter}
                   onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Blind Spots</option>
                   <option value="no_ai_mention">No AI Mention</option>
@@ -1884,7 +1886,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {blindSpotFilter !== 'all' && (
                   <button
                     onClick={() => setBlindSpotFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1894,7 +1896,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           </div>
 
           <div className={`${showMobileFilters ? 'flex' : 'hidden'} flex-wrap items-center gap-2 border-t border-slate-200/60 py-2 md:hidden`}>
-            <div className="w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm">
+            <div className="flex h-9 w-full flex-col justify-center rounded-md border border-slate-200 bg-white/90 px-3 shadow-sm">
               <div
                 className="relative h-4"
                 onMouseDown={event => {
@@ -1912,7 +1914,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               >
                 <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-200" />
                 <div
-                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-amber-500"
+                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-900"
                   style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
                 />
                 <input
@@ -1968,7 +1970,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   const nextYears = nextDatasets[nextDatasetKey].years;
                   setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
                 }}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="perReport">Per Report</option>
                 <option value="perChunk">Per Excerpt</option>
@@ -1986,7 +1988,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     : (data.byMarketSegment[nextSegment] ?? data.datasets);
                 setYearRangeIndices({ start: 0, end: Math.max(nextDatasets[datasetKey].years.length - 1, 0) });
               }}
-              className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+              className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
             >
               <option value="all">All Companies</option>
               {data.marketSegments.map(segment => (
@@ -2001,7 +2003,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 id="risk-filter-mobile"
                 value={riskFilter}
                 onChange={e => setRiskFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="all">All Risk Types</option>
                 {data.labels.riskLabels.map(label => (
@@ -2015,7 +2017,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 id="adoption-filter-mobile"
                 value={adoptionFilter}
                 onChange={e => setAdoptionFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="all">All Adoption Types</option>
                 {data.labels.adoptionTypes.map(label => (
@@ -2029,7 +2031,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 id="vendor-filter-mobile"
                 value={effectiveVendorFilter}
                 onChange={e => setVendorFilter(e.target.value)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="all">All Vendors</option>
                 {vendorStackKeys.map(label => (
@@ -2043,7 +2045,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 id="signal-quality-filter-mobile"
                 value={signalQualityFilter}
                 onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="all">All Quality Panels</option>
                 <option value="risk_signal">Risk Signal Strength</option>
@@ -2058,7 +2060,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 id="blind-spot-filter-mobile"
                 value={blindSpotFilter}
                 onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                className="h-9 min-w-[11rem] rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 min-w-[11rem] rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="all">All Blind Spots</option>
                 <option value="no_ai_mention">No AI Mention</option>
@@ -2072,7 +2074,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <main className="mx-auto max-w-7xl px-6 py-12">
         <div className="mb-10">
           <h2 className="text-2xl font-semibold text-slate-900">
-            <span className="mr-2 inline-block h-5 w-1 rounded-full bg-amber-500 align-middle" />
+            <span className="mr-2 inline-block h-5 w-1 rounded-full bg-slate-900 align-middle" />
             {view.heading}
           </h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">

@@ -61,7 +61,7 @@ export function InfoTooltip({ content }: { content: React.ReactNode }) {
       </button>
       {pos && (
         <div
-          className="pointer-events-none z-[9999] w-72 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-normal leading-relaxed text-slate-600 normal-case tracking-normal shadow-lg"
+          className="pointer-events-none z-[9999] w-72 rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs font-normal leading-relaxed text-slate-600 normal-case tracking-normal shadow-lg"
           style={{
             position: 'fixed',
             left: pos.x,
@@ -156,7 +156,7 @@ export function StackedBarChart({
   };
 
   return (
-    <div className="w-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
+    <div className="w-full rounded-md border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
       {title && (
         <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           {title}
@@ -167,13 +167,13 @@ export function StackedBarChart({
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
           {headerExtra}
           {showChartModeToggle && (
-            <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
+            <div className="flex rounded-md border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
               <button
                 type="button"
                 onClick={() => setChartType('bar')}
                 aria-label="Show bar chart"
                 aria-pressed={activeChartType === 'bar'}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'bar' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                 title="Bar chart"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -188,7 +188,7 @@ export function StackedBarChart({
                   onClick={() => setChartType('line')}
                   aria-label="Show line chart"
                   aria-pressed={activeChartType === 'line'}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'line' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
                   title="Line chart"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -243,7 +243,7 @@ export function StackedBarChart({
           </ResponsiveContainer>
         </div>
         {showSideLegend && (
-          <div className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 lg:mt-4 lg:w-60">
+          <div className="w-full rounded-md border border-slate-200 bg-slate-50/70 p-3 lg:mt-4 lg:w-60">
             <div className="space-y-1">
               {visibleLegendKeys.map((key) => {
                 const isSelected = activeLegendKey === key;
@@ -412,7 +412,7 @@ export function GenericHeatmap({
       : grandTotal;
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
+    <div className="w-full overflow-x-auto rounded-md border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
       {(title || headerExtra) && (
         <div className="mb-3 flex items-start justify-between gap-4">
           {title ? (
@@ -426,7 +426,7 @@ export function GenericHeatmap({
       )}
       <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
-        className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
+        className="grid w-full gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}

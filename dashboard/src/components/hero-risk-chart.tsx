@@ -155,7 +155,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
               aria-pressed={i === displayIndex}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 i === displayIndex
-                  ? 'w-4 bg-amber-500'
+                  ? 'w-4 bg-slate-900'
                   : 'w-1.5 bg-slate-300 hover:bg-slate-400'
               }`}
             />

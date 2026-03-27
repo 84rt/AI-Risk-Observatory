@@ -13,7 +13,7 @@ export function PageNav() {
   ];
 
   return (
-    <nav className="border-b border-slate-200/70 bg-[#f6f3ef]">
+    <nav className="border-b border-slate-200/70 bg-white">
       <div className="mx-auto max-w-7xl px-6 flex items-center gap-6">
         <Link href="/" className="py-3 font-semibold text-slate-900 hover:text-slate-700">
           AI Risk Observatory
@@ -36,11 +36,19 @@ export function PageNav() {
             >
               {link.label}
               {isActive && (
-                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-amber-500" />
+                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-slate-900" />
               )}
             </Link>
           );
         })}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            BETA v0.8
+          </span>
+          <span className="text-[10px] font-medium text-slate-400">
+            Last update: 27.03.2026
+          </span>
+        </div>
       </div>
     </nav>
   );
