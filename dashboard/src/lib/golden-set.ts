@@ -537,7 +537,14 @@ const aggregateToReports = (
         if (!reportMap.has(key)) {
           reportMap.set(
             key,
-            makeEmptyReportData(company_name, year, cniSector || 'Unknown', isicSector || 'Unknown')
+            makeEmptyReportData(
+              company_name,
+              year,
+              cniSector || 'Unknown',
+              isicSector || 'Unknown',
+              documentMonths.get(key) || '',
+              marketSegmentMap.get(toKey(company_name)) || 'Other'
+            )
           );
         }
       });

@@ -1,51 +1,201 @@
-company_name,lei,market_segment,cni_sector,isic_sector_code,isic_sector_name,isic_section_code,isic_section_name,source_type
-Croda International plc,2138004WCNBFJEEOXV26,FTSE 350,Chemicals,2029,Manufacture of other chemical products n.e.c.,C,Manufacturing,Golden Set
-Rolls-Royce Holdings plc,213800EC7997ZBLZJH69,FTSE 350,Civil Nuclear/Space,3030,Manufacture of air and spacecraft and related machinery,C,Manufacturing,Golden Set
-BT Group plc,213800LRO7NS5CYQMN21,FTSE 350,Communications,6110,"Wired, wireless, and satellite telecommunication activities",J,Information and communication,Golden Set
-BAE Systems plc,8SVCSVKSGDWMW2QHOH83,FTSE 350,Defence,3040,Manufacture of military fighting vehicles,C,Manufacturing,Golden Set
-Serco Group plc,549300PT2CIHYN5GWJ21,FTSE 350,Government Services,8299,Other business support service activities n.e.c.,N,Administrative and support service activities,Golden Set
-Shell plc,21380068P1DRHMJ8KU70,FTSE 350,Energy (Extraction),1920,Manufacture of refined petroleum products; manufacture of fossil fuel products,C,Manufacturing,Golden Set
-Lloyds Banking Group plc,549300PPXHEU2JF0AM85,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Golden Set
-Tesco plc,2138002P5RNKC5W2JZ46,FTSE 350,Food (Retail),4711,"Non-specialized retail sale with food, beverages or tobacco predominating",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Golden Set
-AstraZeneca plc,PY6ZZQWO2IZFZC3IOL08,FTSE 350,Health (Pharma),2100,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",C,Manufacturing,Golden Set
-National Grid plc,8R95QZMKZLJX5Q2XR704,FTSE 350,Energy (Transmission),3513,Electric power transmission and distribution activities,D,"Electricity, gas, steam and air conditioning supply",Golden Set
-Severn Trent plc,213800RPBXRETY4A4C59,FTSE 350,Water,3600,"Water collection, treatment and supply",E,"Water supply; sewerage, waste management and remediation activities",Golden Set
-Aviva plc,YF0Y5B0IB8SM0ZFG9G81,FTSE 350,Insurance,6511,Life insurance,K,Financial and insurance activities,Golden Set
-Schroders plc,2138001YYBULX5SZ2H24,FTSE 350,Asset Management,6499,"Other financial service activities n.e.c., except insurance and pension funding activities",K,Financial and insurance activities,Golden Set
-FirstGroup plc,549300DEJZCPWA4HKM93,FTSE 350,Transport,4921,Urban and suburban passenger land transport,H,Transportation and storage,Golden Set
-Clarkson plc,2138007G6BGTEHI3OT22,FTSE 350,Shipping,7499,"All other professional, scientific and technical activities n.e.c.",M,"Professional, scientific and technical activities",Golden Set
-ASSOCIATED BRITISH ENGINEERING PLC,213800MYKAWRRE9C9U05,Main Market,Other,6421,Activities of holding companies,K,Financial and insurance activities,Expansion
-BSF ENTERPRISE PLC,2138007PJT69H8FYLC06,AIM,Other,7210,Research and experimental development on natural sciences and engineering,M,"Professional, scientific and technical activities",Expansion
-Babcock International Group PLC,213800TSKOLX4EU6L377,FTSE 350,Defence,7110,"Architectural and engineering, and related technical consultancy activities",M,"Professional, scientific and technical activities",Expansion
-Barclays PLC,213800LBQA1Y9L22JB70,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
-Barratt Developments PLC,2138006R85VEOF5YNK29,FTSE 350,Other,4100,Construction of residential and non-residential buildings,F,Construction,Expansion
-British Land Co PLC,RV5B68J2GV3QGMRPW209,FTSE 350,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
-Capita PLC,CMIGEWPLHL4M7ZV0IZ88,FTSE 350,Government Services,6220,Computer consultancy and computer facilities management activities,J,Information and communication,Expansion
-Carnival PLC,4DR1VPDQMHD3N3QW8W95,FTSE 350,Shipping,5011,Sea and coastal passenger water transport,H,Transportation and storage,Expansion
-Centrica PLC,E26EDV109X6EEPBKVH76,FTSE 350,Energy (Transmission),3540,Activities of brokers and agents for electric power and natural gas,D,"Electricity, gas, steam and air conditioning supply",Expansion
-Crest Nicholson Holdings PLC,213800ROIFXRRRKVQD25,FTSE 350,Other,4100,Construction of residential and non-residential buildings,F,Construction,Expansion
-GlaxoSmithKline PLC,5493000HZTVUYLO1D793,FTSE 350,Health (Pharma),2100,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",C,Manufacturing,Expansion
-HSBC Holdings PLC,MLU0ZO3ML4LN2LL2TL39,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
-IntegraFin Holdings PLC,213800CYIZKXK9PQYE87,FTSE 350,Asset Management,6433,"Activities of trust, estate and agency accounts",K,Financial and insurance activities,Expansion
-Kingfisher PLC,213800KBMEV7I92FY281,FTSE 350,Other,4752,"Retail sale of hardware, building materials, paints and glass",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Expansion
-LOWLAND INV CO PLC,2138008RHG5363FEHV19,Main Market,Asset Management,6432,Activities of non-money market investments funds,K,Financial and insurance activities,Expansion
-London Stock Exchange Group PLC,213800QAUUUP6I445N30,FTSE 350,Finance (Banking),6611,Administration of financial markets,K,Financial and insurance activities,Expansion
-Natwest Group PLC,2138005O9XJIJN4JPN90,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
-Paragon Banking Group PLC,213800S1TDKIB1IUTS72,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
-Prudential PLC,5493001Z3ZE83NGK8Y12,FTSE 350,Insurance,6511,Life insurance,K,Financial and insurance activities,Expansion
-R.E.A. HOLDINGS PLC,213800YXL94R94RYG150,Main Market,Other,0126,Growing of oleaginous fruits,A,"Agriculture, forestry and fishing",Expansion
-RICARDO PLC,213800ZNYAY35F4XB814,Main Market,Other,7110,"Architectural and engineering, and related technical consultancy activities",M,"Professional, scientific and technical activities",Expansion
-Relx PLC,549300WSX3VBUFFJOO66,FTSE 350,Other,6390,Web search portals activities and other information service activities,J,Information and communication,Expansion
-SSE PLC,549300KI75VYLLMSK856,FTSE 350,Energy (Transmission),3512,Electric power generation activities from renewable sources,D,"Electricity, gas, steam and air conditioning supply",Expansion
-SSP Group PLC,213800QGNIWTXFMENJ24,FTSE 350,Food (Retail),5629,Other food service activities,I,Accommodation and food service activities,Expansion
-Safestore Holdings PLC,213800WGA3YSJC1YOH73,FTSE 350,Other,5210,Warehousing and storage,H,Transportation and storage,Expansion
-Sage Group PLC,2138005RN5XYLTF8G138,FTSE 350,Other,6219,Other computer programming activities,J,Information and communication,Expansion
-Sainsbury (J) PLC,213800VGZAAJIKJ9Y484,FTSE 350,Food (Retail),4711,"Non-specialized retail sale with food, beverages or tobacco predominating",G,Wholesale and retail trade; repair of motor vehicles and motorcycles,Expansion
-Segro PLC,213800XC35KGM9NFC641,FTSE 350,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
-Standard Chartered PLC,U4LOSYZ7YG4W3S5F2G91,FTSE 350,Finance (Banking),6419,Other monetary intermediation,K,Financial and insurance activities,Expansion
-Tritax Eurobox PLC,213800HK59N7H979QU33,FTSE 350,Other,6810,Real estate activities with own or leased property,L,Real estate activities,Expansion
-Unilever PLC,549300MKFYEKVRWML317,FTSE 350,Other,1079,Manufacture of other food products n.e.c.,C,Manufacturing,Expansion
-United Utilities Group PLC,213800KYT12UFB2VE455,FTSE 350,Water,3600,"Water collection, treatment and supply",E,"Water supply; sewerage, waste management and remediation activities",Expansion
-Victrex PLC,213800UYNPHAUNHPXL67,FTSE 350,Chemicals,2013,Manufacture of plastics and synthetic rubber in primary forms,C,Manufacturing,Expansion
-Vodafone Group PLC,213800TB53ELEUKM7Q61,FTSE 350,Communications,6110,"Wired, wireless, and satellite telecommunication activities",J,Information and communication,Expansion
-Whitbread PLC,21380099VMZKRMN3EX36,FTSE 350,Other,5510,Hotels and similar accommodation activities,I,Accommodation and food service activities,Expansion
+company_name,lei,market_segment,market_segment_refined,cni_sector,isic_sector_name,source_type
+Admiral Group PLC,213800FGVM7Z9EJB2685,FTSE 350,Main Market,Finance,Non-life insurance,Definitive Main Market 1000
+Airtel Africa PLC,254900ZNZDQL6OWQH623,FTSE 350,Main Market,Communications,"Wired, wireless, and satellite telecommunication activities",Definitive Main Market 1000
+Alliance Trust PLC,213800SZZD4E2IOZ9W55,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Allianz Technology Trust PLC,549300OMDPMJU23SSH75,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Ashmore Group PLC,549300U3L59WB4YI2X12,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Ashtead Group PLC,2138007UTBN8X9K1A235,FTSE 350,Main Market,Other,"Rental and leasing of other machinery, equipment and tangible goods",Definitive Main Market 1000
+Associated British Foods PLC,GBQKSY6W7G0OHCQ8OQ72,FTSE 350,Main Market,Food,Manufacture of other food products n.e.c.,Definitive Main Market 1000
+Assura PLC,21380026T19N2Y52XF72,FTSE 350,Main Market,Health,Real estate activities with own or leased property,Definitive Main Market 1000
+AstraZeneca PLC,PY6ZZQWO2IZFZC3IOL08,FTSE 350,Main Market,Health,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",Definitive Main Market 1000
+Auction Technology Group PLC,213800U8Q9K2XI3WRE39,FTSE 350,Main Market,Other,Web search portals activities and other information service activities,Definitive Main Market 1000
+Auto Trader Group PLC,213800QLK9BZILB1DI86,FTSE 350,Main Market,Other,Web search portals activities and other information service activities,Definitive Main Market 1000
+Aviva PLC,YF0Y5B0IB8SM0ZFG9G81,FTSE 350,Main Market,Finance,Life insurance,Definitive Main Market 1000
+Barr (A.G.) PLC,213800QWTXXXF8BNEC87,FTSE 350,Main Market,Food,Manufacture of soft drinks; production of mineral waters and other bottled waters,Definitive Main Market 1000
+Barratt Developments PLC,2138006R85VEOF5YNK29,FTSE 350,Main Market,Other,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Bellway PLC,213800CY4L3HST4FGZ98,FTSE 350,Main Market,Other,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Berkeley Group Holdings PLC,2138009OQSSLVVHQAL78,FTSE 350,Main Market,Other,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Blackrock Greater Europe Investment Trust PLC,5493003R8FJ6I76ZUW55,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+BP PLC,213800LH1BZH3DI6G760,FTSE 350,Main Market,Energy,Extraction of crude petroleum,Definitive Main Market 1000
+British American Tobacco PLC,213800FKA5MF17RJKT63,FTSE 350,Main Market,Other,Manufacture of tobacco products,Definitive Main Market 1000
+British Land Co PLC,RV5B68J2GV3QGMRPW209,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+BT Group PLC,213800LRO7NS5CYQMN21,FTSE 350,Main Market,Communications,"Wired, wireless, and satellite telecommunication activities",Definitive Main Market 1000
+Burberry Group PLC,213800PE1KEFCNFR1R50,FTSE 350,Main Market,Other,"Manufacture of wearing apparel, except fur apparel",Definitive Main Market 1000
+Bytes Technology Group PLC,213800LA4DZLFBAC9O33,FTSE 350,Main Market,Government,Computer consultancy and computer facilities management activities,Definitive Main Market 1000
+Caledonia Investments PLC,2138002FX1MYCA5ZZH32,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Centrica PLC,E26EDV109X6EEPBKVH76,FTSE 350,Main Market,Energy,Activities of brokers and agents for electric power and natural gas,Definitive Main Market 1000
+Clarkson PLC,2138007G6BGTEHI3OT22,FTSE 350,Main Market,Transport,"All other professional, scientific and technical activities n.e.c.",Definitive Main Market 1000
+Close Brothers Group PLC,213800W73SYHR14I3X91,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+CLS Holdings PLC,213800A357TKB2TD9U78,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+CMC Markets PLC,213800VB75KAZBFH5U07,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Compass Group PLC,2138008M6MH9OZ6U2T68,FTSE 350,Main Market,Food,Event catering activities,Definitive Main Market 1000
+Crest Nicholson Holdings PLC,213800ROIFXRRRKVQD25,FTSE 350,Main Market,Other,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Croda International PLC,2138004WCNBFJEEOXV26,FTSE 350,Main Market,Chemicals,Manufacture of other chemical products n.e.c.,Definitive Main Market 1000
+Currys PLC,2138001E12GWLLDQQF16,FTSE 350,Main Market,Other,Retail sale of information and communication equipment,Definitive Main Market 1000
+Diageo PLC,213800ZVIELEA55JMJ32,FTSE 350,Main Market,Food,"Distilling, rectifying and blending of spirits",Definitive Main Market 1000
+Diploma PLC,2138008OGI7VYG8FGR19,FTSE 350,Main Market,Health,"Wholesale of chemicals, waste and scrap and other products n.e.c.",Definitive Main Market 1000
+Discoverie Group PLC,213800BMDLQU1VEEAN68,FTSE 350,Main Market,Transport,Manufacture of other electronic components and boards,Definitive Main Market 1000
+Dr. Martens PLC,213800QPT8YM6NQZPH28,FTSE 350,Main Market,Other,Manufacture of footwear,Definitive Main Market 1000
+Dunelm Group PLC,213800WCOWEI3T5DUV19,FTSE 350,Main Market,Other,"Retail sale of electrical household appliances, furniture, lighting equipment and other household articles",Definitive Main Market 1000
+Easyjet PLC,2138001S47XKWIB7TH90,FTSE 350,Main Market,Transport,Passenger air transport,Definitive Main Market 1000
+Edinburgh Worldwide Investment Trust PLC,213800JUA8RKIDDLH380,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Energean PLC,549300RVMKU0CYUZBB05,FTSE 350,Main Market,Energy,Extraction of natural gas,Definitive Main Market 1000
+F&C Investment Trust PLC,213800W6B18ZHTNG7371,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Fidelity China Special Situations PLC,54930076MSJ0ZW67JB75,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Fidelity Special Values PLC,549300XODK7D2K2KYV43,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Finsbury Growth & Income Trust PLC,213800NN4ZKX2LG1GQ40,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+FirstGroup PLC,549300DEJZCPWA4HKM93,FTSE 350,Main Market,Transport,Urban and suburban passenger land transport,Definitive Main Market 1000
+Frasers Group PLC,213800JEGHHEAXIJDX34,FTSE 350,Main Market,Other,Other non-specialized retail sale,Definitive Main Market 1000
+Future PLC,213800K2581YRLEXV353,FTSE 350,Main Market,Other,Publishing of journals and periodicals,Definitive Main Market 1000
+Games Workshop Group PLC,213800RP9QJQYGWHNT41,FTSE 350,Main Market,Other,Manufacture of games and toys,Definitive Main Market 1000
+Great Portland Estates PLC,213800JMEDD2Q4N1MC42,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+Halma PLC,2138007FRGLUR9KGBT40,FTSE 350,Main Market,Health,"Manufacture of measuring, testing, navigating and control equipment",Definitive Main Market 1000
+Henderson Smaller Companies Investment Trust PLC,213800NE2NCQ67M2M998,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+HICL Infrastructure PLC,213800BVXR1E5L7PEV94,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Ibstock PLC,2138003QHTNX34CN9V93,FTSE 350,Main Market,Other,Manufacture of clay building materials,Definitive Main Market 1000
+ICG Enterprise Trust PLC,213800T2SY83WIJOJH13,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+IG Group Holdings PLC,2138003A5Q1M7ANOUD76,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Indivior PLC,213800V3NCQTY7IED471,FTSE 350,Main Market,Health,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",Definitive Main Market 1000
+Intercontinental Hotels Group PLC,2138007ZFQYRUSLU3J98,FTSE 350,Main Market,Other,Hotels and similar accommodation activities,Definitive Main Market 1000
+International Distributions Service,213800TCZZU84G8Z2M70,FTSE 350,Main Market,Transport,Postal activities,Definitive Main Market 1000
+J.D. Wetherspoon PLC,213800CHWARFAAN7UB85,FTSE 350,Main Market,Food,Beverage serving activities,Definitive Main Market 1000
+JD Sports Fashion PLC,213800HROV6Y9MUU8375,FTSE 350,Main Market,Other,"Retail sale of clothing, footwear and leather articles",Definitive Main Market 1000
+JPMorgan Emerging Markets Investment Trust PLC,5493001VPQDYH1SSSR77,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Kainos Group PLC,213800H2PQMIF3OVZY47,FTSE 350,Main Market,Government,Computer consultancy and computer facilities management activities,Definitive Main Market 1000
+Kingfisher PLC,213800KBMEV7I92FY281,FTSE 350,Main Market,Other,"Retail sale of hardware, building materials, paints and glass",Definitive Main Market 1000
+Law Debenture Corporation PLC,2138006E39QX7XV6PP21,FTSE 350,Main Market,Finance,"Activities of trust, estate and agency accounts",Definitive Main Market 1000
+Liontrust Asset Management PLC,549300XVXU6S7PLCL855,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Lloyds Banking Group PLC,549300PPXHEU2JF0AM85,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Londonmetric Property PLC,213800OCERWWPQDURL87,FTSE 350,Main Market,Finance,Real estate activities with own or leased property,Definitive Main Market 1000
+Marks & Spencer Group PLC,213800EJP14A79ZG1X44,FTSE 350,Main Market,Food,Other non-specialized retail sale,Definitive Main Market 1000
+Mitchells & Butlers PLC,213800JHYNDNB1NS2W10,FTSE 350,Main Market,Other,Restaurants and mobile food service activities,Definitive Main Market 1000
+Mitie Group PLC,213800MTCLTKEHWZMJ03,FTSE 350,Main Market,Government,Combined facilities support activities,Definitive Main Market 1000
+Molten Ventures PLC,213800IPCR3SAYJWSW10,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Mondi PLC,213800LOZA69QFDC9N34,FTSE 350,Main Market,Other,Manufacture of corrugated paper and paperboard and of containers of paper and paperboard,Definitive Main Market 1000
+Murray International Trust PLC,549300BP77JO5Y8LM553,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+National Grid PLC,8R95QZMKZLJX5Q2XR704,FTSE 350,Main Market,Energy,Electric power transmission and distribution activities,Definitive Main Market 1000
+Natwest Group PLC,2138005O9XJIJN4JPN90,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Ninety One PLC,549300G0TJCT3K15ZG14,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Pantheon International PLC,2138001B3CE5S5PEE928,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Paragon Banking Group PLC,213800S1TDKIB1IUTS72,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Pearson PLC,2138004JBXWWJKIURC57,FTSE 350,Main Market,Other,Other software publishing,Definitive Main Market 1000
+Pennon Group PLC,213800V1CCTS41GWH423,FTSE 350,Main Market,Water,"Water collection, treatment and supply",Definitive Main Market 1000
+Persimmon PLC,213800XI72Y57UWN6F31,FTSE 350,Main Market,Other,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Premier Foods PLC,213800ZD5I8XHNMCJA67,FTSE 350,Main Market,Food,Manufacture of other food products n.e.c.,Definitive Main Market 1000
+Prudential PLC,5493001Z3ZE83NGK8Y12,FTSE 350,Main Market,Finance,Life insurance,Definitive Main Market 1000
+PZ Cussons PLC,XB3CXKKKED7OMV80FY35,FTSE 350,Main Market,Chemicals,"Manufacture of soap and detergents, cleaning and polishing preparations, perfumes and toilet preparations",Definitive Main Market 1000
+QinetiQ Group PLC,213800S8OBDOZMCMUW34,FTSE 350,Main Market,Defence,Research and experimental development on natural sciences and engineering,Definitive Main Market 1000
+Rathbones Group PLC,213800MBTHM6UE8ZQP29,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Relx PLC,549300WSX3VBUFFJOO66,FTSE 350,Main Market,Health,Web search portals activities and other information service activities,Definitive Main Market 1000
+Renishaw PLC,21380048ADXM6Z67CT18,FTSE 350,Main Market,Health,"Manufacture of measuring, testing, navigating and control equipment",Definitive Main Market 1000
+RS Group PLC,549300KVXDURRKVW7R37,FTSE 350,Main Market,Other,Wholesale of other machinery and equipment,Definitive Main Market 1000
+Sage Group PLC,2138005RN5XYLTF8G138,FTSE 350,Main Market,Other,Other computer programming activities,Definitive Main Market 1000
+Sainsbury (J) PLC,213800VGZAAJIKJ9Y484,FTSE 350,Main Market,Food,"Non-specialized retail sale with food, beverages or tobacco predominating",Definitive Main Market 1000
+Savills PLC,213800WXICGMBWHTA933,FTSE 350,Main Market,Other,Other real estate activities on a fee or contract basis,Definitive Main Market 1000
+Schroder Oriental Income Fund,5493001U9X6P8SS0PK40,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Severn Trent PLC,213800RPBXRETY4A4C59,FTSE 350,Main Market,Water,"Water collection, treatment and supply",Definitive Main Market 1000
+Shell PLC,21380068P1DRHMJ8KU70,FTSE 350,Main Market,Energy,Manufacture of refined petroleum products; manufacture of fossil fuel products,Definitive Main Market 1000
+Smiths Group PLC,213800MJL6IPZS3ASA11,FTSE 350,Main Market,Transport,"Manufacture of measuring, testing, navigating and control equipment",Definitive Main Market 1000
+Softcat PLC,213800N42YZLR9GLVC42,FTSE 350,Main Market,Government,Computer consultancy and computer facilities management activities,Definitive Main Market 1000
+SSP Group PLC,213800QGNIWTXFMENJ24,FTSE 350,Main Market,Food,Other food service activities,Definitive Main Market 1000
+Target Healthcare REIT PLC,213800RXPY9WULUSBC04,FTSE 350,Main Market,Health,Real estate activities with own or leased property,Definitive Main Market 1000
+Tate & Lyle PLC,2138008K14474WPKZ244,FTSE 350,Main Market,Food,Manufacture of starches and starch products,Definitive Main Market 1000
+Telecom Plus PLC,549300QGHDX5UKE58G86,FTSE 350,Main Market,Communications,Telecommunication reselling activities and intermediation service activities for telecommunication,Definitive Main Market 1000
+Temple Bar Investment Trust PLC,213800O8EAP4SG5JD323,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Tesco PLC,2138002P5RNKC5W2JZ46,FTSE 350,Main Market,Food,"Non-specialized retail sale with food, beverages or tobacco predominating",Definitive Main Market 1000
+Trainline PLC,213800HO26VXTFJ4MO71,FTSE 350,Main Market,Transport,Travel agency activities,Definitive Main Market 1000
+Unilever PLC,549300MKFYEKVRWML317,FTSE 350,Main Market,Food,Manufacture of other food products n.e.c.,Definitive Main Market 1000
+Virgin Money UK PLC,213800ZK9VGCYYR6O495,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Vodafone Group PLC,213800TB53ELEUKM7Q61,FTSE 350,Main Market,Communications,"Wired, wireless, and satellite telecommunication activities",Definitive Main Market 1000
+Volution Group PLC,213800EPT84EQCDHO768,FTSE 350,Main Market,Other,Manufacture of other general-purpose machinery,Definitive Main Market 1000
+WH Smith PLC,2138001KJNGUJ34G7X91,FTSE 350,Main Market,Other,Other non-specialized retail sale,Definitive Main Market 1000
+Workspace Group PLC,2138003GUZRFIN3UT430,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+Worldwide Healthcare Trust PLC,5493003YBCY4W1IMJU04,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+WPP PLC,549300LSGBXPYHXGDT93,FTSE 350,Main Market,Other,Advertising activities,Definitive Main Market 1000
+Aberforth Smaller Companies Trust plc,213800GZ9WC73A92Q326,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Abrdn PLC,0TMBS544NMO7GLCE7H90,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+AJ Bell PLC,213800VNKA7DPWXWJJ36,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Anglo American PLC,549300S9XF92D1X8ME43,FTSE 350,Main Market,Other,Mining of other non-ferrous metal ores,Definitive Main Market 1000
+Babcock International Group PLC,213800TSKOLX4EU6L377,FTSE 350,Main Market,Defence,"Architectural and engineering, and related technical consultancy activities",Definitive Main Market 1000
+Bellevue Healthcare Trust PLC,213800HQ3J3H9YF2UI82,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Big Yellow Group PLC,213800W7Q4V2ZI8LIW31,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+Blackrock World Mining Trust PLC,LNFFPBEUZJBOSR6PW155,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Carnival PLC,4DR1VPDQMHD3N3QW8W95,FTSE 350,Main Market,Transport,Sea and coastal passenger water transport,Definitive Main Market 1000
+Chemring Group PLC,213800U9A54VQJ5P2J41,FTSE 350,Main Market,Defence,Manufacture of air and spacecraft and related machinery,Definitive Main Market 1000
+City of London Investment Trust PLC,213800F3NOTF47H6AO55,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Coats Group PLC,2138003SPYWGAITNFY17,FTSE 350,Main Market,Communications,Preparation and spinning of textile fibres,Definitive Main Market 1000
+Convatec Group PLC,213800LS272L4FIDOH92,FTSE 350,Main Market,Health,Manufacture of medical and dental instruments and supplies,Definitive Main Market 1000
+Diversified Energy Company PLC,213800YR9TFRVHPGOS67,FTSE 350,Main Market,Energy,Extraction of natural gas,Definitive Main Market 1000
+Edinburgh Investment Trust PLC,549300HV0VXCRONER808,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Endeavour Mining PLC,529900NI5MXQ91GHXR07,FTSE 350,Main Market,Other,Mining of other non-ferrous metal ores,Definitive Main Market 1000
+Essentra PLC,5493007MOZNA03BVNE96,FTSE 350,Main Market,Other,Manufacture of plastics products,Definitive Main Market 1000
+GlaxoSmithKline PLC,5493000HZTVUYLO1D793,FTSE 350,Main Market,Health,"Manufacture of pharmaceuticals, medicinal chemical and botanical products",Definitive Main Market 1000
+Hammerson PLC,213800G1C9KKVVDN1A60,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+Harbour Energy PLC,213800YPC42DYBKVPF97,FTSE 350,Main Market,Energy,Extraction of crude petroleum,Definitive Main Market 1000
+Hays PLC,213800QC8AWD4BO8TH08,FTSE 350,Main Market,Other,Activities of employment placement agencies,Definitive Main Market 1000
+HSBC Holdings PLC,MLU0ZO3ML4LN2LL2TL39,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+John Wood Group PLC,549300PLYY6I10B6S323,FTSE 350,Main Market,Energy,"Architectural and engineering, and related technical consultancy activities",Definitive Main Market 1000
+Johnson Matthey PLC,2138001AVBSD1HSC6Z10,FTSE 350,Main Market,Chemicals,Manufacture of other chemical products n.e.c.,Definitive Main Market 1000
+JPMorgan American Investment Trust PLC,549300QNAI4XRPEB4G65,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Just Group PLC,5493006456YEZEELRR90,FTSE 350,Main Market,Finance,Life insurance,Definitive Main Market 1000
+Keller Group PLC,549300QO4MBL43UHSN10,FTSE 350,Main Market,Other,Other specialized construction activities,Definitive Main Market 1000
+Land Securities Group PLC,213800V8IAVKS37D6B88,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+M&G PLC,254900TWUJUQ44TQJY84,FTSE 350,Main Market,Finance,Life insurance,Definitive Main Market 1000
+Monks Investment Trust PLC,213800MRI1JTUKG5AF64,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Morgan Sindall Group PLC,2138008339ULDGZRB345,FTSE 350,Main Market,Transport,Construction of residential and non-residential buildings,Definitive Main Market 1000
+Next PLC,213800WQD8ECPZP9PH98,FTSE 350,Main Market,Other,Other non-specialized retail sale,Definitive Main Market 1000
+North Atlantic Smaller Companies Invesment Trust PLC,213800HYQEOS2281RR86,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+OSB Group PLC,213800ZBKL9BHSL2K459,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Pacific Horizon Investment Trust PLC,VLGEI9B8R0REWKB0LN95,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Primary Health Properties PLC,213800Y5CJHXOATK7X11,FTSE 350,Main Market,Health,Real estate activities with own or leased property,Definitive Main Market 1000
+Quilter PLC,54930092XIVK28RZGM95,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Rio Tinto PLC,213800YOEO5OQ72G2R82,FTSE 350,Main Market,Other,Mining of iron ores,Definitive Main Market 1000
+RIT Capital Partners PLC,P31Q1NLTW35JJGHA4667,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Rolls-Royce Holdings PLC,213800EC7997ZBLZJH69,FTSE 350,Main Market,Defence,Manufacture of air and spacecraft and related machinery,Definitive Main Market 1000
+Schroders PLC,2138001YYBULX5SZ2H24,FTSE 350,Main Market,Finance,"Other financial service activities n.e.c., except insurance and pension funding activities",Definitive Main Market 1000
+Senior PLC,5493002HQHWN5JQHKQ51,FTSE 350,Main Market,Defence,Manufacture of other general-purpose machinery,Definitive Main Market 1000
+Smithson Investment Trust PLC,52990070BDK2OKX5TH79,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Spire Healthcare Group PLC,213800IBJPW3SE2RA350,FTSE 350,Main Market,Health,Hospital activities,Definitive Main Market 1000
+Spirent Communications PLC,213800HKCUNWP1916L38,FTSE 350,Main Market,Communications,Other information technology and computer service activities,Definitive Main Market 1000
+SSE PLC,549300KI75VYLLMSK856,FTSE 350,Main Market,Energy,Electric power generation activities from renewable sources,Definitive Main Market 1000
+St. James's Place PLC,213800M993ICXOMBCP87,FTSE 350,Main Market,Finance,Fund management activities,Definitive Main Market 1000
+Standard Chartered PLC,U4LOSYZ7YG4W3S5F2G91,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+SThree PLC,2138003NEBX5VRP3EX50,FTSE 350,Main Market,Other,Temporary employment agency activities and other human resource provisions,Definitive Main Market 1000
+TBC Bank Group PLC,213800T6NS9N2WQ3B328,FTSE 350,Main Market,Finance,Activities of holding companies,Definitive Main Market 1000
+Tritax Big Box REIT PLC,213800L6X88MIYPVR714,FTSE 350,Main Market,Finance,Real estate activities with own or leased property,Definitive Main Market 1000
+Vanquis Banking Group (formerly: Provident Financial Plc),213800U93SZC44VXN635,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Vesuvius PLC,213800ORZ521W585SY02,FTSE 350,Main Market,Other,Manufacture of refractory products,Definitive Main Market 1000
+Warehouse REIT PLC,213800BQUD83TYQCWN28,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+Watches of Switzerland Group PLC,2138008ZOT5K9PJW7168,FTSE 350,Main Market,Other,Retail sale of other new goods n.e.c.,Definitive Main Market 1000
+European Smaller Companies Trust PLC,213800N1B1HCQG2W4V90,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Impax Environmental Markets PLC,213800RAR6ZDJLZDND86,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Scottish Mortgage Investment Trust PLC,213800G37DCS3Q9IJM38,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Shaftesbury Capital Plc (formerly: Capital & Counties Properties Plc),549300TTXXZ1SHUI0D54,FTSE 350,Main Market,Other,Real estate activities with own or leased property,Definitive Main Market 1000
+The Bankers Investment Trust PLC,213800B9YWXL3X1VMZ69,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Avi Global Trust PLC,213800QUODCLWWRVI968,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+JPMorgan Japanese Investment Trust PLC,549300JZW3TSSO464R15,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+3i Group PLC,35GDVHRBMFE7NWATNM84,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Barclays PLC,213800LBQA1Y9L22JB70,FTSE 350,Main Market,Finance,Other monetary intermediation,Definitive Main Market 1000
+Blackrock Throgmorton Investment Trust PLC,5493003B7ETS1JEDPF59,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+European Opportunities Trust,549300XN7RXQWHN18849,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Greggs PLC,213800I71QMUFJ64IW20,FTSE 350,Main Market,Food,Restaurants and mobile food service activities,Definitive Main Market 1000
+HgCapital Trust PLC,213800J7QUJJBEFSIN38,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Intermediate Capital Group PLC,549300OGASR5WRKJ8R68,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+IP Group PLC,213800HG22UM138WFG43,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Oxford Instruments PLC,213800J364EZD6UCE231,FTSE 350,Main Market,Other,"Manufacture of measuring, testing, navigating and control equipment",Definitive Main Market 1000
+Polar Capital Technology Trust PLC,549300TN1O5392UC4K19,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Redde Northgate PLC,213800B3ZUTDOZYVJB41,FTSE 350,Main Market,Transport,Rental and leasing of motor vehicles,Definitive Main Market 1000
+SDCL Energy Efficiency Income Trust,213800ZPSC7XUVD3NL94,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Supermarket Income REIT PLC,2138007FOINJKAM7L537,FTSE 350,Main Market,Food,Real estate activities with own or leased property,Definitive Main Market 1000
+TR Property Investment Trust PLC,549300BPGCCN3ETPQD32,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+United Utilities Group PLC,213800KYT12UFB2VE455,FTSE 350,Main Market,Water,"Water collection, treatment and supply",Definitive Main Market 1000
+Whitbread PLC,21380099VMZKRMN3EX36,FTSE 350,Main Market,Other,Hotels and similar accommodation activities,Definitive Main Market 1000
+Blackrock Smaller Companies Investment Trust PLC,549300MS535KC2WH4082,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Herald Investment Trust PLC,213800U7G1ROCTJYRR70,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+The Mercantile Investment Trust PLC,549300BGX3CJIHLP2H42,FTSE 350,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+Greencoat UK Wind PLC,213800ZPBBK8H51RX165,FTSE 350,Main Market,Energy,Electric power generation activities from renewable sources,Definitive Main Market 1000
+abrdn Asia Focus plc,5493000FBZP1J92OQY70,Main Market,Main Market,Finance,Activities of non-money market investments funds,Definitive Main Market 1000
+abrdn European Logistics Income plc,213800I9IYIKKNRT3G50,Main Market,Main Market,Finance,Real estate activities with own or leased property,Definitive Main Market 1000
+ADRIATIC METALS PLC,549300OHAH2GL1DP0L61,Main Market,Main Market,Other,Mining of other non-ferrous metal ores,Definitive Main Market 1000
+AEW UK REIT PLC,21380073LDXHV2LP5K50,Main Market,Main Market,Finance,Real estate activities with own or leased property,Definitive Main Market 1000
+ALFA FINANCIAL SOFTWARE HOLDINGS PL,213800C5UOZHUTNUGA28,Main Market,Main Market,Finance,Other computer programming activities,Definitive Main Market 1000
