@@ -50,13 +50,13 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       {/* Hero */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-amber-200/70 blur-3xl" />
-          <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-sky-200/70 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-emerald-200/60 blur-3xl" />
+          <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-slate-100/70 blur-3xl" />
+          <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-slate-100/70 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-slate-100/60 blur-3xl" />
         </div>
         <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16">
           <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between">
@@ -79,17 +79,17 @@ export default function HomePage() {
 
               {/* Stats */}
               <div className="mt-8 flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 lg:justify-start">
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perReportSummary.totalCompanies}</span> Companies
+                <span className="rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-slate-900">{perReportSummary.totalCompanies}</span> Companies
                 </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perReportSummary.totalReports}</span> Annual Reports
+                <span className="rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-slate-900">{perReportSummary.totalReports}</span> Annual Reports
                 </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perChunkSummary.totalReports}</span> Extracted Chunks
+                <span className="rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-slate-900">{perChunkSummary.totalReports}</span> Extracted Chunks
                 </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{yearRange}</span>
+                <span className="rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
+                  <span className="text-slate-900">{yearRange}</span>
                 </span>
               </div>
             </div>
@@ -114,7 +114,7 @@ export default function HomePage() {
           href="https://github.com/84rt/AI-Risk-Observatory"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md"
+          className="mt-4 inline-flex items-center gap-2 rounded-md bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md"
         >
           <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
@@ -124,10 +124,10 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-6 pb-14">
-        <div className="rounded-3xl border border-slate-200/80 bg-white/85 p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200/80 bg-white/85 p-6 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Dataset Status
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">
@@ -139,23 +139,23 @@ export default function HomePage() {
             </div>
             <Link
               href="/data?view=risk"
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               Start With Risk Trends
             </Link>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Coverage Window</p>
               <p className="mt-2 text-xl font-semibold text-slate-900">{yearRange}</p>
               <p className="mt-1 text-sm text-slate-500">Latest filing year in the current snapshot: {latestYear}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Risk Disclosure</p>
               <p className="mt-2 text-xl font-semibold text-slate-900">{riskCoverage}%</p>
               <p className="mt-1 text-sm text-slate-500">{riskReports} reports mention AI risk at least once</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Evidence Base</p>
               <p className="mt-2 text-xl font-semibold text-slate-900">{perChunkSummary.totalReports}</p>
               <p className="mt-1 text-sm text-slate-500">Extracted excerpts supporting the dashboard aggregates</p>
@@ -169,7 +169,7 @@ export default function HomePage() {
         <div className="grid gap-6 sm:grid-cols-2">
           <Link
             href="/data"
-            className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
+            className="group rounded-lg border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
           >
             <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
               Data
@@ -177,13 +177,13 @@ export default function HomePage() {
             <p className="mt-2 text-sm text-slate-500">
               Interactive charts and heatmaps covering AI risk categories, adoption types, vendor references, signal quality, and disclosure blind spots across sectors and years, now with shareable filtered URLs and selection summaries.
             </p>
-            <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
+            <span className="mt-4 inline-block text-sm font-medium text-slate-600 group-hover:underline">
               Explore the data &rarr;
             </span>
           </Link>
           <Link
             href="/about"
-            className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
+            className="group rounded-lg border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
           >
             <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
               About
@@ -191,7 +191,7 @@ export default function HomePage() {
             <p className="mt-2 text-sm text-slate-500">
               How the pipeline works — from keyword extraction and chunk classification to the taxonomies and quality controls behind the data.
             </p>
-            <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
+            <span className="mt-4 inline-block text-sm font-medium text-slate-600 group-hover:underline">
               Read the methodology &rarr;
             </span>
           </Link>
