@@ -15,6 +15,7 @@ PIPELINE_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PIPELINE_ROOT))
 
 from src.config import get_settings  # noqa: E402
+from src.utils.keywords import compile_keyword_patterns  # noqa: E402
 
 
 REQUIRED_FIELDS = [
@@ -49,10 +50,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional output directory for QA reports",
     )
+    parser.add_argument(
+        "--max-chunk-words",
+        type=int,
+        default=600,
+        help="Flag chunks above this word count threshold.",
+    )
     return parser.parse_args()
 
 
-def _validate_chunk(chunk: Dict) -> List[str]:
+def _validate_chunk(chunk: Dict, max_chunk_words: int, patterns: List[tuple]) -> List[str]:
     issues = []
     for field in REQUIRED_FIELDS:
         if field not in chunk:
@@ -64,6 +71,15 @@ def _validate_chunk(chunk: Dict) -> List[str]:
     if chunk.get("paragraph_start") is not None and chunk.get("paragraph_end") is not None:
         if chunk["paragraph_start"] > chunk["paragraph_end"]:
             issues.append("invalid_paragraph_range")
+    if chunk.get("chunk_word_len") is not None and int(chunk["chunk_word_len"]) > max_chunk_words:
+        issues.append("chunk_exceeds_word_limit")
+    text = str(chunk.get("chunk_text") or "").strip()
+    if text:
+        has_direct_match = any(regex.search(text) for _, regex in patterns)
+        if not has_direct_match:
+            issues.append("no_direct_keyword_match")
+    if not chunk.get("has_direct_keyword_match"):
+        issues.append("has_direct_keyword_match_false")
     return issues
 
 
@@ -71,6 +87,7 @@ def run_qa(
     run_id: str,
     chunks_path: Optional[Path] = None,
     output_dir: Optional[Path] = None,
+    max_chunk_words: int = 600,
 ) -> List[Dict]:
     settings = get_settings()
     default_path = settings.processed_dir / run_id / "chunks" / "chunks.jsonl"
@@ -81,6 +98,7 @@ def run_qa(
 
     results: List[Dict] = []
     seen_chunk_ids = set()
+    patterns = compile_keyword_patterns()
 
     with open(chunks_path, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
@@ -99,7 +117,7 @@ def run_qa(
                 )
                 continue
 
-            issues = _validate_chunk(chunk)
+            issues = _validate_chunk(chunk, max_chunk_words=max_chunk_words, patterns=patterns)
             chunk_id = chunk.get("chunk_id")
             if chunk_id in seen_chunk_ids:
                 issues.append("duplicate_chunk_id")
@@ -144,7 +162,12 @@ def run_qa(
 
 def main() -> None:
     args = parse_args()
-    run_qa(run_id=args.run_id, chunks_path=args.chunks_path, output_dir=args.output_dir)
+    run_qa(
+        run_id=args.run_id,
+        chunks_path=args.chunks_path,
+        output_dir=args.output_dir,
+        max_chunk_words=args.max_chunk_words,
+    )
 
 
 if __name__ == "__main__":

@@ -85,6 +85,15 @@ class MarkdownParagraph:
     block_index: int
 
 
+@dataclass(frozen=True)
+class CharWindow:
+    """A character-span window centered on one or more mention matches."""
+
+    start: int
+    end: int
+    matches: Tuple[dict, ...]
+
+
 def _parse_markdown_blocks(markdown: str) -> List[MarkdownBlock]:
     blocks: List[MarkdownBlock] = []
     current_section = None
@@ -209,6 +218,18 @@ def _merge_windows(windows: List[Tuple[int, int, int]]) -> List[Tuple[int, int, 
     return merged
 
 
+def _dedupe_paragraph_windows(
+    windows: List[Tuple[int, int, int]],
+) -> List[Tuple[int, int, List[int]]]:
+    deduped: Dict[Tuple[int, int], List[int]] = {}
+    for start_idx, end_idx, mention_index in sorted(windows, key=lambda w: (w[0], w[1], w[2])):
+        deduped.setdefault((start_idx, end_idx), []).append(mention_index)
+    return [
+        (start_idx, end_idx, mention_indices)
+        for (start_idx, end_idx), mention_indices in deduped.items()
+    ]
+
+
 def _stable_chunk_id(document_id: str, start_idx: int, end_idx: int) -> str:
     payload = f"{document_id}:{start_idx}:{end_idx}"
     digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()
@@ -228,6 +249,18 @@ def _stable_subchunk_id(
 
 def _word_count(text: str) -> int:
     return len(re.findall(r"\S+", text or ""))
+
+
+def _is_malformed_for_paragraph_chunking(
+    markdown: str,
+    paragraphs: List[MarkdownParagraph],
+) -> bool:
+    if markdown.count("\n") <= 1:
+        return True
+    if len(paragraphs) <= 1:
+        return True
+    longest_paragraph_chars = max((len(p.text) for p in paragraphs), default=0)
+    return longest_paragraph_chars >= 20000
 
 
 def _term_hits(text: str, terms: List[str]) -> int:
@@ -296,6 +329,7 @@ def _clean_chunk_lines(
     text: str,
     drop_table_rule_lines: bool,
     drop_listing_rows: bool,
+    patterns: List[tuple],
 ) -> tuple[str, dict]:
     removed_table_rule_lines = 0
     removed_listing_rows = 0
@@ -304,6 +338,10 @@ def _clean_chunk_lines(
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped:
+            continue
+        # Never drop a line that directly carries an AI mention.
+        if any(regex.search(stripped) for _, regex in patterns):
+            kept_lines.append(line)
             continue
         if drop_table_rule_lines and _TABLE_RULE_ROW_RE.match(stripped):
             removed_table_rule_lines += 1
@@ -318,6 +356,86 @@ def _clean_chunk_lines(
         "removed_table_rule_lines": removed_table_rule_lines,
         "removed_listing_rows": removed_listing_rows,
     }
+
+
+def _find_sentence_start(text: str, target: int) -> int:
+    if target <= 0:
+        return 0
+
+    blank_break = text.rfind("\n\n", 0, target)
+    punctuation_breaks = [
+        text.rfind(marker, 0, target)
+        for marker in (". ", "! ", "? ", ".\n", "!\n", "?\n")
+    ]
+    boundary = max([blank_break, *punctuation_breaks])
+    if boundary < 0:
+        return 0
+    if text.startswith("\n\n", boundary):
+        return boundary + 2
+    return min(boundary + 2, len(text))
+
+
+def _find_sentence_end(text: str, target: int) -> int:
+    if target >= len(text):
+        return len(text)
+
+    candidates = []
+    blank_break = text.find("\n\n", target)
+    if blank_break >= 0:
+        candidates.append(blank_break)
+    for marker in (". ", "! ", "? ", ".\n", "!\n", "?\n"):
+        idx = text.find(marker, target)
+        if idx >= 0:
+            candidates.append(idx + 1)
+    if not candidates:
+        return len(text)
+    return min(candidates) + 1
+
+
+def _build_char_windows_from_matches(
+    text: str,
+    matches: List[dict],
+    char_radius: int,
+) -> List[CharWindow]:
+    if not matches:
+        return []
+
+    seeded: List[Tuple[int, int, dict]] = []
+    for match in sorted(matches, key=lambda m: (m["start"], m["end"])):
+        start = max(0, match["start"] - char_radius)
+        end = min(len(text), match["end"] + char_radius)
+        start = _find_sentence_start(text, start)
+        end = _find_sentence_end(text, end)
+        if end <= start:
+            continue
+        seeded.append((start, end, match))
+
+    if not seeded:
+        return []
+
+    merged: List[CharWindow] = []
+    current_start, current_end, current_matches = seeded[0][0], seeded[0][1], [seeded[0][2]]
+    for start, end, match in seeded[1:]:
+        if start < current_end:
+            current_end = max(current_end, end)
+            current_matches.append(match)
+        else:
+            merged.append(
+                CharWindow(
+                    start=current_start,
+                    end=current_end,
+                    matches=tuple(current_matches),
+                )
+            )
+            current_start, current_end, current_matches = start, end, [match]
+    merged.append(
+        CharWindow(
+            start=current_start,
+            end=current_end,
+            matches=tuple(current_matches),
+        )
+    )
+    return merged
 
 
 def _split_text_by_word_limit(
@@ -411,6 +529,110 @@ def _split_text_by_word_limit(
     return [s for s in segments if s]
 
 
+def _emit_chunk_variants(
+    *,
+    source_text: str,
+    document_id: str,
+    company_id: str,
+    company_name: str,
+    report_year: int,
+    chunk_text: str,
+    start_offset: int,
+    end_offset: int,
+    parent_identity: str,
+    paragraph_start: Optional[int],
+    paragraph_end: Optional[int],
+    block_start: Optional[int],
+    block_end: Optional[int],
+    context_before: int,
+    context_after: int,
+    report_sections: List[str],
+    max_chunk_words: Optional[int],
+    overlap_sentences: int,
+    patterns: List[tuple],
+    drop_table_rule_lines: bool,
+    drop_listing_rows: bool,
+) -> List[Dict]:
+    parent_chunk_id = _stable_chunk_id(document_id, start_offset, end_offset)
+    sub_texts = _split_text_by_word_limit(
+        chunk_text,
+        max_words=max_chunk_words or 0,
+        overlap_sentences=overlap_sentences,
+    )
+
+    chunks: List[Dict] = []
+    search_pos = 0
+    for sub_idx, raw_sub_text in enumerate(sub_texts):
+        if len(sub_texts) == 1:
+            chunk_id = parent_chunk_id
+        else:
+            chunk_id = _stable_subchunk_id(document_id, start_offset, end_offset, sub_idx)
+
+        local_start = chunk_text.find(raw_sub_text, search_pos)
+        if local_start >= 0:
+            local_end = local_start + len(raw_sub_text)
+            search_pos = max(local_start + 1, local_end - 1)
+        else:
+            local_start = 0
+            local_end = len(raw_sub_text)
+
+        cleaned_sub_text, cleaning_meta = _clean_chunk_lines(
+            raw_sub_text,
+            drop_table_rule_lines=drop_table_rule_lines,
+            drop_listing_rows=drop_listing_rows,
+            patterns=patterns,
+        )
+        if not cleaned_sub_text:
+            continue
+
+        sub_matches = _find_matches(cleaned_sub_text, patterns)
+        if not sub_matches:
+            continue
+
+        chunks.append(
+            {
+                "chunk_id": chunk_id,
+                "parent_chunk_id": parent_chunk_id if len(sub_texts) > 1 else None,
+                "parent_identity": parent_identity,
+                "subchunk_index": sub_idx,
+                "subchunk_count": len(sub_texts),
+                "parent_chunk_char_len": len(chunk_text),
+                "parent_chunk_word_len": _word_count(chunk_text),
+                "chunk_char_len": len(cleaned_sub_text),
+                "chunk_word_len": _word_count(cleaned_sub_text),
+                "has_direct_keyword_match": True,
+                "chunk_cleaned": bool(
+                    cleaning_meta["removed_table_rule_lines"] + cleaning_meta["removed_listing_rows"]
+                ),
+                "removed_table_rule_lines": cleaning_meta["removed_table_rule_lines"],
+                "removed_listing_rows": cleaning_meta["removed_listing_rows"],
+                "document_id": document_id,
+                "company_id": company_id,
+                "company_name": company_name,
+                "report_year": report_year,
+                "report_sections": report_sections,
+                "paragraph_start": paragraph_start,
+                "paragraph_end": paragraph_end,
+                "block_start": block_start,
+                "block_end": block_end,
+                "char_start": start_offset + local_start,
+                "char_end": min(end_offset, start_offset + local_end),
+                "context_before": context_before,
+                "context_after": context_after,
+                "chunk_text": cleaned_sub_text,
+                "matched_keywords": sorted({m["keyword"] for m in sub_matches}),
+                "keyword_matches": [
+                    {
+                        "paragraph_index": paragraph_start,
+                        "matches": sub_matches,
+                    }
+                ],
+            }
+        )
+
+    return chunks
+
+
 def chunk_markdown(
     markdown: str,
     document_id: str,
@@ -429,11 +651,55 @@ def chunk_markdown(
     blocks = _parse_markdown_blocks(markdown)
     paragraphs = _extract_paragraphs(blocks)
     patterns = _compile_patterns(keyword_patterns)
-
     chunks: List[Dict] = []
+
+    if _is_malformed_for_paragraph_chunking(markdown, paragraphs):
+        char_radius = max(1200, min(4000, (max_chunk_words or 600) * 3))
+        windows = _build_char_windows_from_matches(
+            markdown,
+            _find_matches(markdown, patterns),
+            char_radius=char_radius,
+        )
+        for window in windows:
+            chunk_text = markdown[window.start:window.end].strip()
+            if not chunk_text:
+                continue
+            report_sections = sorted(
+                {
+                    paragraph.section
+                    for paragraph in paragraphs
+                    if paragraph.section
+                }
+            )
+            chunks.extend(
+                _emit_chunk_variants(
+                    source_text=markdown,
+                    document_id=document_id,
+                    company_id=company_id,
+                    company_name=company_name,
+                    report_year=report_year,
+                    chunk_text=chunk_text,
+                    start_offset=window.start,
+                    end_offset=window.end,
+                    parent_identity="mention_char_window",
+                    paragraph_start=0 if paragraphs else None,
+                    paragraph_end=max(len(paragraphs) - 1, 0) if paragraphs else None,
+                    block_start=paragraphs[0].block_index if paragraphs else None,
+                    block_end=paragraphs[-1].block_index if paragraphs else None,
+                    context_before=context_before,
+                    context_after=context_after,
+                    report_sections=report_sections,
+                    max_chunk_words=max_chunk_words,
+                    overlap_sentences=overlap_sentences,
+                    patterns=patterns,
+                    drop_table_rule_lines=drop_table_rule_lines,
+                    drop_listing_rows=drop_listing_rows,
+                )
+            )
+        return chunks
+
     mention_windows: List[Tuple[int, int, int]] = []
     matches_by_paragraph: Dict[int, List[dict]] = {}
-
     for paragraph in paragraphs:
         matches = _find_matches(paragraph.text, patterns)
         if not matches:
@@ -443,109 +709,45 @@ def chunk_markdown(
         end_idx = min(paragraph.index + context_after, len(paragraphs) - 1)
         mention_windows.append((start_idx, end_idx, paragraph.index))
 
-    merged_windows = _merge_windows(mention_windows)
-
-    for start_idx, end_idx, mention_indices in merged_windows:
+    for start_idx, end_idx, mention_indices in _dedupe_paragraph_windows(mention_windows):
         start_block_idx = paragraphs[start_idx].block_index
         end_block_idx = paragraphs[end_idx].block_index
         block_slice = blocks[start_block_idx:end_block_idx + 1]
         chunk_text = "\n\n".join(block.text for block in block_slice).strip()
+        if not chunk_text:
+            continue
 
-        matched_keywords = set()
-        keyword_matches = []
-        report_sections = set()
-        for mention_index in sorted(set(mention_indices)):
-            matches = matches_by_paragraph.get(mention_index, [])
-            if matches:
-                keyword_matches.append(
-                    {
-                        "paragraph_index": mention_index,
-                        "matches": matches,
-                    }
-                )
-                matched_keywords.update({m["keyword"] for m in matches})
-            section = paragraphs[mention_index].section
-            if section:
-                report_sections.add(section)
-
-        parent_chunk_id = _stable_chunk_id(document_id, start_idx, end_idx)
-        sub_texts = _split_text_by_word_limit(
-            chunk_text,
-            max_words=max_chunk_words or 0,
-            overlap_sentences=overlap_sentences,
+        report_sections = sorted(
+            {
+                paragraphs[mention_index].section
+                for mention_index in sorted(set(mention_indices))
+                if paragraphs[mention_index].section
+            }
         )
-
-        search_pos = 0
-        for sub_idx, raw_sub_text in enumerate(sub_texts):
-            if len(sub_texts) == 1:
-                chunk_id = parent_chunk_id
-            else:
-                chunk_id = _stable_subchunk_id(
-                    document_id, start_idx, end_idx, sub_idx
-                )
-
-            local_start = chunk_text.find(raw_sub_text, search_pos)
-            if local_start >= 0:
-                local_end = local_start + len(raw_sub_text)
-                search_pos = max(local_start + 1, local_end - 1)
-            else:
-                local_start = 0
-                local_end = len(raw_sub_text)
-
-            cleaned_sub_text, cleaning_meta = _clean_chunk_lines(
-                raw_sub_text,
+        chunks.extend(
+            _emit_chunk_variants(
+                source_text=markdown,
+                document_id=document_id,
+                company_id=company_id,
+                company_name=company_name,
+                report_year=report_year,
+                chunk_text=chunk_text,
+                start_offset=blocks[start_block_idx].start_offset,
+                end_offset=blocks[end_block_idx].end_offset,
+                parent_identity="paragraph_window",
+                paragraph_start=start_idx,
+                paragraph_end=end_idx,
+                block_start=start_block_idx,
+                block_end=end_block_idx,
+                context_before=context_before,
+                context_after=context_after,
+                report_sections=report_sections,
+                max_chunk_words=max_chunk_words,
+                overlap_sentences=overlap_sentences,
+                patterns=patterns,
                 drop_table_rule_lines=drop_table_rule_lines,
                 drop_listing_rows=drop_listing_rows,
             )
-            if not cleaned_sub_text:
-                continue
-
-            sub_matches = _find_matches(cleaned_sub_text, patterns)
-            if sub_matches:
-                sub_keyword_matches = [
-                    {
-                        "paragraph_index": start_idx,
-                        "matches": sub_matches,
-                    }
-                ]
-                sub_matched_keywords = sorted({m["keyword"] for m in sub_matches})
-            else:
-                # Keep traceability for context-only subchunks produced by splitting.
-                sub_keyword_matches = keyword_matches
-                sub_matched_keywords = sorted(matched_keywords)
-
-            chunk = {
-                "chunk_id": chunk_id,
-                "parent_chunk_id": parent_chunk_id if len(sub_texts) > 1 else None,
-                "subchunk_index": sub_idx,
-                "subchunk_count": len(sub_texts),
-                "parent_chunk_char_len": len(chunk_text),
-                "parent_chunk_word_len": _word_count(chunk_text),
-                "chunk_char_len": len(cleaned_sub_text),
-                "chunk_word_len": _word_count(cleaned_sub_text),
-                "has_direct_keyword_match": bool(sub_matches),
-                "chunk_cleaned": bool(
-                    cleaning_meta["removed_table_rule_lines"] + cleaning_meta["removed_listing_rows"]
-                ),
-                "removed_table_rule_lines": cleaning_meta["removed_table_rule_lines"],
-                "removed_listing_rows": cleaning_meta["removed_listing_rows"],
-                "document_id": document_id,
-                "company_id": company_id,
-                "company_name": company_name,
-                "report_year": report_year,
-                "report_sections": sorted(report_sections),
-                "paragraph_start": start_idx,
-                "paragraph_end": end_idx,
-                "block_start": start_block_idx,
-                "block_end": end_block_idx,
-                "char_start": blocks[start_block_idx].start_offset + local_start,
-                "char_end": blocks[start_block_idx].start_offset + local_end,
-                "context_before": context_before,
-                "context_after": context_after,
-                "chunk_text": cleaned_sub_text,
-                "matched_keywords": sub_matched_keywords,
-                "keyword_matches": sub_keyword_matches,
-            }
-            chunks.append(chunk)
+        )
 
     return chunks
