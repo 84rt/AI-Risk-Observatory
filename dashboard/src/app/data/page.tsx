@@ -7,7 +7,7 @@ export default function DataPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-white px-6 py-16 text-slate-600">
+        <div className="min-h-screen bg-[#f6f3ef] px-6 py-16 text-slate-600">
           Loading dashboard…
         </div>
       }

@@ -28,7 +28,7 @@ export default function RootLayout({
         <main className="flex-1">
           {children}
         </main>
-        <footer className="border-t border-slate-200/70 bg-white">
+        <footer className="border-t border-slate-200/70 bg-[#f6f3ef]">
           <div className="mx-auto max-w-7xl px-6 py-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
             <p className="text-xs text-slate-400">
               &copy; {new Date().getFullYear()} AI Risk Observatory

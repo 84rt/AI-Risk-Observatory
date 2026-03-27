@@ -55,17 +55,17 @@ const FLOW_STAGES: FlowStage[] = [
 
 export function ClassificationFlowDiagram() {
   return (
-    <section className="overflow-x-auto rounded-md border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+    <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
       <div className="min-w-[1040px] space-y-4">
         {FLOW_STAGES.map((stage) => (
-          <div key={stage.title} className={`relative rounded-md border-2 p-5 pt-8 ${stage.panelClass}`}>
+          <div key={stage.title} className={`relative rounded-xl border-2 p-5 pt-8 ${stage.panelClass}`}>
             <p className={`absolute -top-3 left-3 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${stage.labelClass}`}>
               {stage.title}
             </p>
             <div className="flex items-center gap-2">
               {stage.steps.map((step, index) => (
                 <div key={`${stage.title}-${index}`} className="flex items-center gap-2">
-                  <div className="relative flex h-[110px] w-[220px] shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-center text-sm font-semibold leading-tight text-slate-700 shadow-sm">
+                  <div className="relative flex h-[110px] w-[220px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-center text-sm font-semibold leading-tight text-slate-700 shadow-sm">
                     <span className={`absolute left-2 top-2 rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${stage.badgeClass}`}>
                       {stage.sectionNumber}.{index + 1}
                     </span>
