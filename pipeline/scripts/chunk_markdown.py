@@ -66,13 +66,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--context-before",
         type=int,
-        default=1,
+        default=2,
         help="Paragraphs of context before a match",
     )
     parser.add_argument(
         "--context-after",
         type=int,
-        default=1,
+        default=2,
         help="Paragraphs of context after a match",
     )
     parser.add_argument(
