@@ -20,19 +20,19 @@ const VIEWS: View[] = [
   {
     id: 1,
     title: 'Risk',
-    heading: 'Reports that mentioned risk from AI',
+    heading: 'Reports mentioning risk from AI',
     description: 'AI risk categories over time and across sectors.',
   },
   {
     id: 2,
     title: 'Adoption',
-    heading: 'Reports that mentioned adoption of AI',
+    heading: 'Reports mentioning adoption of AI',
     description: 'AI adoption type (non-LLM, LLM, agentic) across sectors and over time.',
   },
   {
     id: 3,
     title: 'Vendors',
-    heading: 'Reports that mentioned vendors of AI technology',
+    heading: 'Mentions of AI Vendors in Annual Reports',
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
   {
