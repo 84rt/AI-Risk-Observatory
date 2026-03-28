@@ -1190,6 +1190,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </div>
   ) : null;
 
+  const combinedToggles = (
+    <div className="flex items-center gap-2">
+      {trendTimeToggle}
+      {metricModeToggle}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
       {/* Sticky control bar */}
@@ -1335,8 +1342,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 <option key={segment} value={segment}>{segment}</option>
               ))}
             </select>
-
-            {metricModeToggle}
 
             {/* Risk-specific controls */}
             {activeView === 1 && (
@@ -1645,7 +1650,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={riskFilter === 'all' ? null : riskFilter}
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="Risk Trend Over Time"
-              headerExtra={trendTimeToggle}
+              headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
                   ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category. Because a single report can carry multiple risk labels, stacked totals can exceed 100%.`
@@ -1749,7 +1754,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={adoptionFilter === 'all' ? null : adoptionFilter}
               onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
               title="Adoption Type Over Time"
-              headerExtra={trendTimeToggle}
+              headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
                   ? `Stacked bar chart showing the percentage of annual reports referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
@@ -1839,7 +1844,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               activeLegendKey={effectiveVendorFilter === 'all' ? null : effectiveVendorFilter}
               onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
               title="Vendor References Over Time"
-              headerExtra={trendTimeToggle}
+              headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
                   ? `Stacked bar chart showing the percentage of annual reports referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
@@ -2047,7 +2052,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 setBlindSpotFilter(prev => (prev === key ? 'all' : (key as BlindSpotFilter)))
               }
               title={trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year'}
-              headerExtra={trendTimeToggle}
+              headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
                   ? blindSpotFilter === 'all'

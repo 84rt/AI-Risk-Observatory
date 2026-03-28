@@ -138,16 +138,6 @@ export function ReportClassificationBreakdown({
 }) {
   return (
     <section className="rounded-[1.4rem] border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.03)] sm:p-6">
-      <div className="max-w-3xl">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Report Classification Diagram
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          The top half shows the mutually exclusive flow of reports. The lower half shows the non-exclusive label
-          families and their child tags, using the same counts as the breakdown you outlined.
-        </p>
-      </div>
-
       <div className="mt-5 rounded-[1.1rem] border border-slate-200 bg-[linear-gradient(180deg,#fffdfa_0%,#fcfbf8_100%)] p-4 sm:p-5">
         <div className="mx-auto max-w-5xl">
           <div className="mx-auto max-w-sm">

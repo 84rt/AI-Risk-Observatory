@@ -122,8 +122,9 @@ export default function HomePage() {
         <div className="mb-6 max-w-3xl">
           <h2 className="text-2xl font-semibold text-slate-900">How Reports Move Through The Pipeline</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
-            This is a Sankey-style flow from the full 1,000-report corpus through extraction, Phase 1 classification,
-            and the downstream Phase 2 labels.
+            This represents a complete view of our 1,000-report corpus and how each document moves through our classification pipeline. 
+            We first extract candidate text chunks using keyword matching, then apply Phase 1 mention-type classification to route data 
+            into specific Phase 2 taxonomies for risks, adoption types, and vendor dependencies.
           </p>
         </div>
         <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />

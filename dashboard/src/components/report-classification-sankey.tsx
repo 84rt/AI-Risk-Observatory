@@ -58,20 +58,6 @@ export function ReportClassificationSankey({ flow }: { flow: ReportClassificatio
 
   return (
     <section className="rounded-[1.4rem] border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.03)] sm:p-6">
-      <div className="max-w-3xl">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Report Classification Flow
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            A Sankey-style view of the full pipeline: from the total reports examined, through to those with AI mentions,
-            into specific categories (Adoption, Risk, Vendor, etc.), and finally into detailed tags.
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            Widths represent actual report counts for each category. Because reports often carry multiple labels,
-            flows overlap and the diagram expands downstream to show the true scale of each classification.
-          </p>
-      </div>
-
       <div className="mt-6 h-[1280px] w-full rounded-[1.1rem] border border-slate-200 bg-[linear-gradient(180deg,#fffdfa_0%,#fcfbf8_100%)] p-3 sm:h-[1280px] lg:h-[1280px]">
         <ResponsiveSankey<SankeyFlowNode, SankeyFlowLink>
           data={sankeyData}
