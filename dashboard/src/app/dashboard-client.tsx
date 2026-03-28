@@ -20,31 +20,31 @@ const VIEWS: View[] = [
   {
     id: 1,
     title: 'Risk',
-    heading: 'AI Risk Mentioned',
+    heading: 'Reports that mentioned risk from AI',
     description: 'AI risk categories over time and across sectors.',
   },
   {
     id: 2,
     title: 'Adoption',
-    heading: 'Adoption Type Mentioned',
+    heading: 'Reports that mentioned adoption of AI',
     description: 'AI adoption type (non-LLM, LLM, agentic) across sectors and over time.',
   },
   {
     id: 3,
     title: 'Vendors',
-    heading: 'Vendors',
+    heading: 'Reports that mentioned vendors of AI technology',
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
   {
     id: 4,
     title: 'Signal Quality',
-    heading: 'Signal Quality',
+    heading: 'Metrics of findings quality and strength',
     description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
   {
     id: 5,
     title: 'Blind Spots',
-    heading: 'Blind Spots',
+    heading: 'Reports that did not mention AI',
     description: 'Where disclosures are absent: reports that do not mention AI at all, and reports that do not mention AI risk.',
   },
 ];
@@ -1282,12 +1282,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     showAdoptionSignalPanel,
     showVendorSignalPanel,
   ].filter(Boolean).length;
-  const signalPanelGridClass =
-    visibleSignalPanelCount <= 1
-      ? 'grid gap-8'
-      : visibleSignalPanelCount === 2
-        ? 'grid gap-8 md:grid-cols-2'
-        : 'grid gap-8 lg:grid-cols-3';
+  const signalPanelGridClass = 'grid gap-8';
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
@@ -1836,13 +1831,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={riskColors}
               yAxisTickFormatter={stackedChartYAxisFormatter}
               tooltipValueFormatter={stackedChartTooltipFormatter}
+              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
               allowLineChart={trendTimeAxis === 'year'}
               showChartTypeToggle
               legendPosition="right"
               legendKeys={riskStackKeys}
               activeLegendKey={riskFilter === 'all' ? null : riskFilter}
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
-              title="Risk Trend Over Time"
+              title="AI Risk Mentioned Over Time"
               headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
@@ -1943,13 +1939,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={adoptionColors}
               yAxisTickFormatter={stackedChartYAxisFormatter}
               tooltipValueFormatter={stackedChartTooltipFormatter}
+              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
               allowLineChart={trendTimeAxis === 'year'}
               showChartTypeToggle
               legendPosition="right"
               legendKeys={adoptionStackKeys}
               activeLegendKey={adoptionFilter === 'all' ? null : adoptionFilter}
               onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
-              title="Adoption Type Over Time"
+              title="AI Adoption Mentioned Over Time"
               headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
@@ -2036,13 +2033,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={vendorColors}
               yAxisTickFormatter={stackedChartYAxisFormatter}
               tooltipValueFormatter={stackedChartTooltipFormatter}
+              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
               allowLineChart={trendTimeAxis === 'year'}
               showChartTypeToggle
               legendPosition="right"
               legendKeys={vendorStackKeys}
               activeLegendKey={effectiveVendorFilter === 'all' ? null : effectiveVendorFilter}
               onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
-              title="Vendor References Over Time"
+              title="AI Vendors Mentioned Over Time"
               headerExtra={combinedToggles}
               subtitle={
                 isReportShareMode
@@ -2134,7 +2132,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Risk Signal Strength"
+                title="AI Risk Signal Strength"
                 subtitle="Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports."
                 xAxisLabel="Year"
@@ -2152,7 +2150,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Adoption Signal Strength"
+                title="AI Adoption Signal Strength"
                 subtitle="Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language."
                 xAxisLabel="Year"
@@ -2170,7 +2168,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 yLabelFormatter={formatLabel}
                 showTotals={true}
                 showBlindSpots={false}
-                title="Vendor Signal Strength"
+                title="AI Vendor Signal Strength"
                 subtitle="Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
                 tooltip="Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution."
                 xAxisLabel="Year"
@@ -2190,7 +2188,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               yLabelFormatter={formatLabel}
               showTotals={true}
               showBlindSpots={false}
-              title="Risk Substantiveness Distribution"
+              title="AI Risk Substantiveness Distribution"
               subtitle="Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and fiscal year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency."
               tooltip="Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic."
               xAxisLabel="Year"
@@ -2245,6 +2243,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               colors={blindSpotColors}
               yAxisTickFormatter={stackedChartYAxisFormatter}
               tooltipValueFormatter={stackedChartTooltipFormatter}
+              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
               allowLineChart={trendTimeAxis === 'year'}
               showChartTypeToggle
               legendPosition="right"

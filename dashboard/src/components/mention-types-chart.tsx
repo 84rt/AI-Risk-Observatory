@@ -25,7 +25,7 @@ export function MentionTypesChart({
       colors={mentionColors}
       allowLineChart
       legendPosition="right"
-      title="Mention Types Over Time"
+      title="AI Mention Types Over Time"
       subtitle="Each bar shows how many reports per year were tagged with each mention type (confidence ≥ 0.2)."
     />
   );

@@ -93,6 +93,7 @@ interface StackedBarChartProps {
   legendKeys?: string[];
   activeLegendKey?: string | null;
   onLegendItemClick?: (key: string) => void;
+  yAxisDomain?: [number, number];
 }
 
 export function StackedBarChart({
@@ -112,6 +113,7 @@ export function StackedBarChart({
   legendKeys,
   activeLegendKey = null,
   onLegendItemClick,
+  yAxisDomain,
 }: StackedBarChartProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const activeChartType = allowLineChart ? chartType : 'bar';
@@ -134,7 +136,8 @@ export function StackedBarChart({
       tickLine: false,
       tick: { fill: '#64748b', fontSize: 12 },
       tickFormatter: yAxisTickFormatter,
-    } as const,
+      ...(yAxisDomain ? { domain: yAxisDomain } : {}),
+    },
   };
 
   const tooltipProps = {

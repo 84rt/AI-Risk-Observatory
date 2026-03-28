@@ -138,10 +138,10 @@ export default function HomePage() {
             className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
           >
             <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
-              Data
+              Data Dashboard
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              Interactive charts and heatmaps covering AI risk categories, adoption types, vendor references, signal quality, and disclosure blind spots across sectors and years.
+              Interact with charts and heatmaps covering AI risk categories, adoption types, vendor references, and disclosure blind spots across sectors and years.
             </p>
             <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
               Explore the data &rarr;
@@ -152,10 +152,10 @@ export default function HomePage() {
             className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
           >
             <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
-              About
+              Methodology
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              How the pipeline works — from keyword extraction and chunk classification to the taxonomies and quality controls behind the data.
+              Learn how the pipeline works — from keyword extraction and chunk classification to the taxonomies behind the data.
             </p>
             <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
               Read the methodology &rarr;
