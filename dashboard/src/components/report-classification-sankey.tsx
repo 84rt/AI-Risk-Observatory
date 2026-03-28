@@ -19,19 +19,22 @@ type SankeyFlowLink = DefaultLink;
 function NodeTooltip({ node }: { node: SankeyNodeDatum<SankeyFlowNode, SankeyFlowLink> }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-lg">
-      <p className="font-semibold text-slate-900">{node.name}</p>
-      <p className="mt-1">{formatNumber(node.reportCount)} reports</p>
+      <p className="font-bold text-slate-900">{formatNumber(node.reportCount)} reports</p>
+      <p className="text-slate-500 mt-0.5">{node.name}</p>
     </div>
   );
 }
 
 function LinkTooltip({ link }: { link: SankeyLinkDatum<SankeyFlowNode, SankeyFlowLink> }) {
+  const percentage = ((link.value / link.source.reportCount) * 100).toFixed(0);
   return (
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-lg">
-      <p className="font-semibold text-slate-900">
-        {link.source.label} {'->'} {link.target.label}
+      <p className="font-bold text-slate-900">
+        {formatNumber(link.value)} reports ({percentage}%)
       </p>
-      <p className="mt-1">{formatNumber(link.value)} reports</p>
+      <p className="text-slate-500 mt-0.5">
+        categorised as <span className="font-medium text-slate-700">{link.target.name}</span>
+      </p>
     </div>
   );
 }
@@ -69,14 +72,7 @@ export function ReportClassificationSankey({ flow }: { flow: ReportClassificatio
           </p>
       </div>
 
-      <div className="mt-4 grid gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:grid-cols-4">
-        <span>Initial Corpus</span>
-        <span>AI Mention Filter</span>
-        <span>Primary Categories</span>
-        <span className="sm:text-right">Detailed Tags</span>
-      </div>
-
-      <div className="mt-3 h-[1280px] w-full rounded-[1.1rem] border border-slate-200 bg-[linear-gradient(180deg,#fffdfa_0%,#fcfbf8_100%)] p-3 sm:h-[1280px] lg:h-[1280px]">
+      <div className="mt-6 h-[1280px] w-full rounded-[1.1rem] border border-slate-200 bg-[linear-gradient(180deg,#fffdfa_0%,#fcfbf8_100%)] p-3 sm:h-[1280px] lg:h-[1280px]">
         <ResponsiveSankey<SankeyFlowNode, SankeyFlowLink>
           data={sankeyData}
           margin={{ top: 24, right: 280, bottom: 24, left: 44 }}
