@@ -15,6 +15,9 @@ type GoldenAnnotation = {
   risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number> | null;
   vendor_tags: string[];
   vendor_confidence?: Record<string, number> | null;
+  chunk_id?: string;
+  chunk_text?: string;
+  report_sections?: string[];
 };
 
 export type ReportClassificationFlowNode = {
@@ -72,6 +75,7 @@ export type GoldenDashboardData = {
   marketSegments: string[];
   reportClassificationFlow: ReportClassificationFlow;
   reportClassificationBreakdown: ReportClassificationBreakdown;
+  exampleChunks: ExampleChunk[];
   labels: {
     mentionTypes: string[];
     adoptionTypes: string[];
@@ -127,6 +131,18 @@ export type GoldenDataset = {
   noAiRiskBySectorYear: { x: number; y: string; value: number }[];
   reportCountBySectorYear: { x: number; y: string; value: number }[];
   reportCountByIsicSectorYear: { x: number; y: string; value: number }[];
+};
+
+export type ExampleChunk = {
+  chunkId: string;
+  companyName: string;
+  reportYear: number;
+  chunkText: string;
+  reportSections: string[];
+  mentionTypes: string[];
+  riskLabels: string[];
+  adoptionTypes: string[];
+  vendorTags: string[];
 };
 
 const ANNOTATIONS_PATH = path.join(
@@ -996,6 +1012,59 @@ const annotationsAsChunks = (
   });
 };
 
+const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => {
+  const candidates = annotations.map(item => {
+    const chunkId = item.chunk_id?.trim();
+    if (!chunkId) return null;
+
+    const mentionTypes = Array.from(new Set((item.mention_types || []).map(type => type?.trim()).filter(Boolean)));
+    const riskLabels = Array.from(new Set((item.risk_taxonomy || [])
+      .map(normalizeRiskLabel)
+      .filter(Boolean)));
+    const adoptionTypes = Array.from(new Set((item.adoption_types || []).map(type => type?.trim()).filter(Boolean)));
+    const vendorTags = Array.from(new Set((item.vendor_tags || []).map(tag => tag?.trim()).filter(Boolean)));
+
+    return {
+      chunkId,
+      companyName: item.company_name,
+      reportYear: item.report_year,
+      chunkText: item.chunk_text || '',
+      reportSections: item.report_sections || [],
+      mentionTypes,
+      riskLabels,
+      adoptionTypes,
+      vendorTags,
+    } as ExampleChunk;
+  });
+
+  const filtered = candidates.filter((chunk): chunk is ExampleChunk => {
+    if (!chunk) return false;
+    const hasText = chunk.chunkText.trim().length > 0;
+    const hasPhase1 = chunk.mentionTypes.some(type => type !== 'none');
+    const hasPhase2 = chunk.riskLabels.length > 0 || chunk.adoptionTypes.length > 0 || chunk.vendorTags.length > 0;
+    return hasText && (hasPhase1 || hasPhase2);
+  });
+
+  const sorted = filtered.sort((a, b) => {
+    // Prioritize chunks that have a mix of different classification types
+    const aDiversity = (a.riskLabels.length > 0 ? 1 : 0) + (a.adoptionTypes.length > 0 ? 1 : 0) + (a.vendorTags.length > 0 ? 1 : 0);
+    const bDiversity = (b.riskLabels.length > 0 ? 1 : 0) + (b.adoptionTypes.length > 0 ? 1 : 0) + (b.vendorTags.length > 0 ? 1 : 0);
+    
+    if (bDiversity !== aDiversity) return bDiversity - aDiversity;
+    
+    // Then sort by total number of tags
+    const aScore = a.riskLabels.length + a.adoptionTypes.length + a.vendorTags.length;
+    const bScore = b.riskLabels.length + b.adoptionTypes.length + b.vendorTags.length;
+    
+    if (bScore !== aScore) return bScore - aScore;
+    
+    if (b.reportYear !== a.reportYear) return b.reportYear - a.reportYear;
+    return a.chunkId.localeCompare(b.chunkId, 'en');
+  });
+
+  return sorted.slice(0, 5);
+};
+
 const initMonthSeries = (months: string[], keys: string[]) => {
   return months.map(month => {
     const row: Record<string, string | number> = { month };
@@ -1446,6 +1515,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     documentMonths
   );
   const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, marketSegmentMap, documentMonths);
+  const exampleChunks = buildExampleChunks(annotations);
 
   const byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }> = {};
   resolvedMarketSegments.forEach(segment => {
@@ -1476,6 +1546,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
       perReport: buildDataset(perReportData, years, resolvedCniSectors, resolvedIsicSectors),
       perChunk: buildDataset(perChunkData, years, resolvedCniSectors, resolvedIsicSectors),
     },
+    exampleChunks,
     byMarketSegment,
   };
 };

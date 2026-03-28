@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 import HeroRiskChart from '@/components/hero-risk-chart';
 import { ReportClassificationSankeyShell } from '@/components/report-classification-sankey-shell';
+import ExampleBrowser from '@/components/example-browser';
+import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
 export default function HomePage() {
   const data = loadGoldenSetDashboardData();
@@ -43,6 +44,7 @@ export default function HomePage() {
       })),
     },
   ];
+  const exampleChunks = data.exampleChunks;
 
   return (
     <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
@@ -117,6 +119,10 @@ export default function HomePage() {
           View on GitHub
         </a>
       </section>
+
+      {exampleChunks.length > 0 && (
+        <ExampleBrowser exampleChunks={exampleChunks} />
+      )}
 
       <section className="mx-auto max-w-6xl px-6 pb-16">
         <div className="mb-6 max-w-3xl">

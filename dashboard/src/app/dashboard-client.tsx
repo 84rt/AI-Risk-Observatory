@@ -1277,11 +1277,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
   const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
   const showSubstantivenessPanel = signalQualityFilter === 'all' || signalQualityFilter === 'substantiveness';
-  const visibleSignalPanelCount = [
-    showRiskSignalPanel,
-    showAdoptionSignalPanel,
-    showVendorSignalPanel,
-  ].filter(Boolean).length;
   const signalPanelGridClass = 'grid gap-8';
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
