@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
+import { buildIsicSectorGroups, type HeatmapRowGroup } from '@/lib/isic';
 import type { GoldenDashboardData } from '@/lib/golden-set';
 
 // Filter type for risk distribution view
@@ -158,6 +159,102 @@ const convertHeatmapToPercent = (
     ...cell,
     value: toPercent(cell.value, denominatorForCell(cell)),
   }));
+const aggregateHeatmapCellsByRowGroups = (
+  cells: HeatmapCell[],
+  rowGroups: HeatmapRowGroup[]
+): HeatmapCell[] => {
+  const childToGroupLabel = new Map<string, string>();
+  rowGroups.forEach(group => {
+    group.childKeys.forEach(childKey => {
+      childToGroupLabel.set(String(childKey), group.label);
+    });
+  });
+
+  const groupedCells = new Map<string, HeatmapCell>();
+  cells.forEach(cell => {
+    const groupLabel = childToGroupLabel.get(String(cell.y));
+    if (!groupLabel) return;
+
+    const groupedKey = `${String(cell.x)}|||${groupLabel}`;
+    const existing = groupedCells.get(groupedKey);
+    if (existing) {
+      existing.value += cell.value;
+      return;
+    }
+
+    groupedCells.set(groupedKey, {
+      x: cell.x,
+      y: groupLabel,
+      value: cell.value,
+    });
+  });
+
+  return Array.from(groupedCells.values());
+};
+const aggregateLabelTotalsByRowGroups = (
+  totals: Map<string, number>,
+  rowGroups: HeatmapRowGroup[]
+) => {
+  const childToGroupLabel = new Map<string, string>();
+  rowGroups.forEach(group => {
+    group.childKeys.forEach(childKey => {
+      childToGroupLabel.set(String(childKey), group.label);
+    });
+  });
+
+  const nextTotals = new Map(totals);
+  rowGroups.forEach(group => {
+    nextTotals.set(group.label, 0);
+  });
+
+  totals.forEach((value, key) => {
+    const groupLabel = childToGroupLabel.get(key);
+    if (!groupLabel) return;
+    nextTotals.set(groupLabel, (nextTotals.get(groupLabel) || 0) + value);
+  });
+
+  return nextTotals;
+};
+const aggregateYearLabelTotalsByRowGroups = (
+  totals: Map<string, number>,
+  rowGroups: HeatmapRowGroup[]
+) => {
+  const childToGroupLabel = new Map<string, string>();
+  rowGroups.forEach(group => {
+    group.childKeys.forEach(childKey => {
+      childToGroupLabel.set(String(childKey), group.label);
+    });
+  });
+
+  const nextTotals = new Map(totals);
+  totals.forEach((value, key) => {
+    const separatorIndex = key.indexOf('|||');
+    if (separatorIndex < 0) return;
+
+    const xKey = key.slice(0, separatorIndex);
+    const yKey = key.slice(separatorIndex + 3);
+    const groupLabel = childToGroupLabel.get(yKey);
+    if (!groupLabel) return;
+
+    const groupedKey = `${xKey}|||${groupLabel}`;
+    nextTotals.set(groupedKey, (nextTotals.get(groupedKey) || 0) + value);
+  });
+
+  return nextTotals;
+};
+const buildVisibleGroupedYLabels = (
+  rowGroups: HeatmapRowGroup[],
+  ungroupedLabels: string[],
+  expandedGroupSet: Set<string>
+) => {
+  const groupedLabels = rowGroups.flatMap(group =>
+    expandedGroupSet.has(group.label)
+      ? [group.label, ...group.childKeys]
+      : [group.label]
+  );
+
+  return [...groupedLabels, ...ungroupedLabels];
+};
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
@@ -173,6 +270,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
   const [metricMode, setMetricMode] = useState<MetricMode>('count');
   const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
+  const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const resolvedDatasets =
@@ -217,6 +315,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     availableYears.length <= 1 ? 0 : (startIndex / maxYearIndex) * 100;
   const selectedRightPct =
     availableYears.length <= 1 ? 0 : 100 - (endIndex / maxYearIndex) * 100;
+  const toggleIsicGroup = (groupLabel: string) => {
+    setExpandedIsicGroups(prev =>
+      prev.includes(groupLabel)
+        ? prev.filter(label => label !== groupLabel)
+        : [...prev, groupLabel]
+    );
+  };
 
   const updateYearRangeFromTrackClick = (clientX: number, element: HTMLDivElement) => {
     if (maxYearIndex <= 0) return;
@@ -546,6 +651,22 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     });
     return counts;
   }, [reportTotalsByIsicSectorYearInRange]);
+  const visibleIsicSectorLabels = useMemo(
+    () => filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange).map(String),
+    [data.isicSectors, reportTotalsByIsicSectorInRange]
+  );
+  const { groups: isicRowGroups, ungroupedLabels: ungroupedIsicSectorLabels } = useMemo(
+    () => buildIsicSectorGroups(visibleIsicSectorLabels),
+    [visibleIsicSectorLabels]
+  );
+  const expandedIsicGroupSet = useMemo(
+    () => new Set(expandedIsicGroups),
+    [expandedIsicGroups]
+  );
+  const isicHeatmapYLabels = useMemo(
+    () => buildVisibleGroupedYLabels(isicRowGroups, ungroupedIsicSectorLabels, expandedIsicGroupSet),
+    [isicRowGroups, ungroupedIsicSectorLabels, expandedIsicGroupSet]
+  );
 
   const filteredMonthlyRiskTrend = useMemo(() => {
     if (riskFilter === 'all') return monthlyRiskTrendInRange;
@@ -878,8 +999,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     () =>
       riskSectorView === 'cni'
         ? data.sectors
-        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
-    [riskSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+        : isicHeatmapYLabels,
+    [riskSectorView, data.sectors, isicHeatmapYLabels]
   );
   const riskHeatmapAxisSectorLabel = riskSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector';
   const riskHeatmapTaxonomyDataInRange =
@@ -898,37 +1019,61 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const riskHeatmapBaseColor = riskFilter === 'all'
     ? '#64748b'
     : (riskColors[riskFilter] || '#64748b');
-  const riskHeatmapReportTotalsInRange =
-    riskSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
-  const riskHeatmapReportTotalsByYearMap =
-    riskSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
-  const displayRiskHeatmapData = useMemo(() => {
-    if (riskFilter === 'all') {
-      return convertHeatmapToPercent(
-        riskHeatmapData,
-        cell => riskHeatmapReportTotalsInRange.get(String(cell.y)) || 0
-      );
+  const visibleRiskHeatmapData = useMemo(() => {
+    if (riskSectorView === 'cni') {
+      const displayData = riskFilter === 'all'
+        ? convertHeatmapToPercent(
+            riskHeatmapData,
+            cell => reportTotalsBySectorInRange.get(String(cell.y)) || 0
+          )
+        : convertHeatmapToPercent(
+            riskHeatmapData,
+            cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+          );
+
+      return filterHeatmapRows(displayData, riskHeatmapYLabels);
     }
-    return convertHeatmapToPercent(
-      riskHeatmapData,
-      cell => riskHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+
+    const groupedHeatmapData = [
+      ...riskHeatmapData,
+      ...aggregateHeatmapCellsByRowGroups(riskHeatmapData, isicRowGroups),
+    ];
+    const groupedTotalsBySector = aggregateLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorInRange,
+      isicRowGroups
     );
+    const groupedTotalsBySectorYear = aggregateYearLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorYearMap,
+      isicRowGroups
+    );
+    const displayData = riskFilter === 'all'
+      ? convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySector.get(String(cell.y)) || 0
+        )
+      : convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySectorYear.get(`${cell.x}|||${cell.y}`) || 0
+        );
+
+    return filterHeatmapRows(displayData, riskHeatmapYLabels);
   }, [
     riskFilter,
     riskHeatmapData,
-    riskHeatmapReportTotalsInRange,
-    riskHeatmapReportTotalsByYearMap,
+    riskHeatmapYLabels,
+    riskSectorView,
+    isicRowGroups,
+    reportTotalsByIsicSectorInRange,
+    reportTotalsByIsicSectorYearMap,
+    reportTotalsBySectorInRange,
+    reportTotalsBySectorYearMap,
   ]);
-  const visibleRiskHeatmapData = useMemo(
-    () => filterHeatmapRows(displayRiskHeatmapData, riskHeatmapYLabels),
-    [displayRiskHeatmapData, riskHeatmapYLabels]
-  );
   const adoptionHeatmapYLabels = useMemo(
     () =>
       adoptionSectorView === 'cni'
         ? data.sectors
-        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
-    [adoptionSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+        : isicHeatmapYLabels,
+    [adoptionSectorView, data.sectors, isicHeatmapYLabels]
   );
   const adoptionHeatmapSectorData = adoptionSectorView === 'cni' ? adoptionBySectorInRange : adoptionByIsicSectorInRange;
   const adoptionHeatmapSectorYearData = adoptionSectorView === 'cni' ? adoptionBySectorYearInRange : adoptionByIsicSectorYearInRange;
@@ -942,37 +1087,61 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const adoptionHeatmapBaseColor = adoptionFilter === 'all'
     ? '#64748b'
     : (adoptionColors[adoptionFilter] || '#64748b');
-  const adoptionHeatmapReportTotalsInRange =
-    adoptionSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
-  const adoptionHeatmapReportTotalsByYearMap =
-    adoptionSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
-  const displayAdoptionHeatmapData = useMemo(() => {
-    if (adoptionFilter === 'all') {
-      return convertHeatmapToPercent(
-        adoptionHeatmapData,
-        cell => adoptionHeatmapReportTotalsInRange.get(String(cell.y)) || 0
-      );
+  const visibleAdoptionHeatmapData = useMemo(() => {
+    if (adoptionSectorView === 'cni') {
+      const displayData = adoptionFilter === 'all'
+        ? convertHeatmapToPercent(
+            adoptionHeatmapData,
+            cell => reportTotalsBySectorInRange.get(String(cell.y)) || 0
+          )
+        : convertHeatmapToPercent(
+            adoptionHeatmapData,
+            cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+          );
+
+      return filterHeatmapRows(displayData, adoptionHeatmapYLabels);
     }
-    return convertHeatmapToPercent(
-      adoptionHeatmapData,
-      cell => adoptionHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+
+    const groupedHeatmapData = [
+      ...adoptionHeatmapData,
+      ...aggregateHeatmapCellsByRowGroups(adoptionHeatmapData, isicRowGroups),
+    ];
+    const groupedTotalsBySector = aggregateLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorInRange,
+      isicRowGroups
     );
+    const groupedTotalsBySectorYear = aggregateYearLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorYearMap,
+      isicRowGroups
+    );
+    const displayData = adoptionFilter === 'all'
+      ? convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySector.get(String(cell.y)) || 0
+        )
+      : convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySectorYear.get(`${cell.x}|||${cell.y}`) || 0
+        );
+
+    return filterHeatmapRows(displayData, adoptionHeatmapYLabels);
   }, [
     adoptionFilter,
     adoptionHeatmapData,
-    adoptionHeatmapReportTotalsInRange,
-    adoptionHeatmapReportTotalsByYearMap,
+    adoptionHeatmapYLabels,
+    adoptionSectorView,
+    isicRowGroups,
+    reportTotalsByIsicSectorInRange,
+    reportTotalsByIsicSectorYearMap,
+    reportTotalsBySectorInRange,
+    reportTotalsBySectorYearMap,
   ]);
-  const visibleAdoptionHeatmapData = useMemo(
-    () => filterHeatmapRows(displayAdoptionHeatmapData, adoptionHeatmapYLabels),
-    [displayAdoptionHeatmapData, adoptionHeatmapYLabels]
-  );
   const vendorHeatmapYLabels = useMemo(
     () =>
       vendorSectorView === 'cni'
         ? data.sectors
-        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
-    [vendorSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+        : isicHeatmapYLabels,
+    [vendorSectorView, data.sectors, isicHeatmapYLabels]
   );
   const vendorHeatmapSectorData = vendorSectorView === 'cni' ? vendorBySectorInRange : vendorByIsicSectorInRange;
   const vendorHeatmapSectorYearData = vendorSectorView === 'cni' ? vendorBySectorYearInRange : vendorByIsicSectorYearInRange;
@@ -988,31 +1157,55 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const vendorHeatmapBaseColor = effectiveVendorFilter === 'all'
     ? '#64748b'
     : (vendorColors[effectiveVendorFilter] || '#64748b');
-  const vendorHeatmapReportTotalsInRange =
-    vendorSectorView === 'cni' ? reportTotalsBySectorInRange : reportTotalsByIsicSectorInRange;
-  const vendorHeatmapReportTotalsByYearMap =
-    vendorSectorView === 'cni' ? reportTotalsBySectorYearMap : reportTotalsByIsicSectorYearMap;
-  const displayVendorHeatmapData = useMemo(() => {
-    if (effectiveVendorFilter === 'all') {
-      return convertHeatmapToPercent(
-        vendorHeatmapData,
-        cell => vendorHeatmapReportTotalsInRange.get(String(cell.y)) || 0
-      );
+  const visibleVendorHeatmapData = useMemo(() => {
+    if (vendorSectorView === 'cni') {
+      const displayData = effectiveVendorFilter === 'all'
+        ? convertHeatmapToPercent(
+            vendorHeatmapData,
+            cell => reportTotalsBySectorInRange.get(String(cell.y)) || 0
+          )
+        : convertHeatmapToPercent(
+            vendorHeatmapData,
+            cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
+          );
+
+      return filterHeatmapRows(displayData, vendorHeatmapYLabels);
     }
-    return convertHeatmapToPercent(
-      vendorHeatmapData,
-      cell => vendorHeatmapReportTotalsByYearMap.get(`${cell.x}|||${cell.y}`) || 0
+
+    const groupedHeatmapData = [
+      ...vendorHeatmapData,
+      ...aggregateHeatmapCellsByRowGroups(vendorHeatmapData, isicRowGroups),
+    ];
+    const groupedTotalsBySector = aggregateLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorInRange,
+      isicRowGroups
     );
+    const groupedTotalsBySectorYear = aggregateYearLabelTotalsByRowGroups(
+      reportTotalsByIsicSectorYearMap,
+      isicRowGroups
+    );
+    const displayData = effectiveVendorFilter === 'all'
+      ? convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySector.get(String(cell.y)) || 0
+        )
+      : convertHeatmapToPercent(
+          groupedHeatmapData,
+          cell => groupedTotalsBySectorYear.get(`${cell.x}|||${cell.y}`) || 0
+        );
+
+    return filterHeatmapRows(displayData, vendorHeatmapYLabels);
   }, [
     effectiveVendorFilter,
     vendorHeatmapData,
-    vendorHeatmapReportTotalsInRange,
-    vendorHeatmapReportTotalsByYearMap,
+    vendorHeatmapYLabels,
+    vendorSectorView,
+    isicRowGroups,
+    reportTotalsByIsicSectorInRange,
+    reportTotalsByIsicSectorYearMap,
+    reportTotalsBySectorInRange,
+    reportTotalsBySectorYearMap,
   ]);
-  const visibleVendorHeatmapData = useMemo(
-    () => filterHeatmapRows(displayVendorHeatmapData, vendorHeatmapYLabels),
-    [displayVendorHeatmapData, vendorHeatmapYLabels]
-  );
   const filteredBlindSpotTrend = useMemo(() => {
     if (blindSpotFilter === 'all') return blindSpotTrendInRange;
     return blindSpotTrendInRange.map(row => ({
@@ -1703,7 +1896,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               }
               xAxisLabel={riskFilter === 'all' ? 'Risk Type' : 'Year'}
               yAxisLabel={riskHeatmapAxisSectorLabel}
-              labelColumnWidth={riskSectorView === 'isic' ? 290 : undefined}
+              rowGroups={riskSectorView === 'isic' ? isicRowGroups : undefined}
+              expandedRowGroups={riskSectorView === 'isic' ? expandedIsicGroups : undefined}
+              onToggleRowGroup={riskSectorView === 'isic' ? toggleIsicGroup : undefined}
+              labelColumnWidth={riskSectorView === 'isic' ? 330 : undefined}
               rowHeight={riskSectorView === 'isic' ? 58 : undefined}
               yLabelClassName={riskSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
               headerExtra={makeSectorToggle(riskSectorView, setRiskSectorView)}
@@ -1801,7 +1997,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xAxisLabel={adoptionFilter === 'all' ? 'Adoption Type' : 'Year'}
               yAxisLabel={adoptionSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
               headerExtra={makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
-              labelColumnWidth={adoptionSectorView === 'isic' ? 290 : undefined}
+              rowGroups={adoptionSectorView === 'isic' ? isicRowGroups : undefined}
+              expandedRowGroups={adoptionSectorView === 'isic' ? expandedIsicGroups : undefined}
+              onToggleRowGroup={adoptionSectorView === 'isic' ? toggleIsicGroup : undefined}
+              labelColumnWidth={adoptionSectorView === 'isic' ? 330 : undefined}
               rowHeight={adoptionSectorView === 'isic' ? 58 : undefined}
               yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />
@@ -1892,7 +2091,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               xAxisLabel={effectiveVendorFilter === 'all' ? 'Vendor' : 'Year'}
               yAxisLabel={vendorSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
               headerExtra={makeSectorToggle(vendorSectorView, setVendorSectorView)}
-              labelColumnWidth={vendorSectorView === 'isic' ? 290 : undefined}
+              rowGroups={vendorSectorView === 'isic' ? isicRowGroups : undefined}
+              expandedRowGroups={vendorSectorView === 'isic' ? expandedIsicGroups : undefined}
+              onToggleRowGroup={vendorSectorView === 'isic' ? toggleIsicGroup : undefined}
+              labelColumnWidth={vendorSectorView === 'isic' ? 330 : undefined}
               rowHeight={vendorSectorView === 'isic' ? 58 : undefined}
               yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
             />

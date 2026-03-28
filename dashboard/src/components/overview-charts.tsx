@@ -315,6 +315,12 @@ interface GenericHeatmapProps {
   labelColumnWidth?: number;
   rowHeight?: number;
   yLabelClassName?: string;
+  rowGroups?: {
+    label: string;
+    childKeys: (string | number)[];
+  }[];
+  expandedRowGroups?: string[];
+  onToggleRowGroup?: (groupLabel: string) => void;
 }
 
 export function GenericHeatmap({
@@ -340,7 +346,21 @@ export function GenericHeatmap({
   labelColumnWidth,
   rowHeight,
   yLabelClassName,
+  rowGroups,
+  expandedRowGroups = [],
+  onToggleRowGroup,
 }: GenericHeatmapProps) {
+  const rowGroupsByLabel = new Map(
+    (rowGroups ?? []).map(group => [String(group.label), group])
+  );
+  const childToGroupLabel = new Map<string, string>();
+  (rowGroups ?? []).forEach(group => {
+    group.childKeys.forEach(childKey => {
+      childToGroupLabel.set(String(childKey), group.label);
+    });
+  });
+  const expandedRowGroupSet = new Set(expandedRowGroups);
+
   // Create lookup map and compute totals
   const dataMap = new Map<string, number>();
   const rowTotals = new Map<string | number, number>();
@@ -451,14 +471,70 @@ export function GenericHeatmap({
         {/* Data Rows */}
         {yLabels.map(y => (
           <div key={`row-${y}`} className="contents">
-            <div
-              className={`bg-white px-3 py-2 font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight break-words ${
-                compact ? 'text-xs' : 'text-sm'
-              } ${yLabelClassName || ''}`}
-              style={{ height: cellHeight }}
-            >
-              {yLabelFormatter(y)}
-            </div>
+            {(() => {
+              const yKey = String(y);
+              const rowGroup = rowGroupsByLabel.get(yKey);
+              const parentGroupLabel = childToGroupLabel.get(yKey);
+              const isChildRow = Boolean(parentGroupLabel);
+
+              if (rowGroup) {
+                const isExpanded = expandedRowGroupSet.has(yKey);
+
+                return (
+                  <div
+                    className={`border-r border-slate-100 px-2 py-1.5 ${
+                      isExpanded
+                        ? 'bg-slate-100/90 ring-1 ring-inset ring-slate-200'
+                        : 'bg-slate-50/80'
+                    } ${
+                      compact ? 'text-xs' : 'text-sm'
+                    } ${yLabelClassName || ''}`}
+                    style={{ height: cellHeight }}
+                  >
+                    {onToggleRowGroup ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleRowGroup(rowGroup.label)}
+                        className={`flex h-full w-full items-center justify-between gap-3 rounded-md px-1.5 text-left font-semibold transition ${
+                          isExpanded
+                            ? 'text-slate-900 hover:bg-slate-100'
+                            : 'text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={`${isExpanded ? 'Collapse' : 'Expand'} ${rowGroup.label}`}
+                      >
+                        <span className="min-w-0 break-words leading-tight">{yLabelFormatter(y)}</span>
+                        <span className={`shrink-0 text-[11px] font-medium ${
+                          isExpanded ? 'text-slate-600' : 'text-slate-500'
+                        }`}>
+                          {isExpanded ? '-' : '+'} {rowGroup.childKeys.length}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className={`flex h-full items-center font-semibold ${
+                        isExpanded ? 'text-slate-900' : 'text-slate-800'
+                      }`}>
+                        {yLabelFormatter(y)}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  className={`bg-white px-3 py-2 font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight break-words ${
+                    compact ? 'text-xs' : 'text-sm'
+                  } ${
+                    isChildRow
+                      ? 'border-l-2 border-l-slate-200 bg-slate-50/60 pl-6 text-slate-600'
+                      : ''
+                  } ${yLabelClassName || ''}`}
+                  style={{ height: cellHeight }}
+                >
+                  {yLabelFormatter(y)}
+                </div>
+              );
+            })()}
 
             {/* Cells */}
             {xLabels.map(x => {
