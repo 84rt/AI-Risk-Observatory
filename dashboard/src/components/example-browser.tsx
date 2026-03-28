@@ -77,14 +77,6 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           </div>
 
           <div className="grid gap-4 text-xs">
-            {activeChunk.reportSections.length > 0 && (
-              <div>
-                <p className="text-[11px] font-semibold text-slate-500">Report Sections</p>
-                <p className="mt-1 text-sm text-slate-700">
-                  {activeChunk.reportSections.join(' · ')}
-                </p>
-              </div>
-            )}
             {activeChunk.riskLabels.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold text-slate-500">Phase 2 — Risk</p>
@@ -121,10 +113,6 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="text-[11px] font-medium uppercase tracking-[0.3em] text-slate-400">
-            {activeChunk.companyName} · {activeChunk.reportYear}
           </div>
         </div>
       </div>

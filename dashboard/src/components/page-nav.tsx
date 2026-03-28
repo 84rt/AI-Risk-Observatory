@@ -43,7 +43,7 @@ export function PageNav() {
         })}
         <div className="ml-auto flex items-center gap-2 text-[10px] sm:text-[11px]">
           <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-semibold uppercase tracking-[0.14em] text-amber-800">
-            Beta v0.9.1
+            Beta v0.9.2
           </span>
           <span className="whitespace-nowrap font-medium text-slate-500">
             Updated: 28.03.2026
