@@ -8,8 +8,8 @@ export function PageNav() {
 
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/data', label: 'Data' },
-    { href: '/about', label: 'About' },
+    { href: '/data', label: 'Data Dashboard' },
+    { href: '/about', label: 'Methodology' },
   ];
 
   return (
