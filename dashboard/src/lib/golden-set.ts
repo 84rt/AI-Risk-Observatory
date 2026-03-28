@@ -17,11 +17,61 @@ type GoldenAnnotation = {
   vendor_confidence?: Record<string, number> | null;
 };
 
+export type ReportClassificationFlowNode = {
+  id: string;
+  name: string;
+  stage: 'root' | 'gate' | 'phase1' | 'phase2';
+  fill: string;
+  reportCount: number;
+};
+
+export type ReportClassificationFlow = {
+  totalReports: number;
+  extractedAiReports: number;
+  noExtractedAiReports: number;
+  phase1SignalReports: number;
+  phase1NoneOnlyReports: number;
+  nodes: ReportClassificationFlowNode[];
+  links: {
+    source: number;
+    target: number;
+    value: number;
+  }[];
+};
+
+export type ReportClassificationBreakdownLeaf = {
+  id: string;
+  label: string;
+  count: number;
+  pctOfParent: number;
+};
+
+export type ReportClassificationBreakdownBranch = {
+  id: string;
+  label: string;
+  count: number;
+  pctOfParent: number;
+  children?: ReportClassificationBreakdownLeaf[];
+};
+
+export type ReportClassificationBreakdown = {
+  totalReports: number;
+  noAiChunkExtracted: number;
+  aiChunkExtracted: number;
+  phase1NoneOnly: number;
+  phase1SignalReports: number;
+  phase1TotalAssignments: number;
+  averageLabelsPerSignalReport: number;
+  branches: ReportClassificationBreakdownBranch[];
+};
+
 export type GoldenDashboardData = {
   years: number[];
   sectors: string[];
   isicSectors: string[];
   marketSegments: string[];
+  reportClassificationFlow: ReportClassificationFlow;
+  reportClassificationBreakdown: ReportClassificationBreakdown;
   labels: {
     mentionTypes: string[];
     adoptionTypes: string[];
@@ -352,6 +402,57 @@ const normalizeRiskSubstantiveness = (value: unknown): string | null => {
   return null;
 };
 
+const formatFlowLabel = (value: string) => {
+  const overrides: Record<string, string> = {
+    // Stage 1 & 2
+    processed_reports: 'Total Reports Examined',
+    ai_chunk_extracted: 'Reports with AI mentions',
+    no_ai_chunk_extracted: 'Reports with no AI mentions',
+    
+    // Phase 1 Categories
+    adoption: 'Reports with AI Adoption mentions',
+    risk: 'Reports with Risk from AI mentions',
+    vendor: 'Reports with AI Vendor mentions',
+    general_ambiguous: 'Reports with General or ambiguous AI mentions',
+    harm: 'Mentions of AI Harm',
+
+    // Phase 2 Tags - Adoption
+    non_llm: 'Traditional AI / ML',
+    llm: 'LLMs / Generative AI',
+    agentic: 'Agentic / Autonomous AI',
+
+    // Phase 2 Tags - Risk (Common Aliases)
+    strategic_competitive: 'Strategic / Competitive Risk',
+    operational_technical: 'Operational / Technical Risk',
+    regulatory_compliance: 'Regulatory / Compliance Risk',
+    reputational_ethical: 'Reputational / Ethical Risk',
+    third_party_supply_chain: 'Supply Chain / Vendor Risk',
+    information_integrity: 'Information Integrity Risk',
+    workforce_impacts: 'Workforce / Jobs Impact',
+    environmental_impact: 'Environmental Impact',
+    national_security: 'National Security Risk',
+    cybersecurity: 'Cybersecurity Risk',
+
+    // Phase 2 Tags - Vendor
+    openai: 'OpenAI Mentions',
+    microsoft: 'Microsoft Mentions',
+    google: 'Google Mentions',
+    amazon: 'Amazon / AWS Mentions',
+    meta: 'Meta Mentions',
+    anthropic: 'Anthropic Mentions',
+    internal: 'In-house AI Development',
+    other: 'Other AI Vendors',
+    undisclosed: 'Undisclosed AI Providers',
+  };
+
+  if (overrides[value]) return overrides[value];
+
+  return value
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 const extractRiskSignalMap = (item: GoldenAnnotation): Record<string, number> => {
   const map: Record<string, number> = {};
   const addEntry = (type: unknown, signal: unknown) => {
@@ -552,6 +653,271 @@ const aggregateToReports = (
   }
 
   return Array.from(reportMap.values());
+};
+
+const toPct = (count: number, total: number) => (total > 0 ? (count / total) * 100 : 0);
+
+const buildReportClassificationBreakdown = (
+  reports: ReportData[]
+): ReportClassificationBreakdown => {
+  const totalReports = reports.length;
+  const extractedChunkReports = reports.filter(report => report.mentionTypes.size > 0);
+  const aiChunkExtracted = extractedChunkReports.length;
+  const noAiChunkExtracted = totalReports - aiChunkExtracted;
+  const phase1NoneOnly = extractedChunkReports.filter(
+    report => report.mentionTypes.size === 1 && report.mentionTypes.has('none')
+  ).length;
+  const signalReports = extractedChunkReports.filter(
+    report => !(report.mentionTypes.size === 1 && report.mentionTypes.has('none'))
+  );
+  const phase1SignalReports = signalReports.length;
+
+  const countByMentionType = (label: string) =>
+    signalReports.filter(report => report.mentionTypes.has(label)).length;
+  const countBySetValue = (reportsInBranch: ReportData[], accessor: (report: ReportData) => Set<string>, value: string) =>
+    reportsInBranch.filter(report => accessor(report).has(value)).length;
+
+  const adoptionCount = countByMentionType('adoption');
+  const generalAmbiguousCount = countByMentionType('general_ambiguous');
+  const riskCount = countByMentionType('risk');
+  const vendorCount = countByMentionType('vendor');
+  const harmCount = countByMentionType('harm');
+
+  const adoptionReports = signalReports.filter(report => report.mentionTypes.has('adoption'));
+  const riskReports = signalReports.filter(report => report.mentionTypes.has('risk'));
+  const vendorReports = signalReports.filter(report => report.mentionTypes.has('vendor'));
+
+  const branches: ReportClassificationBreakdownBranch[] = [
+    {
+      id: 'adoption',
+      label: 'Adoption',
+      count: adoptionCount,
+      pctOfParent: toPct(adoptionCount, phase1SignalReports),
+      children: [
+        { id: 'non_llm', label: 'non_llm', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'non_llm'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'non_llm'), adoptionCount) },
+        { id: 'llm', label: 'llm', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'llm'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'llm'), adoptionCount) },
+        { id: 'agentic', label: 'agentic', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'agentic'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'agentic'), adoptionCount) },
+      ],
+    },
+    {
+      id: 'general_ambiguous',
+      label: 'General / ambiguous',
+      count: generalAmbiguousCount,
+      pctOfParent: toPct(generalAmbiguousCount, phase1SignalReports),
+    },
+    {
+      id: 'risk',
+      label: 'Risk',
+      count: riskCount,
+      pctOfParent: toPct(riskCount, phase1SignalReports),
+      children: [
+        { id: 'strategic_competitive', label: 'strategic/competitive', count: countBySetValue(riskReports, report => report.riskLabels, 'strategic_competitive'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'strategic_competitive'), riskCount) },
+        { id: 'cybersecurity', label: 'cybersecurity', count: countBySetValue(riskReports, report => report.riskLabels, 'cybersecurity'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'cybersecurity'), riskCount) },
+        { id: 'operational_technical', label: 'operational/technical', count: countBySetValue(riskReports, report => report.riskLabels, 'operational_technical'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'operational_technical'), riskCount) },
+        { id: 'regulatory_compliance', label: 'regulatory/compliance', count: countBySetValue(riskReports, report => report.riskLabels, 'regulatory_compliance'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'regulatory_compliance'), riskCount) },
+        { id: 'reputational_ethical', label: 'reputational/ethical', count: countBySetValue(riskReports, report => report.riskLabels, 'reputational_ethical'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'reputational_ethical'), riskCount) },
+        { id: 'third_party_supply_chain', label: 'third party/supply chain', count: countBySetValue(riskReports, report => report.riskLabels, 'third_party_supply_chain'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'third_party_supply_chain'), riskCount) },
+        { id: 'information_integrity', label: 'information integrity', count: countBySetValue(riskReports, report => report.riskLabels, 'information_integrity'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'information_integrity'), riskCount) },
+        { id: 'workforce_impacts', label: 'workforce impacts', count: countBySetValue(riskReports, report => report.riskLabels, 'workforce_impacts'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'workforce_impacts'), riskCount) },
+        { id: 'environmental_impact', label: 'environmental impact', count: countBySetValue(riskReports, report => report.riskLabels, 'environmental_impact'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'environmental_impact'), riskCount) },
+        { id: 'national_security', label: 'national security', count: countBySetValue(riskReports, report => report.riskLabels, 'national_security'), pctOfParent: toPct(countBySetValue(riskReports, report => report.riskLabels, 'national_security'), riskCount) },
+      ],
+    },
+    {
+      id: 'vendor',
+      label: 'Vendor',
+      count: vendorCount,
+      pctOfParent: toPct(vendorCount, phase1SignalReports),
+      children: [
+        { id: 'other', label: 'other', count: countBySetValue(vendorReports, report => report.vendorTags, 'other'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'other'), vendorCount) },
+        { id: 'microsoft', label: 'microsoft', count: countBySetValue(vendorReports, report => report.vendorTags, 'microsoft'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'microsoft'), vendorCount) },
+        { id: 'internal', label: 'internal', count: countBySetValue(vendorReports, report => report.vendorTags, 'internal'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'internal'), vendorCount) },
+        { id: 'openai', label: 'openai', count: countBySetValue(vendorReports, report => report.vendorTags, 'openai'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'openai'), vendorCount) },
+        { id: 'undisclosed', label: 'undisclosed', count: countBySetValue(vendorReports, report => report.vendorTags, 'undisclosed'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'undisclosed'), vendorCount) },
+        { id: 'google', label: 'google', count: countBySetValue(vendorReports, report => report.vendorTags, 'google'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'google'), vendorCount) },
+        { id: 'amazon', label: 'amazon', count: countBySetValue(vendorReports, report => report.vendorTags, 'amazon'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'amazon'), vendorCount) },
+        { id: 'meta', label: 'meta', count: countBySetValue(vendorReports, report => report.vendorTags, 'meta'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'meta'), vendorCount) },
+        { id: 'anthropic', label: 'anthropic', count: countBySetValue(vendorReports, report => report.vendorTags, 'anthropic'), pctOfParent: toPct(countBySetValue(vendorReports, report => report.vendorTags, 'anthropic'), vendorCount) },
+      ],
+    },
+    {
+      id: 'harm',
+      label: 'Harm',
+      count: harmCount,
+      pctOfParent: toPct(harmCount, phase1SignalReports),
+    },
+  ];
+
+  const phase1TotalAssignments = branches.reduce((sum, branch) => sum + branch.count, 0);
+
+  return {
+    totalReports,
+    noAiChunkExtracted,
+    aiChunkExtracted,
+    phase1NoneOnly,
+    phase1SignalReports,
+    phase1TotalAssignments,
+    averageLabelsPerSignalReport:
+      phase1SignalReports > 0 ? phase1TotalAssignments / phase1SignalReports : 0,
+    branches,
+  };
+};
+
+const buildReportClassificationFlow = (reports: ReportData[]): ReportClassificationFlow => {
+  const nodeDataMap = new Map<string, { name: string; stage: ReportClassificationFlowNode['stage']; fill: string; reportCount: number }>();
+  const linkDataMap = new Map<string, number>();
+
+  const ROOT_FILL = '#334155';
+  const GATE_FILL = '#f59e0b';
+  const NO_AI_FILL = '#94a3b8';
+
+  const CATEGORY_FILLS: Record<string, string> = {
+    adoption: '#0ea5e9',
+    risk: '#f97316',
+    vendor: '#14b8a6',
+    general_ambiguous: '#64748b',
+    harm: '#ef4444',
+    none: '#cbd5e1',
+  };
+
+  const addRawLink = (sourceId: string, targetId: string, value = 1) => {
+    const key = `${sourceId}|||${targetId}`;
+    linkDataMap.set(key, (linkDataMap.get(key) || 0) + value);
+  };
+
+  const trackNode = (id: string, name: string, stage: ReportClassificationFlowNode['stage'], fill: string, reportCount = 0) => {
+    if (!nodeDataMap.has(id)) {
+      nodeDataMap.set(id, { name, stage, fill, reportCount });
+    } else if (reportCount > 0) {
+      nodeDataMap.get(id)!.reportCount += reportCount;
+    }
+  };
+
+  // 1. Process Reports
+  let extractedCount = 0;
+  let noExtractedCount = 0;
+  let signalCount = 0;
+  let noneOnlyCount = 0;
+
+  const rootId = 'root:processed_reports';
+  const gateExtractedId = 'gate:ai_chunk_extracted';
+  const gateNoExtractedId = 'gate:no_ai_chunk_extracted';
+
+  reports.forEach(report => {
+    const hasExtraction = report.mentionTypes.size > 0;
+    if (!hasExtraction) {
+      noExtractedCount += 1;
+      addRawLink(rootId, gateNoExtractedId, 1);
+      return;
+    }
+
+    extractedCount += 1;
+    addRawLink(rootId, gateExtractedId, 1);
+const phase1Labels = Array.from(report.mentionTypes).filter(l => l !== 'none');
+const hasSignal = phase1Labels.length > 0;
+
+if (hasSignal) signalCount += 1;
+else noneOnlyCount += 1;
+
+// Overlapping Phase 1 flows (only if they have a non-none signal)
+phase1Labels.forEach(label => {
+  const p1Id = `phase1:${label}`;
+  trackNode(p1Id, formatFlowLabel(label), 'phase1', CATEGORY_FILLS[label] || '#cbd5e1', 1);
+  addRawLink(gateExtractedId, p1Id, 1);
+
+
+      if (label === 'adoption') {
+        report.adoptionTypes.forEach(t => {
+          const p2Id = `phase2:adoption:${t}`;
+          trackNode(p2Id, formatFlowLabel(t), 'phase2', CATEGORY_FILLS.adoption, 1);
+          addRawLink(p1Id, p2Id, 1);
+        });
+      } else if (label === 'risk') {
+        report.riskLabels.forEach(t => {
+          const p2Id = `phase2:risk:${t}`;
+          trackNode(p2Id, formatFlowLabel(t), 'phase2', CATEGORY_FILLS.risk, 1);
+          addRawLink(p1Id, p2Id, 1);
+        });
+      } else if (label === 'vendor') {
+        report.vendorTags.forEach(t => {
+          const p2Id = `phase2:vendor:${t}`;
+          trackNode(p2Id, formatFlowLabel(t), 'phase2', CATEGORY_FILLS.vendor, 1);
+          addRawLink(p1Id, p2Id, 1);
+        });
+      }
+    });
+  });
+
+  // Ensure primary nodes exist
+  trackNode(rootId, formatFlowLabel('processed_reports'), 'root', ROOT_FILL, reports.length);
+  trackNode(gateExtractedId, formatFlowLabel('ai_chunk_extracted'), 'gate', GATE_FILL, extractedCount);
+  trackNode(gateNoExtractedId, formatFlowLabel('no_ai_chunk_extracted'), 'gate', NO_AI_FILL, noExtractedCount);
+
+  // 2. Define Vertical Order
+  // Sort Phase 1 categories: Primary (Adoption, Risk, Vendor) by size, 
+  // then special cases (None, Harm), and finally General/Ambiguous at the very bottom.
+  const phase1Order = Array.from(nodeDataMap.keys())
+    .filter(id => id.startsWith('phase1:'))
+    .sort((a, b) => {
+      const aKey = a.split(':').pop() || '';
+      const bKey = b.split(':').pop() || '';
+      
+      // Bottom priority items
+      const bottomPriority = ['harm', 'general_ambiguous'];
+      const aIdx = bottomPriority.indexOf(aKey);
+      const bIdx = bottomPriority.indexOf(bKey);
+
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return 1;
+      if (bIdx !== -1) return -1;
+
+      // Default: size descending
+      return (nodeDataMap.get(b)?.reportCount || 0) - (nodeDataMap.get(a)?.reportCount || 0);
+    });
+  
+  // Group Phase 2 tags by parent category and sort within group by size
+  const getPhase2NodesForCategory = (cat: string) => 
+    Array.from(nodeDataMap.keys())
+      .filter(id => id.startsWith(`phase2:${cat}:`))
+      .sort((a, b) => (nodeDataMap.get(b)?.reportCount || 0) - (nodeDataMap.get(a)?.reportCount || 0));
+
+  const sortedNodeIds: string[] = [
+    rootId,
+    gateExtractedId,
+    gateNoExtractedId,
+    ...phase1Order,
+    ...getPhase2NodesForCategory('adoption'),
+    ...getPhase2NodesForCategory('risk'),
+    ...getPhase2NodesForCategory('vendor'),
+  ];
+
+  // 3. Construct final nodes and remap links
+  const nodes: ReportClassificationFlowNode[] = sortedNodeIds.map(id => ({
+    id,
+    ...nodeDataMap.get(id)!,
+  }));
+
+  const nodeIndexById = new Map<string, number>(sortedNodeIds.map((id, index) => [id, index]));
+
+  const links = Array.from(linkDataMap.entries())
+    .map(([key, value]) => {
+      const [sourceId, targetId] = key.split('|||');
+      const source = nodeIndexById.get(sourceId);
+      const target = nodeIndexById.get(targetId);
+      if (source === undefined || target === undefined) return null;
+      return { source, target, value };
+    })
+    .filter((l): l is { source: number; target: number; value: number } => l !== null);
+
+  return {
+    totalReports: reports.length,
+    extractedAiReports: extractedCount,
+    noExtractedAiReports: noExtractedCount,
+    phase1SignalReports: signalCount,
+    phase1NoneOnlyReports: noneOnlyCount,
+    nodes,
+    links,
+  };
 };
 
 const annotationsAsChunks = (
@@ -1096,6 +1462,8 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     sectors: resolvedCniSectors,
     isicSectors: resolvedIsicSectors,
     marketSegments: resolvedMarketSegments,
+    reportClassificationFlow: buildReportClassificationFlow(perReportData),
+    reportClassificationBreakdown: buildReportClassificationBreakdown(perReportData),
     labels: {
       mentionTypes,
       adoptionTypes,

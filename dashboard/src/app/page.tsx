@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 import HeroRiskChart from '@/components/hero-risk-chart';
+import { ReportClassificationSankeyShell } from '@/components/report-classification-sankey-shell';
 
 export default function HomePage() {
   const data = loadGoldenSetDashboardData();
@@ -115,6 +116,17 @@ export default function HomePage() {
           </svg>
           View on GitHub
         </a>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-16">
+        <div className="mb-6 max-w-3xl">
+          <h2 className="text-2xl font-semibold text-slate-900">How Reports Move Through The Pipeline</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
+            This is a Sankey-style flow from the full 1,000-report corpus through extraction, Phase 1 classification,
+            and the downstream Phase 2 labels.
+          </p>
+        </div>
+        <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />
       </section>
 
       {/* Navigation cards */}

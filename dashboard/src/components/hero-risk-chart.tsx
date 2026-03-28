@@ -21,20 +21,6 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
   const [phase, setPhase] = useState<Phase>('visible');
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  const goTo = useCallback((next: number) => {
-    setPhase('exiting');
-    setTimeout(() => {
-      setDisplayIndex(next);
-      setPhase('entering');
-      // After Recharts redraw starts, mark visible
-      setTimeout(() => setPhase('visible'), 50);
-    }, 500);
-  }, []);
-
-  const cycle = useCallback(() => {
-    goTo(-1); // sentinel: means "next"
-  }, [goTo]);
-
   // Resolve the sentinel in the setState
   useEffect(() => {
     if (phase === 'exiting') return;

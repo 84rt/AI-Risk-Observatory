@@ -124,6 +124,17 @@ type HeatmapCell = { x: string | number; y: string | number; value: number };
 const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
 const toPercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const filterLabelsWithTotals = (
+  labels: (string | number)[],
+  totals: Map<string, number>
+) => labels.filter(label => (totals.get(String(label)) || 0) > 0);
+const filterHeatmapRows = (
+  cells: HeatmapCell[],
+  yLabels: (string | number)[]
+) => {
+  const allowedLabels = new Set(yLabels.map(label => String(label)));
+  return cells.filter(cell => allowedLabels.has(String(cell.y)));
+};
 const convertTrendRowsToPercent = (
   rows: ChartRow[],
   axisKey: 'year' | 'month',
@@ -863,7 +874,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     substantivenessHeatmapInRange,
   ]);
 
-  const riskHeatmapYLabels = riskSectorView === 'cni' ? data.sectors : data.isicSectors;
+  const riskHeatmapYLabels = useMemo(
+    () =>
+      riskSectorView === 'cni'
+        ? data.sectors
+        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
+    [riskSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+  );
   const riskHeatmapAxisSectorLabel = riskSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector';
   const riskHeatmapTaxonomyDataInRange =
     riskSectorView === 'cni' ? riskBySectorInRange : riskByIsicSectorInRange;
@@ -902,7 +919,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     riskHeatmapReportTotalsInRange,
     riskHeatmapReportTotalsByYearMap,
   ]);
-  const adoptionHeatmapYLabels = adoptionSectorView === 'cni' ? data.sectors : data.isicSectors;
+  const visibleRiskHeatmapData = useMemo(
+    () => filterHeatmapRows(displayRiskHeatmapData, riskHeatmapYLabels),
+    [displayRiskHeatmapData, riskHeatmapYLabels]
+  );
+  const adoptionHeatmapYLabels = useMemo(
+    () =>
+      adoptionSectorView === 'cni'
+        ? data.sectors
+        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
+    [adoptionSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+  );
   const adoptionHeatmapSectorData = adoptionSectorView === 'cni' ? adoptionBySectorInRange : adoptionByIsicSectorInRange;
   const adoptionHeatmapSectorYearData = adoptionSectorView === 'cni' ? adoptionBySectorYearInRange : adoptionByIsicSectorYearInRange;
   const adoptionHeatmapData = useMemo(() => {
@@ -936,7 +963,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     adoptionHeatmapReportTotalsInRange,
     adoptionHeatmapReportTotalsByYearMap,
   ]);
-  const vendorHeatmapYLabels = vendorSectorView === 'cni' ? data.sectors : data.isicSectors;
+  const visibleAdoptionHeatmapData = useMemo(
+    () => filterHeatmapRows(displayAdoptionHeatmapData, adoptionHeatmapYLabels),
+    [displayAdoptionHeatmapData, adoptionHeatmapYLabels]
+  );
+  const vendorHeatmapYLabels = useMemo(
+    () =>
+      vendorSectorView === 'cni'
+        ? data.sectors
+        : filterLabelsWithTotals(data.isicSectors, reportTotalsByIsicSectorInRange),
+    [vendorSectorView, data.sectors, data.isicSectors, reportTotalsByIsicSectorInRange]
+  );
   const vendorHeatmapSectorData = vendorSectorView === 'cni' ? vendorBySectorInRange : vendorByIsicSectorInRange;
   const vendorHeatmapSectorYearData = vendorSectorView === 'cni' ? vendorBySectorYearInRange : vendorByIsicSectorYearInRange;
   const vendorHeatmapData = useMemo(() => {
@@ -972,6 +1009,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     vendorHeatmapReportTotalsInRange,
     vendorHeatmapReportTotalsByYearMap,
   ]);
+  const visibleVendorHeatmapData = useMemo(
+    () => filterHeatmapRows(displayVendorHeatmapData, vendorHeatmapYLabels),
+    [displayVendorHeatmapData, vendorHeatmapYLabels]
+  );
   const filteredBlindSpotTrend = useMemo(() => {
     if (blindSpotFilter === 'all') return blindSpotTrendInRange;
     return blindSpotTrendInRange.map(row => ({
@@ -1069,11 +1110,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     current: RiskSectorView,
     setter: (v: RiskSectorView) => void
   ) => (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setter('cni')}
-        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'cni'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1084,7 +1125,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('isic')}
-        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
           current === 'isic'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1096,11 +1137,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const trendTimeToggle = (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'year'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1111,7 +1152,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('month')}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           trendTimeAxis === 'month'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1123,11 +1164,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const metricModeToggle = canShowReportShare ? (
-    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => setMetricMode('count')}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'count'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1138,7 +1179,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setMetricMode('pct_reports')}
-        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
           effectiveMetricMode === 'pct_reports'
             ? 'bg-amber-500 text-white'
             : 'text-slate-600 hover:bg-slate-100'
@@ -1163,7 +1204,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   setActiveView(item.id);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className={`relative rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
+                className={`relative h-9 rounded-md px-3.5 text-sm font-medium transition-all ${
                   activeView === item.id
                     ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:bg-white/60 hover:text-slate-900'
@@ -1171,7 +1212,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               >
                 {item.title}
                 {activeView === item.id && (
-                  <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-amber-500" />
+                  <span className="absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-amber-500" />
                 )}
               </button>
             ))}
@@ -1179,9 +1220,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
           {/* Row 2: Year range + dataset toggle + view-specific controls */}
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/60 py-2">
-            <div className="w-[240px] rounded-lg border border-slate-200 bg-white/90 px-3 py-1 shadow-sm sm:w-[320px] lg:w-[340px]">
+            <div className="h-9 w-[240px] shrink-0 flex flex-col justify-center rounded-md border border-slate-200 bg-white/90 px-3 shadow-sm sm:w-[320px] lg:w-[340px]">
               <div
-                className="relative h-4"
+                className="relative h-3"
                 onMouseDown={event => {
                   if (maxYearIndex === 0) return;
                   if (event.target instanceof HTMLInputElement) return;
@@ -1213,7 +1254,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       end: prev.end,
                     }));
                   }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
+                  className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
                   aria-label="Start year"
                   disabled={maxYearIndex === 0}
                 />
@@ -1230,12 +1271,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       end: Math.max(nextEnd, prev.start),
                     }));
                   }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent"
+                  className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
                   aria-label="End year"
                   disabled={maxYearIndex === 0}
                 />
               </div>
-              <div className="relative mt-0.5 h-4 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+              <div className="relative h-3 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
                 {availableYears.length === 0 ? (
                   <span className="block text-center">-</span>
                 ) : (
@@ -1273,7 +1314,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   const nextYears = data.datasets[nextDatasetKey].years;
                   setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
                 }}
-                className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
               >
                 <option value="perReport">Per Report</option>
                 <option value="perChunk">Per Excerpt</option>
@@ -1287,7 +1328,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 setMarketSegmentFilter(event.target.value);
                 setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
               }}
-              className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+              className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
             >
               <option value="all">All Companies</option>
               {data.marketSegments.map(segment => (
@@ -1305,7 +1346,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="risk-filter"
                   value={riskFilter}
                   onChange={e => setRiskFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Risk Types</option>
                   {data.labels.riskLabels.map(label => (
@@ -1315,7 +1356,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {riskFilter !== 'all' && (
                   <button
                     onClick={() => setRiskFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1331,7 +1372,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="adoption-filter"
                   value={adoptionFilter}
                   onChange={e => setAdoptionFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Adoption Types</option>
                   {data.labels.adoptionTypes.map(label => (
@@ -1341,7 +1382,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {adoptionFilter !== 'all' && (
                   <button
                     onClick={() => setAdoptionFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1357,7 +1398,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="vendor-filter"
                   value={effectiveVendorFilter}
                   onChange={e => setVendorFilter(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Vendors</option>
                   {vendorStackKeys.map(label => (
@@ -1367,7 +1408,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {effectiveVendorFilter !== 'all' && (
                   <button
                     onClick={() => setVendorFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1383,7 +1424,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="signal-quality-filter"
                   value={signalQualityFilter}
                   onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Quality Panels</option>
                   <option value="risk_signal">Risk Signal Strength</option>
@@ -1394,7 +1435,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {signalQualityFilter !== 'all' && (
                   <button
                     onClick={() => setSignalQualityFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1410,7 +1451,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="blind-spot-filter"
                   value={blindSpotFilter}
                   onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                  className="h-9 rounded-lg border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
                 >
                   <option value="all">All Blind Spots</option>
                   <option value="no_ai_mention">No AI Mention</option>
@@ -1419,7 +1460,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {blindSpotFilter !== 'all' && (
                   <button
                     onClick={() => setBlindSpotFilter('all')}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     Clear
                   </button>
@@ -1626,7 +1667,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {/* Risk by Sector Heatmap */}
             <GenericHeatmap
-              data={displayRiskHeatmapData}
+              data={visibleRiskHeatmapData}
               xLabels={riskHeatmapXLabels}
               yLabels={riskHeatmapYLabels}
               baseColor={riskHeatmapBaseColor}
@@ -1723,7 +1764,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               }
             />
             <GenericHeatmap
-              data={displayAdoptionHeatmapData}
+              data={visibleAdoptionHeatmapData}
               xLabels={adoptionHeatmapXLabels}
               yLabels={adoptionHeatmapYLabels}
               baseColor={adoptionHeatmapBaseColor}
@@ -1814,7 +1855,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               }
             />
             <GenericHeatmap
-              data={displayVendorHeatmapData}
+              data={visibleVendorHeatmapData}
               xLabels={vendorHeatmapXLabels}
               yLabels={vendorHeatmapYLabels}
               baseColor={vendorHeatmapBaseColor}
