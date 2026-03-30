@@ -330,7 +330,7 @@ export function GenericHeatmap({
   xLabels,
   yLabels,
   valueFormatter = (v) => v.toString(),
-  baseColor = '#28a197',
+  baseColor = '#64748b',
   xLabelFormatter = (val) => val.toString(),
   yLabelFormatter = (val) => val.toString(),
   showTotals = true,
@@ -631,4 +631,3 @@ export function GenericHeatmap({
     </div>
   );
 }
-

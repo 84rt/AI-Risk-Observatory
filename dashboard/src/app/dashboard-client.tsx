@@ -50,36 +50,36 @@ const VIEWS: View[] = [
 ];
 
 const adoptionColors: Record<string, string> = {
-  non_llm: '#505a5f',     // grey
-  llm: '#0ea5e9',         // sky-500
-  agentic: '#7c3aed',     // violet-700
+  non_llm: '#64748b',     // slate-500
+  llm: '#3b82f6',         // blue-500
+  agentic: '#f59e0b',     // amber-500
 };
 
 const vendorColors: Record<string, string> = {
-  openai: '#7c3aed',      // violet-600 (purple)
+  openai: '#e63946',      // AISI red
   microsoft: '#3b82f6',   // blue-500
-  google: '#22c55e',      // green-500
-  internal: '#f97316',    // orange-500
-  other: '#94a3b8',       // slate-400
+  google: '#f59e0b',      // amber-500
+  internal: '#0b0c0c',    // near-black
+  other: '#64748b',       // slate-500
   undisclosed: '#e2e8f0', // slate-200
 };
 
 const riskColors: Record<string, string> = {
-  cybersecurity:            '#ef4444', // red-500
-  operational_technical:    '#f97316', // orange-500
-  regulatory_compliance:    '#e63946', // AISI Red
-  reputational_ethical:     '#14b8a6', // teal-500
-  information_integrity:    '#0ea5e9', // sky-500
-  third_party_supply_chain: '#22c55e', // green-500
-  strategic_competitive:    '#84cc16', // lime-500
-  workforce_impacts:        '#0f766e', // teal-700
-  environmental_impact:     '#10b981', // emerald-500
-  national_security:        '#7c3aed', // violet-700
+  cybersecurity:            '#e63946', // AISI red
+  operational_technical:    '#b91c1c', // deep red
+  regulatory_compliance:    '#f59e0b', // amber-500
+  reputational_ethical:     '#64748b', // slate-500
+  information_integrity:    '#3b82f6', // blue-500
+  third_party_supply_chain: '#0b0c0c', // near-black
+  strategic_competitive:    '#1d4ed8', // blue-700
+  workforce_impacts:        '#7c3aed', // violet-700
+  environmental_impact:     '#a16207', // amber-700
+  national_security:        '#334155', // slate-700
 };
 
 const blindSpotColors: Record<string, string> = {
-  no_ai_mention:      '#ef4444', // red-500
-  no_ai_risk_mention: '#e63946', // AISI Red
+  no_ai_mention:      '#b91c1c', // deep red
+  no_ai_risk_mention: '#e63946', // AISI red
 };
 
 const formatNumber = (value: number) =>
@@ -1017,8 +1017,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const riskHeatmapXLabels = riskFilter === 'all' ? data.labels.riskLabels : filteredYears;
   const riskHeatmapBaseColor = riskFilter === 'all'
-    ? '#28a197'
-    : (riskColors[riskFilter] || '#28a197');
+    ? '#e63946'
+    : (riskColors[riskFilter] || '#e63946');
   const visibleRiskHeatmapData = useMemo(() => {
     if (riskSectorView === 'cni') {
       const displayData = riskFilter === 'all'
@@ -1085,8 +1085,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [adoptionFilter, adoptionHeatmapSectorData, adoptionHeatmapSectorYearData]);
   const adoptionHeatmapXLabels = adoptionFilter === 'all' ? data.labels.adoptionTypes : filteredYears;
   const adoptionHeatmapBaseColor = adoptionFilter === 'all'
-    ? '#28a197'
-    : (adoptionColors[adoptionFilter] || '#28a197');
+    ? '#3b82f6'
+    : (adoptionColors[adoptionFilter] || '#3b82f6');
   const visibleAdoptionHeatmapData = useMemo(() => {
     if (adoptionSectorView === 'cni') {
       const displayData = adoptionFilter === 'all'
@@ -1155,8 +1155,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [effectiveVendorFilter, vendorHeatmapSectorData, vendorHeatmapSectorYearData, vendorStackKeys]);
   const vendorHeatmapXLabels = effectiveVendorFilter === 'all' ? vendorStackKeys : filteredYears;
   const vendorHeatmapBaseColor = effectiveVendorFilter === 'all'
-    ? '#28a197'
-    : (vendorColors[effectiveVendorFilter] || '#28a197');
+    ? '#64748b'
+    : (vendorColors[effectiveVendorFilter] || '#64748b');
   const visibleVendorHeatmapData = useMemo(() => {
     if (vendorSectorView === 'cni') {
       const displayData = effectiveVendorFilter === 'all'
@@ -1272,7 +1272,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     : blindSpotFilter === 'no_ai_risk_mention'
       ? 'Each cell is the share of reports in that sector-year with no AI risk mention. The Avg column and row show simple averages across the displayed years and sectors.'
       : '';
-  const blindSpotHeatmapColor = '#28a197';
+  const blindSpotHeatmapColor = '#b91c1c';
   const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
   const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
   const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
@@ -2122,7 +2122,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={riskSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#28a197"
+                baseColor="#e63946"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2140,7 +2140,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={adoptionSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#28a197"
+                baseColor="#3b82f6"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2158,7 +2158,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={vendorSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#28a197"
+                baseColor="#64748b"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2178,7 +2178,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               data={substantivenessHeatmapInRange}
               xLabels={filteredYears}
               yLabels={data.labels.substantivenessBands}
-              baseColor="#28a197"
+              baseColor="#f59e0b"
               valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
               showTotals={true}
@@ -2273,7 +2273,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={displayNoAiBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#28a197"
+                  baseColor="#b91c1c"
                   valueFormatter={blindSpotHeatmapValueFormatter}
                   showTotals={true}
                   totalsMode="average"
@@ -2289,7 +2289,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={displayNoAiRiskBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#28a197"
+                  baseColor="#e63946"
                   valueFormatter={blindSpotHeatmapValueFormatter}
                   showTotals={true}
                   totalsMode="average"
