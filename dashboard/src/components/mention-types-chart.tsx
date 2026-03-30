@@ -11,11 +11,11 @@ const mentionColors: Record<string, string> = {
 };
 
 export function MentionTypesChart({
-  data,
-  stackKeys,
+  data = [],
+  stackKeys = [],
 }: {
-  data: Record<string, number>[];
-  stackKeys: string[];
+  data?: Record<string, number>[];
+  stackKeys?: string[];
 }) {
   return (
     <StackedBarChart

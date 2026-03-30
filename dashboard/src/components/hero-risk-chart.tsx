@@ -96,13 +96,13 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
               </defs>
               <XAxis
                 dataKey="year"
-                tick={{ fontSize: 10, fill: '#a8a29e' }}
+                tick={{ fontSize: 10, fill: '#6f777b' }}
                 axisLine={false}
                 tickLine={false}
                 dy={4}
               />
               <YAxis
-                tick={{ fontSize: 9, fill: '#a09890' }}
+                tick={{ fontSize: 9, fill: '#6f777b' }}
                 axisLine={false}
                 tickLine={false}
                 width={40}
@@ -110,16 +110,18 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
               />
               <Tooltip
                 contentStyle={{
-                  fontSize: 11,
-                  borderRadius: 10,
-                  border: 'none',
-                  background: 'rgba(255,255,255,0.95)',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,.1)',
+                  fontSize: 10,
+                  borderRadius: 0,
+                  border: '1px solid #b1b4b6',
+                  background: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
                 }}
                 labelFormatter={label => `${label}`}
                 formatter={(value: number) => [value, current.label]}
-                cursor={{ stroke: '#d6d3d1', strokeWidth: 1, strokeDasharray: '3 3' }}
+                cursor={{ stroke: '#b1b4b6', strokeWidth: 1 }}
               />
               <Area
                 key={displayIndex}
@@ -142,7 +144,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
       {/* Label + dots indicator */}
       <div className="mt-1 flex items-center justify-between">
         <p
-          className="text-[11px] text-slate-400"
+          className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
           style={{
             opacity: phase === 'exiting' ? 0 : 1,
             transition: phase === 'exiting' ? 'opacity 350ms ease-in' : 'opacity 400ms ease-out',
@@ -155,10 +157,10 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
             <button
               key={i}
               onClick={() => onDotClick(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
+              className={`h-1.5 transition-all duration-300 ${
                 i === displayIndex
-                  ? 'w-4 bg-amber-500'
-                  : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                  ? 'w-6 bg-accent'
+                  : 'w-2 bg-secondary hover:bg-border'
               }`}
             />
           ))}

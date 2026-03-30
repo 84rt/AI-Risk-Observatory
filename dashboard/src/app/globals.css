@@ -2,23 +2,25 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #222830;
-  --muted: #40444c;
-  --muted-foreground: #6b7280;
+  --foreground: #0b0c0c;
+  --muted: #505a5f;
+  --muted-foreground: #6f777b;
   --card: #ffffff;
-  --card-foreground: #222830;
+  --card-foreground: #0b0c0c;
   --popover: #ffffff;
-  --popover-foreground: #222830;
-  --primary: #222830;
+  --popover-foreground: #0b0c0c;
+  --primary: #0b0c0c;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #1e293b;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #222830;
-  --radius: 0.5rem;
-  /* Font Stack matching the clean geometric sans used by AISI (likely Onest or similar) */
-  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --secondary: #f3f2f1;
+  --secondary-foreground: #0b0c0c;
+  --accent: #e63946; /* AISI Signal Red */
+  --accent-foreground: #ffffff;
+  --border: #b1b4b6;
+  --input: #b1b4b6;
+  --ring: #0b0c0c;
+  --radius: 0; /* Sharper, more institutional corners */
+  /* Font Stack matching the clean geometric sans used by AISI */
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
@@ -32,6 +34,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
   --font-sans: var(--font-sans);
 }
@@ -40,7 +44,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #ffffff;
-    --foreground: #222830;
+    --foreground: #0b0c0c;
   }
 }
 
@@ -63,31 +67,53 @@ body {
   }
   
   .aisi-h1 {
-    @apply text-4xl sm:text-5xl md:text-6xl font-normal tracking-tight text-primary;
+    @apply text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-primary uppercase;
   }
 
   .aisi-h2 {
-    @apply text-2xl sm:text-3xl font-normal tracking-tight text-primary;
+    @apply text-2xl sm:text-3xl font-bold tracking-tight text-primary;
+  }
+
+  .aisi-tag {
+    @apply inline-block text-[11px] font-bold uppercase tracking-[0.1em] text-accent mb-2;
+  }
+
+  .aisi-pill {
+    @apply inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-bold transition-colors;
+  }
+
+  /* Specific bubble colors based on AISI style */
+  .pill-amber { @apply bg-amber-100 text-amber-700 border border-amber-200; }
+  .pill-sky { @apply bg-sky-100 text-sky-700 border border-sky-200; }
+  .pill-violet { @apply bg-violet-100 text-violet-700 border border-violet-200; }
+  .pill-red { @apply bg-red-100 text-red-700 border border-red-200; }
+  .pill-emerald { @apply bg-emerald-100 text-emerald-700 border border-emerald-200; }
+  .pill-teal { @apply bg-teal-100 text-teal-700 border border-teal-200; }
+  .pill-orange { @apply bg-orange-100 text-orange-700 border border-orange-200; }
+  .pill-slate { @apply bg-slate-100 text-slate-700 border border-slate-200; }
+  .pill-indigo { @apply bg-indigo-100 text-indigo-700 border border-indigo-200; }
+  .pill-pink { @apply bg-pink-100 text-pink-700 border border-pink-200; }
+
+  .aisi-metadata {
+    @apply text-xs text-muted-foreground flex items-center gap-2;
+  }
+
+  .aisi-metadata span:not(:last-child)::after {
+    content: "•";
+    @apply ml-2 text-border;
   }
 
   .aisi-nav-link {
-    @apply text-sm font-medium text-muted hover:text-foreground transition-colors;
+    @apply text-sm font-bold text-muted hover:text-foreground transition-colors uppercase tracking-wider;
+  }
+
+  .aisi-select {
+    @apply h-10 border border-border bg-white px-3 text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
+    font-family: var(--font-sans);
   }
 
   .animate-rise {
     animation: rise 0.6s ease-out both;
-  }
-
-  .animate-rise-delay-1 {
-    animation-delay: 0.1s;
-  }
-
-  .animate-rise-delay-2 {
-    animation-delay: 0.2s;
-  }
-
-  .animate-rise-delay-3 {
-    animation-delay: 0.3s;
   }
 }
 
@@ -117,10 +143,9 @@ body {
   pointer-events: auto;
   width: 12px;
   height: 12px;
-  border-radius: 9999px;
-  border: 2px solid #f59e0b;
+  border-radius: 0;
+  border: 2px solid var(--accent);
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
   cursor: pointer;
   margin-top: -5px;
 }
@@ -135,9 +160,8 @@ body {
   pointer-events: auto;
   width: 12px;
   height: 12px;
-  border-radius: 9999px;
-  border: 2px solid #f59e0b;
+  border-radius: 0;
+  border: 2px solid var(--accent);
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
   cursor: pointer;
 }

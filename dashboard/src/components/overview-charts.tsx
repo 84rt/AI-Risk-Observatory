@@ -99,7 +99,7 @@ interface StackedBarChartProps {
 export function StackedBarChart({
   data,
   xAxisKey,
-  stackKeys,
+  stackKeys = [],
   colors = COLORS,
   yAxisTickFormatter,
   tooltipValueFormatter,
@@ -119,7 +119,7 @@ export function StackedBarChart({
   const activeChartType = allowLineChart ? chartType : 'bar';
   const showChartModeToggle = showChartTypeToggle ?? allowLineChart;
   const showSideLegend = legendPosition === 'right';
-  const visibleLegendKeys = [...(legendKeys ?? stackKeys)].reverse();
+  const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])].reverse();
 
   const hasMonthAxis = xAxisKey === 'month';
   const sharedAxisProps = {
@@ -141,15 +141,19 @@ export function StackedBarChart({
   };
 
   const tooltipProps = {
-    cursor: activeChartType === 'bar' ? { fill: '#f8fafc' } : { stroke: '#e2e8f0' },
+    cursor: activeChartType === 'bar' ? { fill: '#f3f2f1' } : { stroke: '#b1b4b6' },
     contentStyle: {
       backgroundColor: '#fff',
-      borderRadius: '6px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-      color: '#1e293b',
+      borderRadius: '0',
+      border: '1px solid #b1b4b6',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+      color: '#0b0c0c',
+      fontSize: '11px',
+      textTransform: 'uppercase',
+      fontWeight: 'bold',
+      letterSpacing: '0.05em'
     },
-    itemStyle: { color: '#1e293b' },
+    itemStyle: { color: '#0b0c0c' },
     formatter: (value: number, name: string) => [
       tooltipValueFormatter ? tooltipValueFormatter(value, name) : value,
       formatLabel(name),
@@ -157,9 +161,10 @@ export function StackedBarChart({
   };
 
   return (
-    <div className="w-full rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
+    <div className="w-full border border-border bg-white p-6 relative">
       {title && (
-        <h3 className="mb-1 flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <h3 className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="w-1.5 h-1.5 bg-accent" />
           {title}
           {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
@@ -168,27 +173,21 @@ export function StackedBarChart({
         <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
           {headerExtra}
           {showChartModeToggle && (
-            <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm p-0.5">
+            <div className="flex h-10 border border-border bg-white p-0.5">
               <button
                 onClick={() => setChartType('bar')}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'bar' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`h-full px-4 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                 title="Bar chart"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="1" y="6" width="3" height="7" rx="0.5" fill="currentColor"/>
-                  <rect x="5.5" y="3" width="3" height="10" rx="0.5" fill="currentColor"/>
-                  <rect x="10" y="1" width="3" height="12" rx="0.5" fill="currentColor"/>
-                </svg>
+                Bar
               </button>
               {allowLineChart && (
                 <button
                   onClick={() => setChartType('line')}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${activeChartType === 'line' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`h-full px-4 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                   title="Line chart"
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 12L4.5 6L8 8.5L13 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  Line
                 </button>
               )}
             </div>
@@ -331,7 +330,7 @@ export function GenericHeatmap({
   xLabels,
   yLabels,
   valueFormatter = (v) => v.toString(),
-  baseColor = '#64748b',
+  baseColor = '#28a197',
   xLabelFormatter = (val) => val.toString(),
   yLabelFormatter = (val) => val.toString(),
   showTotals = true,
@@ -427,11 +426,12 @@ export function GenericHeatmap({
       : grandTotal;
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] relative">
+    <div className="w-full border border-border bg-white p-6 relative">
       {(title || headerExtra) && (
-        <div className="mb-3 flex items-start justify-between gap-4">
+        <div className="mb-4 flex items-start justify-between gap-4">
           {title ? (
-            <h3 className="flex items-center gap-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              <span className="w-1.5 h-1.5 bg-accent" />
               {title}
               {tooltip && <InfoTooltip content={tooltip} />}
             </h3>
@@ -441,32 +441,32 @@ export function GenericHeatmap({
       )}
       <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
-        className="grid w-full gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
+        className="grid w-full gap-px overflow-hidden border border-border bg-border"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}
-        <div className={`relative bg-slate-50 min-h-[60px] overflow-hidden ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+        <div className={`relative bg-secondary min-h-[60px] overflow-hidden ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
           {xAxisLabel && yAxisLabel ? (
             <>
               <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
-                <line x1="0" y1="0" x2="100%" y2="100%" stroke="#cbd5e1" strokeWidth="1" />
+                <line x1="0" y1="0" x2="100%" y2="100%" stroke="#b1b4b6" strokeWidth="1" />
               </svg>
-              <span className="absolute right-2 top-2 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+              <span className="absolute right-2 top-2 text-[9px] font-bold uppercase leading-none tracking-widest text-muted-foreground">
                 {xAxisLabel}
               </span>
-              <span className="absolute bottom-2 left-2 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+              <span className="absolute bottom-2 left-2 text-[9px] font-bold uppercase leading-none tracking-widest text-muted-foreground">
                 {yAxisLabel}
               </span>
             </>
           ) : null}
         </div>
         {xLabels.map(x => (
-          <div key={x} className={`bg-slate-50 px-1 py-2 text-[10px] font-semibold text-slate-700 text-center flex items-center justify-center min-h-[60px] leading-tight ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+          <div key={x} className={`bg-secondary px-1 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center min-h-[60px] leading-tight ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
             {xLabelFormatter(x)}
           </div>
         ))}
         {showTotals && (
-          <div className={`bg-slate-100 px-1 py-2 text-[10px] font-bold text-slate-600 text-center flex items-center justify-center min-h-[60px] ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+          <div className={`bg-border px-1 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center min-h-[60px] ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
             {summaryLabel}
           </div>
         )}
@@ -485,12 +485,12 @@ export function GenericHeatmap({
 
                 return (
                   <div
-                    className={`border-r border-slate-100 px-2 py-1.5 ${
+                    className={`border-r border-border px-3 py-2 ${
                       isExpanded
-                        ? 'bg-slate-100/90 ring-1 ring-inset ring-slate-200'
-                        : 'bg-slate-50/80'
+                        ? 'bg-secondary ring-1 ring-inset ring-border'
+                        : 'bg-white'
                     } ${
-                      compact ? 'text-xs' : 'text-sm'
+                      compact ? 'text-[11px]' : 'text-xs'
                     } ${yLabelClassName || ''}`}
                     style={{ height: cellHeight }}
                   >
@@ -498,24 +498,22 @@ export function GenericHeatmap({
                       <button
                         type="button"
                         onClick={() => onToggleRowGroup(rowGroup.label)}
-                        className={`flex h-full w-full items-center justify-between gap-3 rounded-md px-1.5 text-left font-semibold transition ${
+                        className={`flex h-full w-full items-center justify-between gap-3 text-left font-bold uppercase tracking-wider transition ${
                           isExpanded
-                            ? 'text-slate-900 hover:bg-slate-100'
-                            : 'text-slate-800 hover:bg-slate-100'
+                            ? 'text-primary'
+                            : 'text-muted-foreground hover:text-primary'
                         }`}
                         title={`${isExpanded ? 'Collapse' : 'Expand'} ${rowGroup.label}`}
                       >
                         <span className="min-w-0 break-words leading-tight">{yLabelFormatter(y)}</span>
-                        <span className={`shrink-0 text-[11px] font-medium ${
-                          isExpanded ? 'text-slate-600' : 'text-slate-500'
+                        <span className={`shrink-0 text-[10px] ${
+                          isExpanded ? 'text-accent' : 'text-muted-foreground'
                         }`}>
                           {isExpanded ? '-' : '+'} {rowGroup.childKeys.length}
                         </span>
                       </button>
                     ) : (
-                      <div className={`flex h-full items-center font-semibold ${
-                        isExpanded ? 'text-slate-900' : 'text-slate-800'
-                      }`}>
+                      <div className={`flex h-full items-center font-bold uppercase tracking-wider text-primary`}>
                         {yLabelFormatter(y)}
                       </div>
                     )}
@@ -525,11 +523,11 @@ export function GenericHeatmap({
 
               return (
                 <div
-                  className={`bg-white px-3 py-2 font-medium text-slate-700 flex items-center border-r border-slate-100 leading-tight break-words ${
-                    compact ? 'text-xs' : 'text-sm'
+                  className={`bg-white px-3 py-2 font-bold uppercase tracking-wider text-primary flex items-center border-r border-border leading-tight break-words ${
+                    compact ? 'text-[10px]' : 'text-[11px]'
                   } ${
                     isChildRow
-                      ? 'border-l-2 border-l-slate-200 bg-slate-50/60 pl-6 text-slate-600'
+                      ? 'border-l-2 border-l-accent bg-secondary/60 pl-6 text-muted-foreground'
                       : ''
                   } ${yLabelClassName || ''}`}
                   style={{ height: cellHeight }}
@@ -552,16 +550,16 @@ export function GenericHeatmap({
               return (
                 <div
                   key={`${x}-${y}`}
-                  className={`relative group flex items-center justify-center ${isBlindSpot ? 'bg-slate-50' : 'bg-white'}`}
+                  className={`relative group flex items-center justify-center ${isBlindSpot ? 'bg-secondary/40' : 'bg-white'}`}
                   style={{ height: cellHeight }}
                   title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${valueFormatter(val)}`}
                 >
                   {isBlindSpot ? (
                     // Blind spot indicator - diagonal stripes pattern
                     <div
-                      className="absolute inset-0 opacity-40"
+                      className="absolute inset-0 opacity-20"
                       style={{
-                        backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, #cbd5e1 4px, #cbd5e1 5px)',
+                        backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, #0b0c0c 4px, #0b0c0c 5px)',
                       }}
                     />
                   ) : (
@@ -574,7 +572,7 @@ export function GenericHeatmap({
                     />
                   )}
                   {val > 0 && (
-                    <span className={`relative z-10 text-sm font-bold ${scaledIntensity > 0.6 ? 'text-white' : 'text-slate-700'}`}>
+                    <span className={`relative z-10 text-xs font-bold ${scaledIntensity > 0.6 ? 'text-white' : 'text-primary'}`}>
                       {valueFormatter(val)}
                     </span>
                   )}
@@ -584,8 +582,8 @@ export function GenericHeatmap({
 
             {/* Row Total */}
             {showTotals && (
-              <div className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
-                <span className="text-sm font-semibold text-slate-600">
+              <div className="bg-secondary flex items-center justify-center border-l border-border" style={{ height: cellHeight }}>
+                <span className="text-[11px] font-bold text-primary">
                   {formatSummaryValue(getRowSummaryValue(y))}
                 </span>
               </div>
@@ -596,18 +594,18 @@ export function GenericHeatmap({
         {/* Column Totals Row */}
         {showTotals && (
           <div className="contents">
-            <div className="bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 flex items-center" style={{ height: cellHeight }}>
+            <div className="bg-border px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-primary flex items-center" style={{ height: cellHeight }}>
               {summaryLabel}
             </div>
             {xLabels.map(x => (
-              <div key={`total-${x}`} className="bg-slate-50 flex items-center justify-center" style={{ height: cellHeight }}>
-                <span className="text-sm font-semibold text-slate-600">
+              <div key={`total-${x}`} className="bg-secondary flex items-center justify-center" style={{ height: cellHeight }}>
+                <span className="text-[11px] font-bold text-primary">
                   {formatSummaryValue(getColumnSummaryValue(x))}
                 </span>
               </div>
             ))}
-            <div className="bg-slate-100 flex items-center justify-center" style={{ height: cellHeight }}>
-              <span className="text-sm font-bold text-slate-700">
+            <div className="bg-border flex items-center justify-center" style={{ height: cellHeight }}>
+              <span className="text-[11px] font-bold text-primary">
                 {formatSummaryValue(getGrandSummaryValue())}
               </span>
             </div>
@@ -617,19 +615,20 @@ export function GenericHeatmap({
 
       </div>
       {showBlindSpots && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <div className="mt-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           <div
-            className="w-4 h-4 rounded border border-slate-200"
+            className="w-4 h-4 border border-border"
             style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #cbd5e1 2px, #cbd5e1 3px)',
+              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, #b1b4b6 2px, #b1b4b6 3px)',
             }}
           />
           <span>No reports containing specified mention</span>
         </div>
       )}
       {subtitle && (
-        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-400">{subtitle}</p>
+        <p className="mt-4 border-t border-border pt-4 text-[10px] font-bold uppercase tracking-widest leading-relaxed text-muted-foreground">{subtitle}</p>
       )}
     </div>
   );
 }
+

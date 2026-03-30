@@ -156,3 +156,34 @@ Run QA after each pipeline step:
 ```bash
 python tests/qa_manager.py --run-id <run_id> --stage all
 ```
+
+---
+
+## Known Issues / To Investigate
+
+### CH gap-fill: 87 filings with no CH annual accounts found (2025-03-29)
+
+When running `scripts/patch_ch_gaps.py --phase download_ch --include-pending`, 87 out of 129
+`needs_ch` items failed with "no CH filing found". These are **not code bugs** — they fall into
+two categories:
+
+**1. Foreign-incorporated companies** (GLEIF returns a non-UK registration number):
+`CNH Industrial N.V.` (NL), `Pepco Group N.V.` (NL), `BenevolentAI` (BE),
+`Prairie Mining Ltd.` (AU), `Linde PLC` (IE), `Glencore PLC` (JE),
+`Flex LNG` (BM), `Panther Metals PLC` (non-standard `009753V`).
+Their `registeredAs` from GLEIF is a home-country number that CH doesn't recognise.
+
+**2. UK-incorporated vehicles that don't file standard AA accounts on CH**:
+Investment trusts (`Schroder Real Estate`, `Schroder Oriental Income`, `Henderson Far East Income`,
+`Picton Property Income`), holding/management companies (`Worsley Investors`, `DCI Advisors`,
+`Raymond James Wealth Management`), and smaller vehicles (`Fragrant Prosperity Holdings`,
+`AdvancedAdvT`, `Vinanz`).
+
+Affected CH numbers: `008 677 852`, `009753V`, `00039117`, `00041959`, `00043007`, `00043298`,
+`00043673`, `00045582`, `00052644`, `00060527`, `00064865`, `00074891`, `00081792`, `00095064`,
+`00098465`, `00107710`, `00111714`, `00126344`, `00268512`, `00444750`, `00606357`, `00669758`,
+`01905051`, `02040954`, `02073995`, `56532474`, `81928491`, `B255412`.
+
+Possible future actions:
+- For foreign-incorporated companies: find PDF directly from company IR page or stock exchange filing.
+- For investment trusts: check if they file accounts under a different CH category.

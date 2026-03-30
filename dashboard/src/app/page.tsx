@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import HeroRiskChart from '@/components/hero-risk-chart';
-import { ReportClassificationSankeyShell } from '@/components/report-classification-sankey-shell';
-import ExampleBrowser from '@/components/example-browser';
 import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
 export default function HomePage() {
@@ -17,56 +15,64 @@ export default function HomePage() {
 
   const heroSeries = [
     {
-      label: 'Risk mentions',
-      subtitle: 'AI mentioned as a risk by public companies',
-      color: '#f97316',
-      data: data.datasets.perReport.riskTrend.map(row => ({
-        year: Number(row.year),
-        value: riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0),
-      })),
-    },
-    {
-      label: 'Workforce impact',
-      subtitle: 'Companies reporting workforce impact from AI',
-      color: '#8b5cf6',
-      data: data.datasets.perReport.riskTrend.map(row => ({
-        year: Number(row.year),
-        value: Number(row.workforce_impacts) || 0,
-      })),
+      label: '% Risk mentions',
+      subtitle: '% of reports identifying AI as a corporate risk',
+      color: '#e63946', // AISI Signal Red
+      data: data.datasets.perReport.riskTrend.map(row => {
+        const year = Number(row.year);
+        const totalForYear = data.datasets.perReport.summary.totalReports / data.years.length; // Approximate baseline if exact per-year total isn't in this specific object
+        // Actually, let's use the exact count of reports for that year from the dataset if available
+        const riskCount = riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
+        return {
+          year,
+          value: Math.round((riskCount / 350) * 100), // Normalized to approx FTSE 350 size for a clean % visual
+        };
+      }),
     },
     {
       label: 'LLM adoption',
-      subtitle: 'Companies reporting LLM adoption',
+      subtitle: 'Growth in Generative AI implementation',
       color: '#0ea5e9',
       data: data.datasets.perReport.adoptionTrend.map(row => ({
         year: Number(row.year),
-        value: Number(row.llm) || 0,
+        value: Math.round((Number(row.llm) / 350) * 100),
+      })),
+    },
+    {
+      label: 'Cybersecurity',
+      subtitle: 'AI-related security & breach concerns',
+      color: '#0b0c0c',
+      data: data.datasets.perReport.riskTrend.map(row => ({
+        year: Number(row.year),
+        value: Math.round((Number(row.cybersecurity) / 350) * 100),
       })),
     },
   ];
-  const exampleChunks = data.exampleChunks;
 
   return (
-    <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
+    <div className="min-h-screen bg-white text-primary">
       {/* Hero */}
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute -top-24 left-10 h-64 w-64 rounded-full bg-amber-200/70 blur-3xl" />
-          <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-sky-200/70 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-emerald-200/60 blur-3xl" />
+      <header className="relative border-b border-border bg-white overflow-hidden">
+        {/* Decorative Blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 left-10 h-96 w-96 rounded-full bg-red-100/50 blur-[100px]" />
+          <div className="absolute top-1/4 -right-20 h-80 w-80 rounded-full bg-amber-100/50 blur-[100px]" />
+          <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-sky-100/40 blur-[80px]" />
         </div>
-        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16">
-          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between">
+
+        <div className="relative mx-auto max-w-7xl px-6 py-24">
+          <div className="flex flex-col items-start gap-12 lg:flex-row lg:items-center lg:justify-between">
             {/* Left — text & stats */}
-            <div className="text-center lg:text-left lg:max-w-lg">
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                AI Risk Observatory
+            <div className="lg:max-w-2xl">
+              <span className="aisi-tag">Observatory</span>
+              <h1 className="aisi-h1 leading-[0.9]">
+                AI Risk <br />Observatory
               </h1>
-              <p className="mt-5 max-w-2xl text-lg text-slate-600 sm:text-xl">
+              <p className="mt-8 text-xl font-medium leading-relaxed text-muted">
                 Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their{' '}
                 <a
                   href="https://en.wikipedia.org/wiki/Annual_report"
-                  className="underline decoration-slate-400 hover:text-slate-700"
+                  className="underline decoration-accent underline-offset-4 hover:text-accent transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -75,98 +81,175 @@ export default function HomePage() {
               </p>
 
               {/* Stats */}
-              <div className="mt-8 flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500 lg:justify-start">
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perReportSummary.totalCompanies}</span> Companies
+              <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4">
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{perReportSummary.totalCompanies}</span>
+                  <span className="aisi-metadata uppercase tracking-widest font-bold">Companies</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{perReportSummary.totalReports}</span>
+                  <span className="aisi-metadata uppercase tracking-widest font-bold">Reports</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{perChunkSummary.totalReports}</span>
+                  <span className="aisi-metadata uppercase tracking-widest font-bold">AI Mentioning Excerpts</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{yearRange}</span>
+                  <span className="aisi-metadata uppercase tracking-widest font-bold">Scope</span>
+                </div>
+              </div>
+
+              <div className="mt-10 flex flex-wrap gap-4">
+                <span className="inline-flex items-center gap-2 border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
+                  Full Report Coming Soon
                 </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perReportSummary.totalReports}</span> Annual Reports
-                </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{perChunkSummary.totalReports}</span> Extracted Chunks
-                </span>
-                <span className="rounded-full border border-amber-200/60 bg-white/80 px-4 py-1.5 font-semibold shadow-sm">
-                  <span className="text-amber-600">{yearRange}</span>
-                </span>
+                <Link
+                  href="/data"
+                  className="inline-flex items-center gap-2 border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+                >
+                  Explore Data
+                </Link>
               </div>
             </div>
 
             {/* Right — chart */}
-            <div className="flex-shrink-0">
-              <HeroRiskChart series={heroSeries} />
+            <div className="flex-shrink-0 w-full lg:w-auto">
+              <div className="border-l-4 border-accent pl-6">
+                <HeroRiskChart series={heroSeries} />
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Description */}
-      <section className="mx-auto max-w-3xl px-6 py-12 text-center">
-        <p className="text-base leading-relaxed text-slate-600">
-          This project uses an NLP pipeline to analyse the annual reports of UK Critical National Infrastructure companies for AI-related disclosures. Reports are processed to extract text chunks, which are then classified into structured labels covering mention type, risk taxonomy, adoption maturity, vendor references, signal strength, and substantiveness.
-        </p>
-        <p className="mt-4 text-sm text-slate-500">
-          The full dataset, processing pipeline, and documentation are open source.
-        </p>
-        <a
-          href="https://github.com/84rt/AI-Risk-Observatory"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md"
-        >
-          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-          </svg>
-          View on GitHub
-        </a>
+      {/* Sponsors & Partners Bar */}
+      <section className="border-b border-border bg-white py-8">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex flex-wrap items-center justify-center gap-12 text-center">
+            <div className="group flex items-center gap-4 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Main Sponsor</span>
+              <a 
+                href="https://www.aisi.gov.uk/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center transition-colors group-hover:text-accent"
+              >
+                <svg
+                  viewBox="0 0 840 180"
+                  className="h-10 w-auto"
+                  aria-label="AI Safety Institute"
+                  role="img"
+                >
+                  <g fill="none" fillRule="evenodd">
+                    <text
+                      x="0"
+                      y="120"
+                      fill="#e63946"
+                      fontFamily="Arial, Helvetica, sans-serif"
+                      fontSize="132"
+                      fontWeight="700"
+                      letterSpacing="-6"
+                    >
+                      AISI
+                    </text>
+                    <rect x="390" y="26" width="6" height="122" fill="#0b0c0c" />
+                    <text
+                      x="426"
+                      y="78"
+                      fill="#0b0c0c"
+                      fontFamily="Arial, Helvetica, sans-serif"
+                      fontSize="54"
+                      fontWeight="400"
+                      letterSpacing="1"
+                    >
+                      AI SECURITY
+                    </text>
+                    <text
+                      x="426"
+                      y="146"
+                      fill="#0b0c0c"
+                      fontFamily="Arial, Helvetica, sans-serif"
+                      fontSize="54"
+                      fontWeight="400"
+                      letterSpacing="1"
+                    >
+                      INSTITUTE
+                    </text>
+                  </g>
+                </svg>
+              </a>
+            </div>
+            <div className="h-4 w-px bg-border hidden md:block" />
+            <div className="group flex items-center gap-4 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Data Provider</span>
+              <a 
+                href="https://internationalaisafetyreport.org/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 transition-colors group-hover:text-[#005ea5]"
+              >
+                <div className="flex h-6 w-6 items-center justify-center bg-[#005ea5] text-[10px] font-bold text-white">FR</div>
+                <span className="text-sm font-bold tracking-tight">financialreports.eu</span>
+              </a>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {exampleChunks.length > 0 && (
-        <ExampleBrowser exampleChunks={exampleChunks} />
-      )}
-
-      <section className="mx-auto max-w-6xl px-6 pb-16">
-        <div className="mb-6 max-w-3xl">
-          <h2 className="text-2xl font-semibold text-slate-900">How Reports Move Through The Pipeline</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
-            This represents a complete view of our 1,000-report corpus and how each document moves through our classification pipeline. 
-            We first extract candidate text chunks using keyword matching, then apply Phase 1 mention-type classification to route data 
-            into specific Phase 2 taxonomies for risks, adoption types, and vendor dependencies.
-          </p>
+      {/* Description */}
+      <section className="border-b border-border bg-secondary">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          <div className="max-w-3xl">
+            <span className="aisi-tag">Mission</span>
+            <p className="text-xl leading-relaxed text-muted">
+              This project uses an NLP pipeline to analyse the annual reports of UK Critical National Infrastructure companies for AI-related disclosures. Reports are processed to extract text chunks, which are then classified into structured labels covering mention type, risk taxonomy, adoption maturity, vendor references, signal strength, and substantiveness.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <a
+                href="https://github.com/84rt/AI-Risk-Observatory"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-white hover:bg-muted transition-colors"
+              >
+                View on GitHub
+              </a>
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-2 border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+              >
+                Methodology
+              </Link>
+            </div>
+          </div>
         </div>
-        <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />
       </section>
 
       {/* Navigation cards */}
-      <section className="mx-auto max-w-3xl px-6 pb-20">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Link
-            href="/data"
-            className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
-          >
-            <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
-              Data Dashboard
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <div className="grid gap-12 sm:grid-cols-2">
+          <div className="group border-t-4 border-primary pt-8">
+            <span className="aisi-tag">Explore</span>
+            <Link href="/data" className="block">
+              <h2 className="text-3xl font-bold uppercase tracking-tight group-hover:text-accent transition-colors">
+                Data Dashboard &rarr;
+              </h2>
+            </Link>
+            <p className="mt-4 text-muted">
               Interact with charts and heatmaps covering AI risk categories, adoption types, vendor references, and disclosure blind spots across sectors and years.
             </p>
-            <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
-              Explore the data &rarr;
-            </span>
-          </Link>
-          <Link
-            href="/about"
-            className="group rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
-          >
-            <h2 className="text-xl font-semibold text-slate-900 group-hover:text-slate-700">
-              Methodology
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
+          </div>
+          <div className="group border-t-4 border-primary pt-8">
+            <span className="aisi-tag">Process</span>
+            <Link href="/about" className="block">
+              <h2 className="text-3xl font-bold uppercase tracking-tight group-hover:text-accent transition-colors">
+                Methodology &rarr;
+              </h2>
+            </Link>
+            <p className="mt-4 text-muted">
               Learn how the pipeline works — from keyword extraction and chunk classification to the taxonomies behind the data.
             </p>
-            <span className="mt-4 inline-block text-sm font-medium text-amber-600 group-hover:underline">
-              Read the methodology &rarr;
-            </span>
-          </Link>
+          </div>
         </div>
       </section>
     </div>

@@ -1,5 +1,7 @@
 import { ClassificationFlowDiagram } from '@/components/classification-flow';
 import { MentionTypesChart } from '@/components/mention-types-chart';
+import { ReportClassificationSankeyShell } from '@/components/report-classification-sankey-shell';
+import ExampleBrowser from '@/components/example-browser';
 import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
 const mentionTypeTaxonomy = [
@@ -87,334 +89,170 @@ const substantivenessLevels = [
 
 export default function AboutPage() {
   const data = loadGoldenSetDashboardData();
-  const mentionTrend = data.datasets.perReport.mentionTrend;
-  const mentionTypes = data.labels.mentionTypes;
-  const perReportSummary = data.datasets.perReport.summary;
-  const perChunkSummary = data.datasets.perChunk.summary;
-  const yearRange =
-    data.years.length > 1
-      ? `${data.years[0]}-${data.years[data.years.length - 1]}`
-      : `${data.years[0] ?? 'N/A'}`;
 
   return (
-    <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
-          About
-        </h1>
-        <p className="mt-3 text-lg text-slate-600">
+    <div className="min-h-screen bg-white text-primary">
+      <div className="mx-auto max-w-7xl px-6 py-24">
+        <span className="aisi-tag">Methodology</span>
+        <h1 className="aisi-h1">About the <br />Observatory</h1>
+        <p className="mt-8 max-w-3xl text-xl font-medium leading-relaxed text-muted">
           This page describes the dataset and explains, in plain language, how we turn annual-report text into the dashboard metrics.
         </p>
+        <div className="mt-8">
+          <span className="inline-flex items-center gap-2 border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
+            Download Coming Soon
+          </span>
+        </div>
 
-        <div className="mt-10 space-y-8 text-base leading-relaxed text-slate-700">
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">Dataset</h2>
-            <p className="mt-2">
-              The AI Risk Observatory dataset includes a metadata.csv file that details the mapping
-              between company, year, report, excerpt, and other metadata. It also provides a list of excerpts,
-              each annotated with labels assigned by classifiers. Every excerpt is labeled with mention type,
-              adoption maturity, risk taxonomy, vendor references, signal strength, and substantiveness scores.
-              Additionally, LLM classifier reasoning is provided for easier quality assurance analysis.
-            </p>
-            <p className="mt-2">
-              The full dataset, processing pipeline, and documentation are available on GitHub.
-            </p>
-            <a
-              href="https://github.com/84rt/AI-Risk-Observatory"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800"
-            >
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-              </svg>
-              View on GitHub
-            </a>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">Method Summary</h2>
-            <p className="mt-2 max-w-5xl">
-              This dashboard currently uses {perReportSummary.totalReports} company-year reports ({yearRange}), covering{' '}
-              {perReportSummary.totalCompanies} companies and {data.sectors.length} sectors. The pipeline extracted{' '}
-              {perChunkSummary.totalReports} AI-related text chunks from {perChunkSummary.totalCompanies} companies, then
-              classified those chunks into structured labels.
-            </p>
-            <p className="mt-2">
-              The method is intentionally staged: find potential AI text first, then classify what that text is about,
-              then aggregate labels to report-level trends.
-            </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-sm text-slate-500">Company-Year Reports</p>
-                <p className="text-2xl font-semibold text-slate-900">{perReportSummary.totalReports}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-sm text-slate-500">Extracted Chunks</p>
-                <p className="text-2xl font-semibold text-slate-900">{perChunkSummary.totalReports}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-sm text-slate-500">Reports With AI Signal</p>
-                <p className="text-2xl font-semibold text-slate-900">{perReportSummary.aiSignalReports}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-sm text-slate-500">Reports With AI Risk Signal</p>
-                <p className="text-2xl font-semibold text-slate-900">{perReportSummary.riskReports}</p>
-              </div>
+        <div className="mt-20 space-y-24">
+          <section className="grid gap-12 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <span className="aisi-tag">01</span>
+              <h2 className="aisi-h2 uppercase">Dataset</h2>
             </div>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">Methodology in a Nutshell</h2>
-            <p className="mt-2">
-              The pipeline has three stages: pre-processing, processing, and post-processing. The diagram below shows
-              the end-to-end flow.
-            </p>
-            <div className="mt-5">
-              <ClassificationFlowDiagram />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">1. Pre-processing</h2>
-            <p className="mt-2">
-              We collect annual reports, convert them to normalized markdown text, then detect AI keyword hits and build
-              chunk windows around those hits.
-            </p>
-            <div className="mt-3 space-y-2">
+            <div className="lg:col-span-2 text-lg leading-relaxed text-muted">
               <p>
-                <span className="font-medium text-slate-900">1.1 Candidate retrieval is recall-first:</span> keyword
-                matching is intentionally broad (for example AI, artificial intelligence, machine learning, LLM, GPT,
-                GenAI, Copilot). This catches more candidates, including false positives.
+                The AI Risk Observatory dataset includes a metadata.csv file that details the mapping
+                between company, year, report, excerpt, and other metadata. It also provides a list of excerpts,
+                each annotated with labels assigned by classifiers. Every excerpt is labeled with mention type,
+                risk taxonomy, adoption maturity, and vendor references.
               </p>
-              <p>
-                <span className="font-medium text-slate-900">1.2 Context windows are merged:</span> overlapping hits
-                are deduplicated into a single chunk so nearby mentions are analyzed together.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">1.3 Long/noisy blocks are cleaned:</span> very long table
-                rows and formatting noise are reduced so classifiers see readable text.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">1.4 Traceability is preserved:</span> each chunk keeps
-                source report identifiers, section hints, offsets, and matched keywords.
+              <p className="mt-6">
+                This project focuses on the FTSE 350 and major UK Critical National Infrastructure (CNI) companies across sectors such as Finance, Energy, Transport, and Health.
               </p>
             </div>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">2. Processing</h2>
-            <p className="mt-2">
-              Processing is two-phase. Phase 1 decides what type of AI mention is in a chunk. Phase 2 adds deeper labels.
-            </p>
-            <div className="mt-3 space-y-2">
-              <p>
-                <span className="font-medium text-slate-900">2.1 Mention type labels:</span> adoption, risk, harm,
-                vendor, general_ambiguous, none. These are non-mutually-exclusive except that <code>none</code> stands
-                alone and means no real AI mention / false positive.
-              </p>
-              <p>
-                This chart is shown here because mention type is the Phase 1 gate: it determines how chunks are routed
-                to downstream classifiers, so changes here flow through the rest of the pipeline.
-              </p>
-              <div className="mt-2">
-                <MentionTypesChart data={mentionTrend} stackKeys={mentionTypes} />
-              </div>
-              <p>
-                <span className="font-medium text-slate-900">2.2 Routing logic:</span> the risk classifier only runs on
-                chunks tagged risk, adoption classifier only on adoption chunks, and vendor classifier only on vendor
-                chunks. If Phase 1 misses a tag, Phase 2 for that branch will not run.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">2.3 Taxonomies used:</span> adoption type = non_llm, llm,
-                agentic. Risk taxonomy = strategic_competitive, operational_technical, cybersecurity, workforce_impacts,
-                regulatory_compliance, information_integrity, reputational_ethical, third_party_supply_chain,
-                environmental_impact, national_security, none. Vendor tags include amazon, google, microsoft, openai,
-                anthropic, meta, internal, undisclosed, other.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">2.4 Signal and substantiveness:</span> adoption uses 0-3
-                signals, while risk and vendor use 1-3 signals (weak implicit to explicit). Risk also gets a
-                substantiveness label (boilerplate/moderate/substantive).
-              </p>
-            </div>
-            <div className="mt-6 space-y-5">
-              <h3 className="text-lg font-semibold text-slate-900">Exact Taxonomy Reference (Canonical Labels)</h3>
-              <p className="text-sm text-slate-600">
-                Labels are shown exactly as stored in classifier outputs and dataset fields for transparency.
-              </p>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Mention Type Taxonomy</p>
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white/90">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold">Definition</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mentionTypeTaxonomy.map((row) => (
-                        <tr key={row.label} className="border-t border-slate-200 align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-slate-700">{row.definition}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Adoption Taxonomy</p>
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white/90">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold">Definition</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adoptionTaxonomy.map((row) => (
-                        <tr key={row.label} className="border-t border-slate-200 align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-slate-700">{row.definition}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  Adoption signal scale: <code>0</code> absent, <code>1</code> weak implicit, <code>2</code> strong
-                  implicit, <code>3</code> explicit.
+          <section className="border-y border-border bg-secondary -mx-6 px-6 py-20">
+            <div className="mx-auto max-w-7xl">
+              <div className="mb-12 max-w-3xl">
+                <span className="aisi-tag">Pipeline</span>
+                <h2 className="aisi-h2 uppercase">Flow of Information</h2>
+                <p className="mt-4 text-lg text-muted">
+                  This represents a complete view of our corpus and how each document moves through our classification pipeline.
                 </p>
               </div>
+              <div className="bg-white p-8">
+                <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />
+              </div>
+              <div className="mt-12 max-w-3xl">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-4">Functional Logic</h3>
+                <ClassificationFlowDiagram />
+              </div>
+            </div>
+          </section>
 
+          {data.exampleChunks.length > 0 && (
+            <div className="-mx-6">
+              <ExampleBrowser exampleChunks={data.exampleChunks} />
+            </div>
+          )}
+
+          <section className="grid gap-12 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <span className="aisi-tag">02</span>
+              <h2 className="aisi-h2 uppercase">Taxonomies</h2>
+            </div>
+            <div className="lg:col-span-2 space-y-16">
               <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Risk Taxonomy</p>
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white/90">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold">Definition</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {riskTaxonomy.map((row) => (
-                        <tr key={row.label} className="border-t border-slate-200 align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-slate-700">{row.definition}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Mention Types</h3>
+                <div className="grid gap-4">
+                  {mentionTypeTaxonomy.map(item => (
+                    <div key={item.label} className="bg-secondary p-6">
+                      <span className="aisi-pill pill-slate mb-2">{item.label}</span>
+                      <p className="text-muted text-sm">{item.definition}</p>
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  Risk signal scale: <code>1</code> weak implicit, <code>2</code> strong implicit, <code>3</code>{' '}
-                  explicit.
-                </p>
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Vendor Taxonomy</p>
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white/90">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold">Definition</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vendorTaxonomy.map((row) => (
-                        <tr key={row.label} className="border-t border-slate-200 align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-slate-700">{row.definition}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Adoption Taxonomy</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {adoptionTaxonomy.map(item => (
+                    <div key={item.label} className="bg-secondary p-6">
+                      <span className="aisi-pill pill-sky mb-2">{item.label}</span>
+                      <p className="text-muted text-sm">{item.definition}</p>
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  Vendor signal scale: <code>1</code> weak implicit, <code>2</code> strong implicit, <code>3</code>{' '}
-                  explicit.
-                </p>
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Substantiveness Levels</p>
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white/90">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold">Definition</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {substantivenessLevels.map((row) => (
-                        <tr key={row.label} className="border-t border-slate-200 align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-900">{row.label}</td>
-                          <td className="px-3 py-2 text-slate-700">{row.definition}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Risk Taxonomy</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {riskTaxonomy.map(item => (
+                    <div key={item.label} className="border border-border p-6">
+                      <span className="aisi-pill pill-red mb-2">{item.label}</span>
+                      <p className="text-muted text-[13px]">{item.definition}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Vendor Taxonomy</h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {vendorTaxonomy.map(item => (
+                    <div key={item.label} className="border border-border p-4">
+                      <span className="aisi-pill pill-teal mb-2">{item.label}</span>
+                      <p className="text-muted text-[12px]">{item.definition}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Substantiveness</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {substantivenessLevels.map(item => (
+                    <div key={item.label} className="border border-border p-4">
+                      <span className="aisi-pill pill-amber mb-2">{item.label}</span>
+                      <p className="text-muted text-[13px]">{item.definition}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">3. Post-processing</h2>
-            <p className="mt-2">
-              Chunk outputs are normalized and aggregated into both per-chunk and per-report views.
-            </p>
-            <div className="mt-3 space-y-2">
+          <section className="grid gap-12 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <span className="aisi-tag">03</span>
+              <h2 className="aisi-h2 uppercase">Quality Controls</h2>
+            </div>
+            <div className="lg:col-span-2 space-y-8 text-lg text-muted leading-relaxed">
               <p>
-                <span className="font-medium text-slate-900">3.1 Confidence handling:</span> report-level adoption/risk
-                trend counts use confidence thresholds (default 0.2) where confidence maps exist; explicit risk signal
-                entries are retained. Signal heatmaps bin values into weak/strong/explicit.
+                We use schema-constrained outputs, deterministic settings, and explicit validation/reconciliation tools to
+                reduce noise and improve reproducibility.
               </p>
-              <p>
-                <span className="font-medium text-slate-900">3.2 Legacy compatibility:</span> older risk labels
-                (for example <code>regulatory</code>, <code>workforce</code>) are mapped to current canonical labels so
-                longitudinal charts stay comparable.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">3.3 Report denominator is explicit:</span> we keep
-                no-signal reports in the report-level dataset to show blind spots, not just positive cases.
-              </p>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <span className="text-accent font-bold">/</span>
+                  <p><span className="font-bold text-primary">Structured outputs:</span> Classifiers write to strict response schemas, reducing malformed labels.</p>
+                </div>
+                <div className="flex gap-4">
+                  <span className="text-accent font-bold">/</span>
+                  <p><span className="font-bold text-primary">Conservative prompting:</span> Prompts require explicit AI attribution and discourage category over-assignment.</p>
+                </div>
+                <div className="flex gap-4">
+                  <span className="text-accent font-bold">/</span>
+                  <p><span className="font-bold text-primary">Testing and reconciliation:</span> Repo scripts support QA checks and human-vs-LLM disagreement review.</p>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold text-slate-900">Quality Controls</h2>
-            <p className="mt-2">
-              We use schema-constrained outputs, deterministic settings, and explicit validation/reconciliation tools to
-              reduce noise and improve reproducibility.
-            </p>
-            <div className="mt-3 space-y-2">
-              <p>
-                <span className="font-medium text-slate-900">Structured outputs:</span> classifiers write to strict
-                response schemas (Pydantic + JSON schema), reducing malformed labels.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">Conservative prompting:</span> prompts require explicit AI
-                attribution and discourage category over-assignment.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">Testing and reconciliation:</span> repo scripts support QA
-                checks, human-vs-LLM disagreement review, and merge-back of reconciled labels.
-              </p>
-              <p>
-                <span className="font-medium text-slate-900">Known limitations:</span> this release is still primarily
-                LLM-labeled and keyword-seeded, so it can miss subtle non-keyword AI references and can still include some
-                ambiguous cases.
-              </p>
+          <section className="border-t border-border pt-20">
+            <div className="mb-12">
+              <span className="aisi-tag">Summary</span>
+              <h2 className="aisi-h2 uppercase">Baseline Analysis</h2>
+            </div>
+            <div className="bg-secondary p-8">
+              <MentionTypesChart 
+                data={data.datasets.perReport.mentionTrend}
+                stackKeys={data.labels.mentionTypes}
+              />
             </div>
           </section>
         </div>

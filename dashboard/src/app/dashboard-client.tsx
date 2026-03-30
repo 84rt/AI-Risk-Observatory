@@ -50,7 +50,7 @@ const VIEWS: View[] = [
 ];
 
 const adoptionColors: Record<string, string> = {
-  non_llm: '#f59e0b',     // amber-500
+  non_llm: '#505a5f',     // grey
   llm: '#0ea5e9',         // sky-500
   agentic: '#7c3aed',     // violet-700
 };
@@ -67,7 +67,7 @@ const vendorColors: Record<string, string> = {
 const riskColors: Record<string, string> = {
   cybersecurity:            '#ef4444', // red-500
   operational_technical:    '#f97316', // orange-500
-  regulatory_compliance:    '#f59e0b', // amber-500
+  regulatory_compliance:    '#e63946', // AISI Red
   reputational_ethical:     '#14b8a6', // teal-500
   information_integrity:    '#0ea5e9', // sky-500
   third_party_supply_chain: '#22c55e', // green-500
@@ -79,7 +79,7 @@ const riskColors: Record<string, string> = {
 
 const blindSpotColors: Record<string, string> = {
   no_ai_mention:      '#ef4444', // red-500
-  no_ai_risk_mention: '#f59e0b', // amber-500
+  no_ai_risk_mention: '#e63946', // AISI Red
 };
 
 const formatNumber = (value: number) =>
@@ -1017,8 +1017,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const riskHeatmapXLabels = riskFilter === 'all' ? data.labels.riskLabels : filteredYears;
   const riskHeatmapBaseColor = riskFilter === 'all'
-    ? '#64748b'
-    : (riskColors[riskFilter] || '#64748b');
+    ? '#28a197'
+    : (riskColors[riskFilter] || '#28a197');
   const visibleRiskHeatmapData = useMemo(() => {
     if (riskSectorView === 'cni') {
       const displayData = riskFilter === 'all'
@@ -1085,8 +1085,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [adoptionFilter, adoptionHeatmapSectorData, adoptionHeatmapSectorYearData]);
   const adoptionHeatmapXLabels = adoptionFilter === 'all' ? data.labels.adoptionTypes : filteredYears;
   const adoptionHeatmapBaseColor = adoptionFilter === 'all'
-    ? '#64748b'
-    : (adoptionColors[adoptionFilter] || '#64748b');
+    ? '#28a197'
+    : (adoptionColors[adoptionFilter] || '#28a197');
   const visibleAdoptionHeatmapData = useMemo(() => {
     if (adoptionSectorView === 'cni') {
       const displayData = adoptionFilter === 'all'
@@ -1155,8 +1155,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   }, [effectiveVendorFilter, vendorHeatmapSectorData, vendorHeatmapSectorYearData, vendorStackKeys]);
   const vendorHeatmapXLabels = effectiveVendorFilter === 'all' ? vendorStackKeys : filteredYears;
   const vendorHeatmapBaseColor = effectiveVendorFilter === 'all'
-    ? '#64748b'
-    : (vendorColors[effectiveVendorFilter] || '#64748b');
+    ? '#28a197'
+    : (vendorColors[effectiveVendorFilter] || '#28a197');
   const visibleVendorHeatmapData = useMemo(() => {
     if (vendorSectorView === 'cni') {
       const displayData = effectiveVendorFilter === 'all'
@@ -1272,7 +1272,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     : blindSpotFilter === 'no_ai_risk_mention'
       ? 'Each cell is the share of reports in that sector-year with no AI risk mention. The Avg column and row show simple averages across the displayed years and sectors.'
       : '';
-  const blindSpotHeatmapColor = '#64748b';
+  const blindSpotHeatmapColor = '#28a197';
   const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
   const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
   const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
@@ -1293,14 +1293,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     current: RiskSectorView,
     setter: (v: RiskSectorView) => void
   ) => (
-    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex items-center border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setter('cni')}
-        className={`h-8 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           current === 'cni'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         CNI
@@ -1308,10 +1308,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('isic')}
-        className={`h-8 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           current === 'isic'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         ISIC
@@ -1320,14 +1320,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const trendTimeToggle = (
-    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex items-center border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
-        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           trendTimeAxis === 'year'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         Year
@@ -1335,10 +1335,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('month')}
-        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           trendTimeAxis === 'month'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         Month
@@ -1347,14 +1347,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const metricModeToggle = canShowReportShare ? (
-    <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white/90 p-0.5 shadow-sm">
+    <div className="inline-flex items-center border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setMetricMode('count')}
-        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           effectiveMetricMode === 'count'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         Count
@@ -1362,10 +1362,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setMetricMode('pct_reports')}
-        className={`h-8 rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           effectiveMetricMode === 'pct_reports'
-            ? 'bg-amber-500 text-white'
-            : 'text-slate-600 hover:bg-slate-100'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         % of Reports
@@ -1381,12 +1381,12 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f3ef] text-slate-900">
+    <div className="min-h-screen bg-white text-primary">
       {/* Sticky control bar */}
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-[#f6f3ef]/70 backdrop-blur-md">
+      <div className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6">
           {/* Row 1: View tabs */}
-          <div className="flex items-center gap-1 py-2">
+          <div className="flex items-center">
             {VIEWS.map(item => (
               <button
                 key={item.id}
@@ -1394,23 +1394,23 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   setActiveView(item.id);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className={`relative h-9 rounded-md px-3.5 text-sm font-medium transition-all ${
+                className={`relative px-5 py-4 text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
                   activeView === item.id
-                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
-                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-900'
+                    ? 'text-accent'
+                    : 'text-muted-foreground hover:text-primary'
                 }`}
               >
                 {item.title}
                 {activeView === item.id && (
-                  <span className="absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-amber-500" />
+                  <span className="absolute inset-x-0 bottom-0 h-1 bg-accent" />
                 )}
               </button>
             ))}
           </div>
 
           {/* Row 2: Year range + dataset toggle + view-specific controls */}
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/60 py-2">
-            <div className="h-9 w-[240px] shrink-0 flex flex-col justify-center rounded-md border border-slate-200 bg-white/90 px-3 shadow-sm sm:w-[320px] lg:w-[340px]">
+          <div className="flex flex-wrap items-center gap-4 border-t border-border py-4">
+            <div className="h-10 w-[240px] shrink-0 flex flex-col justify-center border border-border bg-white px-3 sm:w-[320px] lg:w-[340px]">
               <div
                 className="relative h-3"
                 onMouseDown={event => {
@@ -1426,9 +1426,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   updateYearRangeFromTrackClick(touch.clientX, event.currentTarget);
                 }}
               >
-                <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-200" />
+                <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-secondary" />
                 <div
-                  className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-amber-500"
+                  className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-accent"
                   style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
                 />
                 <input
@@ -1466,7 +1466,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   disabled={maxYearIndex === 0}
                 />
               </div>
-              <div className="relative h-3 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+              <div className="relative h-3 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
                 {availableYears.length === 0 ? (
                   <span className="block text-center">-</span>
                 ) : (
@@ -1482,7 +1482,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       <span
                         key={year}
                         className={`absolute top-0 transition-colors ${edgeClass} ${
-                          index >= startIndex && index <= endIndex ? 'text-slate-900' : 'text-slate-500'
+                          index >= startIndex && index <= endIndex ? 'text-primary' : 'text-muted-foreground'
                         }`}
                         style={{ left: `${leftPct}%` }}
                       >
@@ -1504,7 +1504,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   const nextYears = data.datasets[nextDatasetKey].years;
                   setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
                 }}
-                className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                className="aisi-select"
               >
                 <option value="perReport">Per Report</option>
                 <option value="perChunk">Per Excerpt</option>
@@ -1518,7 +1518,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 setMarketSegmentFilter(event.target.value);
                 setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
               }}
-              className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+              className="aisi-select"
             >
               <option value="all">All Companies</option>
               {data.marketSegments.map(segment => (
@@ -1534,7 +1534,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="risk-filter"
                   value={riskFilter}
                   onChange={e => setRiskFilter(e.target.value)}
-                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
                 >
                   <option value="all">All Risk Types</option>
                   {data.labels.riskLabels.map(label => (
@@ -1560,7 +1560,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="adoption-filter"
                   value={adoptionFilter}
                   onChange={e => setAdoptionFilter(e.target.value)}
-                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
                 >
                   <option value="all">All Adoption Types</option>
                   {data.labels.adoptionTypes.map(label => (
@@ -1586,7 +1586,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="vendor-filter"
                   value={effectiveVendorFilter}
                   onChange={e => setVendorFilter(e.target.value)}
-                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
                 >
                   <option value="all">All Vendors</option>
                   {vendorStackKeys.map(label => (
@@ -1612,7 +1612,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="signal-quality-filter"
                   value={signalQualityFilter}
                   onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
                 >
                   <option value="all">All Quality Panels</option>
                   <option value="risk_signal">Risk Signal Strength</option>
@@ -1639,7 +1639,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   id="blind-spot-filter"
                   value={blindSpotFilter}
                   onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                  className="h-9 rounded-md border border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm"
+                  className="h-10 border border-border bg-white px-3 pr-8 text-[10px] font-bold uppercase tracking-widest text-primary focus:outline-none focus:ring-1 focus:ring-accent appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat"
                 >
                   <option value="all">All Blind Spots</option>
                   <option value="no_ai_mention">No AI Mention</option>
@@ -1659,22 +1659,22 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-10">
-          <h2 className="text-2xl font-semibold text-slate-900">
-            <span className="mr-2 inline-block h-5 w-1 rounded-full bg-amber-500 align-middle" />
+      <main className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mb-12">
+          <h2 className="aisi-h2 uppercase">
+            <span className="mr-3 inline-block h-6 w-1.5 bg-accent align-middle" />
             {view.heading}
           </h2>
           {activeView === 1 ? (
-            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+            <div className="mt-4 max-w-5xl space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
               <p>
-                <span className="font-semibold text-slate-900">{formatNumber(riskOverviewStats.riskMentionReports)}</span>{' '}
+                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.riskMentionReports)}</span>{' '}
                 of the{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(riskOverviewStats.totalReports)}</span>{' '}
+                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.totalReports)}</span>{' '}
                 annual reports examined between{' '}
-                <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>{' '}
+                <span className="font-bold text-primary">{riskSelectedYearSpan}</span>{' '}
                 include at least one AI risk disclosure, across{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(riskOverviewStats.excerptRiskMentions)}</span>{' '}
+                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.excerptRiskMentions)}</span>{' '}
                 individual passages.
               </p>
               <p>
@@ -2122,7 +2122,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={riskSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#64748b"
+                baseColor="#28a197"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2140,7 +2140,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={adoptionSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#64748b"
+                baseColor="#28a197"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2158,7 +2158,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 data={vendorSignalHeatmapInRange}
                 xLabels={filteredYears}
                 yLabels={data.labels.riskSignalLevels}
-                baseColor="#64748b"
+                baseColor="#28a197"
                 valueFormatter={value => `${value}`}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
@@ -2178,7 +2178,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               data={substantivenessHeatmapInRange}
               xLabels={filteredYears}
               yLabels={data.labels.substantivenessBands}
-              baseColor="#64748b"
+              baseColor="#28a197"
               valueFormatter={value => `${value}`}
               yLabelFormatter={formatLabel}
               showTotals={true}
@@ -2273,7 +2273,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={displayNoAiBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#64748b"
+                  baseColor="#28a197"
                   valueFormatter={blindSpotHeatmapValueFormatter}
                   showTotals={true}
                   totalsMode="average"
@@ -2289,7 +2289,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   data={displayNoAiRiskBySectorYearInRange}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}
-                  baseColor="#64748b"
+                  baseColor="#28a197"
                   valueFormatter={blindSpotHeatmapValueFormatter}
                   showTotals={true}
                   totalsMode="average"
