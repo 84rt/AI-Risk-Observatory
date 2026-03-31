@@ -49,10 +49,10 @@ export function PageNav() {
           <div className="inline-flex flex-col items-end rounded-full border border-border bg-secondary/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted shadow-sm">
             <span className="inline-flex items-center gap-2 text-muted">
               <span className="text-accent">●</span>
-              Beta v0.9.5
+              Beta v0.9.6
             </span>
             <span className="text-[9px] tracking-[0.18em] text-muted-foreground">
-              Updated: 30.03.2026
+              Updated: 31.03.2026
             </span>
           </div>
         </div>

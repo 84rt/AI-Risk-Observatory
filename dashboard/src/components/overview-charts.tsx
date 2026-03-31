@@ -119,7 +119,7 @@ export function StackedBarChart({
   const activeChartType = allowLineChart ? chartType : 'bar';
   const showChartModeToggle = showChartTypeToggle ?? allowLineChart;
   const showSideLegend = legendPosition === 'right';
-  const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])].reverse();
+  const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])];
 
   const hasMonthAxis = xAxisKey === 'month';
   const sharedAxisProps = {

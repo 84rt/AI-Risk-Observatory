@@ -65,16 +65,16 @@ const vendorColors: Record<string, string> = {
 };
 
 const riskColors: Record<string, string> = {
-  cybersecurity:            '#e63946', // AISI red
-  operational_technical:    '#b91c1c', // deep red
-  regulatory_compliance:    '#f59e0b', // amber-500
-  reputational_ethical:     '#64748b', // slate-500
-  information_integrity:    '#3b82f6', // blue-500
-  third_party_supply_chain: '#0b0c0c', // near-black
-  strategic_competitive:    '#1d4ed8', // blue-700
-  workforce_impacts:        '#7c3aed', // violet-700
-  environmental_impact:     '#a16207', // amber-700
-  national_security:        '#334155', // slate-700
+  strategic_competitive:    '#1d4ed8', // deep blue
+  cybersecurity:            '#3b82f6', // blue
+  operational_technical:    '#93c5fd', // light blue
+  regulatory_compliance:    '#dbeafe', // pale blue
+  reputational_ethical:     '#fecdd3', // soft rose
+  third_party_supply_chain: '#fca5a5', // light red
+  information_integrity:    '#f87171', // red-rose
+  workforce_impacts:        '#ef4444', // red
+  environmental_impact:     '#b91c1c', // deep red
+  national_security:        '#7f1d1d', // darkest red
 };
 
 const blindSpotColors: Record<string, string> = {
@@ -291,7 +291,21 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     () => data.labels.vendorTags.filter(tag => tag !== 'undisclosed'),
     [data.labels.vendorTags]
   );
-  const riskStackKeys = useMemo(() => data.labels.riskLabels, [data.labels.riskLabels]);
+  const riskStackKeys = useMemo(() => {
+    const canonicalOrder = data.labels.riskLabels;
+    const totals = new Map<string, number>();
+
+    data.datasets.perReport.riskTrend.forEach(row => {
+      canonicalOrder.forEach(label => {
+        totals.set(label, (totals.get(label) || 0) + (Number(row[label]) || 0));
+      });
+    });
+
+    return [...canonicalOrder].sort((a, b) => {
+      const delta = (totals.get(b) || 0) - (totals.get(a) || 0);
+      return delta !== 0 ? delta : canonicalOrder.indexOf(a) - canonicalOrder.indexOf(b);
+    });
+  }, [data.datasets.perReport.riskTrend, data.labels.riskLabels]);
   const effectiveVendorFilter =
     vendorFilter !== 'all' && !vendorStackKeys.includes(vendorFilter) ? 'all' : vendorFilter;
 
@@ -1537,7 +1551,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
                 >
                   <option value="all">All Risk Types</option>
-                  {data.labels.riskLabels.map(label => (
+                  {riskStackKeys.map(label => (
                     <option key={label} value={label}>{formatLabel(label)}</option>
                   ))}
                 </select>
@@ -1830,7 +1844,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               allowLineChart={trendTimeAxis === 'year'}
               showChartTypeToggle
               legendPosition="right"
-              legendKeys={riskStackKeys}
+              legendKeys={[...riskStackKeys].reverse()}
               activeLegendKey={riskFilter === 'all' ? null : riskFilter}
               onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
               title="AI Risk Mentioned Over Time"

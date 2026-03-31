@@ -180,13 +180,13 @@ const mentionTypes = [
 const adoptionTypes = ['non_llm', 'llm', 'agentic'];
 
 const riskLabels = [
+  'strategic_competitive',
   'cybersecurity',
   'operational_technical',
   'regulatory_compliance',
   'reputational_ethical',
-  'information_integrity',
   'third_party_supply_chain',
-  'strategic_competitive',
+  'information_integrity',
   'workforce_impacts',
   'environmental_impact',
   'national_security',
