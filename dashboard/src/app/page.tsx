@@ -56,15 +56,12 @@ export default function HomePage() {
         {/* Decorative Blobs */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 left-10 h-96 w-96 rounded-full bg-red-200/60 blur-[100px]" />
-          <div className="absolute top-1/4 -right-20 h-80 w-80 rounded-full bg-blue-300/55 blur-[100px]" />
-          <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-emerald-200/45 blur-[80px]" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-6 py-24">
           <div className="flex flex-col items-start gap-12 lg:flex-row lg:items-center lg:justify-between">
             {/* Left — text & stats */}
             <div className="lg:max-w-2xl">
-              <span className="aisi-tag">Observatory</span>
               <h1 className="aisi-h1 leading-[0.9]">
                 AI Risk <br />Observatory
               </h1>
