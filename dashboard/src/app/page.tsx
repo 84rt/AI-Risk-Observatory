@@ -184,7 +184,7 @@ export default function HomePage() {
             <div className="group flex items-center gap-4 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Data Provider</span>
               <a 
-                href="https://internationalaisafetyreport.org/" 
+                href="https://financialreports.eu/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 transition-colors group-hover:text-[#005ea5]"
