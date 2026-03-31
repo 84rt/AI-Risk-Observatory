@@ -55,9 +55,9 @@ export default function HomePage() {
       <header className="relative border-b border-border bg-white overflow-hidden">
         {/* Decorative Blobs */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-24 left-10 h-96 w-96 rounded-full bg-red-100/50 blur-[100px]" />
-          <div className="absolute top-1/4 -right-20 h-80 w-80 rounded-full bg-amber-100/50 blur-[100px]" />
-          <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-sky-100/40 blur-[80px]" />
+          <div className="absolute -top-24 left-10 h-96 w-96 rounded-full bg-red-200/60 blur-[100px]" />
+          <div className="absolute top-1/4 -right-20 h-80 w-80 rounded-full bg-blue-300/55 blur-[100px]" />
+          <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-emerald-200/45 blur-[80px]" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-6 py-24">
