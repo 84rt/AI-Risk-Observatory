@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import HeroRiskChart from '@/components/hero-risk-chart';
 import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
@@ -184,10 +185,15 @@ export default function HomePage() {
                 href="https://financialreports.eu/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 transition-colors group-hover:text-[#005ea5]"
+                className="flex items-center transition-colors"
               >
-                <div className="flex h-6 w-6 items-center justify-center bg-[#005ea5] text-[10px] font-bold text-white">FR</div>
-                <span className="text-sm font-bold tracking-tight">financialreports.eu</span>
+                <Image
+                  src="/fr-logo.svg"
+                  alt="Financial Reports"
+                  width={210}
+                  height={29}
+                  className="h-6 w-auto"
+                />
               </a>
             </div>
           </div>
