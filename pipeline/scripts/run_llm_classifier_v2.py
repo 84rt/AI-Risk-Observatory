@@ -68,16 +68,13 @@ def main() -> None:
 
     print("\nRunning classifiers on first 10 chunks...\n")
     for chunk in tqdm(chunks, desc="Classifying"):
+        filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0
         metadata: Dict[str, object] = {
-            "firm_id": chunk.get("company_id", "Unknown"),
+            "firm_id": chunk.get("company_slug", "Unknown"),
             "firm_name": chunk.get("company_name", "Unknown"),
-            "report_year": chunk.get("report_year", 0),
+            "report_year": filing_year,
             "sector": "Unknown",
-            "report_section": (
-                chunk.get("report_sections", ["Unknown"])[0]
-                if chunk.get("report_sections")
-                else "Unknown"
-            ),
+            "report_section": "Unknown",
         }
 
         human = chunk.get("mention_types", []) or []

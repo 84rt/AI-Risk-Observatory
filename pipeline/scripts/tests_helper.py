@@ -81,14 +81,13 @@ def validate_models(models: list[str], verbose: bool = True) -> tuple[list[str],
 
 def _chunk_to_metadata(chunk: dict) -> dict[str, Any]:
     """Extract classifier metadata from a chunk dict."""
+    filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0
     return {
-        "firm_id": chunk.get("company_id", "Unknown"),
+        "firm_id": chunk.get("company_slug", "Unknown"),
         "firm_name": chunk.get("company_name", "Unknown"),
-        "report_year": chunk.get("report_year", 0),
+        "report_year": filing_year,
         "sector": "Unknown",
-        "report_section": chunk.get("report_sections", ["Unknown"])[0]
-        if chunk.get("report_sections")
-        else "Unknown",
+        "report_section": "Unknown",
     }
 
 
@@ -455,18 +454,17 @@ def best_of_n_batch(
         print(f"{'='*80}")
 
     for i, chunk in enumerate(progress(chunks, desc="Processing chunks")):
+        filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0
         metadata = {
-            "firm_id": chunk.get("company_id", "Unknown"),
+            "firm_id": chunk.get("company_slug", "Unknown"),
             "firm_name": chunk.get("company_name", "Unknown"),
-            "report_year": chunk.get("report_year", 0),
+            "report_year": filing_year,
             "sector": "Unknown",
-            "report_section": chunk.get("report_sections", ["Unknown"])[0]
-            if chunk.get("report_sections")
-            else "Unknown",
+            "report_section": "Unknown",
         }
 
         if verbose:
-            print(f"\n[{i+1}/{len(chunks)}] {chunk.get('company_name', 'Unknown')} ({chunk.get('report_year', '?')})")
+            print(f"\n[{i+1}/{len(chunks)}] {chunk.get('company_name', 'Unknown')} ({filing_year})")
 
         result = best_of_n_test(
             classifier_cls,

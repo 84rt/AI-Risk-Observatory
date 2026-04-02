@@ -36,16 +36,15 @@ def run_mention_classification(
     results = []
 
     for i, chunk in enumerate(progress(chunks, desc="Mention type classification")):
-        print(f"\n[{i+1}/{len(chunks)}] Processing: {chunk['company_name']} ({chunk['report_year']})")
+        filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0
+        print(f"\n[{i+1}/{len(chunks)}] Processing: {chunk['company_name']} ({filing_year})")
 
         metadata = {
-            "firm_id": chunk.get("company_id", "Unknown"),
+            "firm_id": chunk.get("company_slug", "Unknown"),
             "firm_name": chunk.get("company_name", "Unknown"),
-            "report_year": chunk.get("report_year", 0),
+            "report_year": filing_year,
             "sector": "Unknown",
-            "report_section": chunk.get("report_sections", ["Unknown"])[0]
-            if chunk.get("report_sections")
-            else "Unknown",
+            "report_section": "Unknown",
         }
 
         result = mention_clf.classify(chunk["chunk_text"], metadata)
