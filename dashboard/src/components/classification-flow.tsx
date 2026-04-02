@@ -1,85 +1,155 @@
+type FlowStep = {
+  label: string;
+  detail: string;
+};
+
 type FlowStage = {
-  sectionNumber: number;
+  stageNumber: string;
   title: string;
-  panelClass: string;
-  labelClass: string;
-  arrowClass: string;
+  summary: string;
+  output: string;
+  accentClass: string;
+  surfaceClass: string;
+  borderClass: string;
   badgeClass: string;
-  steps: string[];
+  steps: FlowStep[];
 };
 
 const FLOW_STAGES: FlowStage[] = [
   {
-    sectionNumber: 1,
-    title: 'Pre Processing',
-    panelClass: 'border-[#dfbcc7] bg-[#f9eef2]',
-    labelClass: 'text-[#7d5a67]',
-    arrowClass: 'text-[#c990a2]',
-    badgeClass: 'border-[#d8b0bd] text-[#7d5a67] bg-white/95',
+    stageNumber: '01',
+    title: 'Pre-processing',
+    summary:
+      'Build the company-year universe, fetch the reports, normalize the documents, and isolate the passages that are genuinely relevant to AI.',
+    output: 'Output: normalized report text plus AI-relevant excerpts with company, year, and document metadata.',
+    accentClass: 'bg-[#e63946]',
+    surfaceClass: 'bg-[#fff3f4]',
+    borderClass: 'border-[#f1c6ca]',
+    badgeClass: 'text-[#8f2732]',
     steps: [
-      'List companies and years to analyse with metadata',
-      'Fetch annual reports',
-      'Convert reports to Markdown',
-      'Extract all excerpts that mention AI',
+      {
+        label: 'Define the corpus',
+        detail: 'Select the companies, reporting years, and metadata needed for consistent longitudinal analysis.',
+      },
+      {
+        label: 'Fetch annual reports',
+        detail: 'Pull the relevant filings into a single processable corpus rather than handling reports one by one.',
+      },
+      {
+        label: 'Normalize document text',
+        detail: 'Convert reports into clean Markdown/text so the rest of the pipeline can work on a stable representation.',
+      },
+      {
+        label: 'Extract AI excerpts',
+        detail: 'Keep only the passages that explicitly mention AI or clearly AI-specific techniques.',
+      },
     ],
   },
   {
-    sectionNumber: 2,
-    title: 'Processing',
-    panelClass: 'border-[#bdd3ea] bg-[#eef5fd]',
-    labelClass: 'text-[#4f6f92]',
-    arrowClass: 'text-[#93b5da]',
-    badgeClass: 'border-[#a7c4e3] text-[#4f6f92] bg-white/95',
+    stageNumber: '02',
+    title: 'Classification',
+    summary:
+      'Run a staged classifier stack that separates vague AI language from concrete adoption, risk, vendor, and disclosure-quality signals.',
+    output: 'Output: structured labels for mention type, adoption type, risk taxonomy, vendor references, and substantiveness.',
+    accentClass: 'bg-[#0f6cbd]',
+    surfaceClass: 'bg-[#f1f7fd]',
+    borderClass: 'border-[#c9def3]',
+    badgeClass: 'text-[#24598d]',
     steps: [
-      'For all AI mention excerpts',
-      'Run a mention type classifier',
-      'Run Phase 2 classifiers (risk, adoption, vendor)',
-      'Run the boilerplate level classifier',
+      {
+        label: 'Gate the excerpt',
+        detail: 'First determine whether the passage is a real AI mention, a false positive, or only a high-level ambiguous reference.',
+      },
+      {
+        label: 'Assign mention type',
+        detail: 'Label adoption, risk, harm, vendor references, or general ambiguous AI discussion.',
+      },
+      {
+        label: 'Run phase-two tagging',
+        detail: 'For signal-bearing excerpts, classify adoption type, risk category, and vendor/provider information.',
+      },
+      {
+        label: 'Score disclosure quality',
+        detail: 'Separate boilerplate AI language from more substantive reporting with concrete mechanisms or actions.',
+      },
     ],
   },
   {
-    sectionNumber: 3,
-    title: 'Post Processing',
-    panelClass: 'border-[#b8ddd2] bg-[#edf8f4]',
-    labelClass: 'text-[#4e7a6f]',
-    arrowClass: 'text-[#8fc4b6]',
-    badgeClass: 'border-[#9ecfbe] text-[#4e7a6f] bg-white/95',
+    stageNumber: '03',
+    title: 'Aggregation',
+    summary:
+      'Roll excerpt-level labels up into report, sector, and year views so the corpus becomes usable as a monitoring system rather than a pile of documents.',
+    output: 'Output: dashboard-ready trends, heatmaps, report-level metrics, and a traceable structured dataset.',
+    accentClass: 'bg-[#00703c]',
+    surfaceClass: 'bg-[#eefaf4]',
+    borderClass: 'border-[#c8e7d6]',
+    badgeClass: 'text-[#26634a]',
     steps: [
-      'Aggregate classifications across chunks and reports',
-      'Compute metrics and trends',
-      'Produce a structured dataset',
-      'Visualize on the dashboard',
+      {
+        label: 'Aggregate across excerpts',
+        detail: 'Combine labels at the report level so one company filing can be understood as a whole rather than as isolated snippets.',
+      },
+      {
+        label: 'Compute metrics',
+        detail: 'Generate counts, percentages, and breakdowns by year, sector, and market segment.',
+      },
+      {
+        label: 'Identify patterns',
+        detail: 'Surface adoption trends, risk concentration, vendor visibility, disclosure blind spots, and changes over time.',
+      },
+      {
+        label: 'Publish to the dashboard',
+        detail: 'Turn the processed corpus into charts and tables that can be explored without re-reading the source reports manually.',
+      },
     ],
   },
 ];
 
 export function ClassificationFlowDiagram() {
   return (
-    <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
-      <div className="min-w-[1040px] space-y-4">
-        {FLOW_STAGES.map((stage) => (
-          <div key={stage.title} className={`relative rounded-xl border-2 p-5 pt-8 ${stage.panelClass}`}>
-            <p className={`absolute -top-3 left-3 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${stage.labelClass}`}>
-              {stage.title}
-            </p>
-            <div className="flex items-center gap-2">
-              {stage.steps.map((step, index) => (
-                <div key={`${stage.title}-${index}`} className="flex items-center gap-2">
-                  <div className="relative flex h-[110px] w-[220px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-center text-sm font-semibold leading-tight text-slate-700 shadow-sm">
-                    <span className={`absolute left-2 top-2 rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${stage.badgeClass}`}>
-                      {stage.sectionNumber}.{index + 1}
-                    </span>
-                    {step}
-                  </div>
-                  {index < stage.steps.length - 1 ? (
-                    <span className={`text-3xl font-bold leading-none ${stage.arrowClass}`}>→</span>
-                  ) : null}
+    <section className="space-y-5">
+      {FLOW_STAGES.map(stage => (
+        <article
+          key={stage.title}
+          className={`border ${stage.borderClass} bg-white shadow-sm`}
+        >
+          <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
+            <div className={`border-b ${stage.borderClass} ${stage.surfaceClass} p-6 lg:border-b-0 lg:border-r`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <span className={`inline-flex text-[11px] font-bold uppercase tracking-[0.18em] ${stage.badgeClass}`}>
+                    Stage {stage.stageNumber}
+                  </span>
+                  <h4 className="mt-3 text-2xl font-bold tracking-tight text-primary">{stage.title}</h4>
                 </div>
-              ))}
+                <span className={`mt-1 h-3 w-3 shrink-0 ${stage.accentClass}`} aria-hidden="true" />
+              </div>
+              <p className="mt-4 text-sm leading-6 text-muted">{stage.summary}</p>
+              <p className="mt-5 border-t border-black/10 pt-4 text-[12px] font-medium leading-5 text-primary">
+                {stage.output}
+              </p>
             </div>
+
+            <ol className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+              {stage.steps.map((step, index) => (
+                <li key={`${stage.title}-${step.label}`} className="bg-white p-5">
+                  <div className="flex items-start gap-4">
+                    <span
+                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center text-[11px] font-bold ${stage.surfaceClass} ${stage.badgeClass}`}
+                    >
+                      {stage.stageNumber}.{index + 1}
+                    </span>
+                    <div>
+                      <h5 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">{step.label}</h5>
+                      <p className="mt-2 text-sm leading-6 text-muted">{step.detail}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-        ))}
-      </div>
+        </article>
+      ))}
     </section>
   );
 }

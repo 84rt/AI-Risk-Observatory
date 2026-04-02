@@ -135,8 +135,13 @@ export default function AboutPage() {
               <div className="bg-white p-8">
                 <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />
               </div>
-              <div className="mt-12 max-w-3xl">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-4">Functional Logic</h3>
+              <div className="mt-12">
+                <div className="mb-6 max-w-3xl">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-primary">Functional Logic</h3>
+                  <p className="text-base leading-relaxed text-muted">
+                    This is the operational workflow behind the observatory: how raw annual reports become structured AI monitoring data.
+                  </p>
+                </div>
                 <ClassificationFlowDiagram />
               </div>
             </div>
