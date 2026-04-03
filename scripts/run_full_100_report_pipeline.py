@@ -340,7 +340,7 @@ def preflight(
         if (lei, year) not in queue_pairs:
             missing.append({"company_name": name, "lei": lei, "year": year})
 
-    chunk_docs = {str(c.get("document_id")) for c in chunks if c.get("document_id")}
+    chunk_docs = {str(c.get("filing_id") or c.get("document_id")) for c in chunks if c.get("filing_id") or c.get("document_id")}
     chunk_companies = {
         str(c.get("company_name"))
         for c in chunks
@@ -348,6 +348,10 @@ def preflight(
     }
     chunk_years = sorted(
         {
+            int(c["filing_date"][:4])
+            for c in chunks
+            if c.get("filing_date")
+        } | {
             int(c.get("report_year"))
             for c in chunks
             if isinstance(c.get("report_year"), int)
@@ -366,16 +370,18 @@ def preflight(
 
 
 def build_metadata(chunk: dict[str, Any]) -> dict[str, Any]:
+    filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else chunk.get("report_year", 0)
+    sector = (
+        chunk.get("cni_sector_primary")
+        or chunk.get("sector")
+        or "Unknown"
+    ) or "Unknown"
     return {
-        "firm_id": chunk.get("company_id", "Unknown"),
+        "firm_id": chunk.get("company_slug") or chunk.get("company_id", "Unknown"),
         "firm_name": chunk.get("company_name", "Unknown"),
-        "report_year": chunk.get("report_year", 0),
-        "sector": chunk.get("sector", "Unknown") or "Unknown",
-        "report_section": (
-            chunk.get("report_sections", ["Unknown"])[0]
-            if chunk.get("report_sections")
-            else "Unknown"
-        ),
+        "report_year": filing_year,
+        "sector": sector,
+        "report_section": "Unknown",
     }
 
 
@@ -612,7 +618,7 @@ def parse_phase1_results(
         base = {
             "chunk_id": chunk_id,
             "company_name": chunk.get("company_name", "Unknown"),
-            "report_year": chunk.get("report_year", 0),
+            "report_year": int(chunk["filing_date"][:4]) if chunk.get("filing_date") else chunk.get("report_year", 0),
             "llm_mention_types": [],
             "confidence": 0.0,
             "mention_confidences": {},
@@ -764,14 +770,26 @@ def write_phase1_annotations(
             p1 = by_chunk.get(chunk_id, {})
             mention_types = p1.get("llm_mention_types") or ["none"]
 
+            filing_year = (
+                int(chunk["filing_date"][:4]) if chunk.get("filing_date")
+                else chunk.get("report_year")
+            )
             record = {
                 "annotation_id": f"llm-{run_id}-{chunk_id}",
                 "run_id": run_id,
                 "chunk_id": chunk_id,
-                "document_id": chunk.get("document_id"),
-                "company_id": chunk.get("company_id"),
+                "document_id": chunk.get("filing_id") or chunk.get("document_id"),
+                "company_id": chunk.get("company_slug") or chunk.get("company_id"),
+                "company_slug": chunk.get("company_slug"),
                 "company_name": chunk.get("company_name"),
-                "report_year": chunk.get("report_year"),
+                "filing_date": chunk.get("filing_date"),
+                "report_year": filing_year,
+                "cni_sector_primary": chunk.get("cni_sector_primary"),
+                "cni_sector": chunk.get("cni_sector"),
+                "isic_code": chunk.get("isic_code"),
+                "isic_name": chunk.get("isic_name"),
+                "market_segment": chunk.get("market_segment"),
+                "market_segment_refined": chunk.get("market_segment_refined"),
                 "market_segment": (
                     chunk.get("market_segment_refined")
                     or chunk.get("market_segment_depricated")

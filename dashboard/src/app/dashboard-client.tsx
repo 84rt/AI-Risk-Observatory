@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import { buildIsicSectorGroups, type HeatmapRowGroup } from '@/lib/isic';
 import type { GoldenDashboardData } from '@/lib/golden-set';
@@ -14,6 +14,15 @@ type View = {
   title: string;
   heading: string;
   description: string;
+};
+
+type RiskInfoPanelKey = 'definitions' | 'method' | 'cite' | 'download';
+
+type RiskInfoPanelItem = {
+  value: RiskInfoPanelKey;
+  label: string;
+  title: string;
+  content: ReactNode;
 };
 
 const VIEWS: View[] = [
@@ -36,16 +45,16 @@ const VIEWS: View[] = [
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
   {
-    id: 4,
-    title: 'Signal Quality',
-    heading: 'Metrics of findings quality and strength',
-    description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
-  },
-  {
     id: 5,
     title: 'Blind Spots',
     heading: 'Reports that did not mention AI',
     description: 'Where disclosures are absent: reports that do not mention AI at all, and reports that do not mention AI risk.',
+  },
+  {
+    id: 4,
+    title: 'Signal Quality',
+    heading: 'Metrics of findings quality and strength',
+    description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
 ];
 
@@ -82,6 +91,107 @@ const blindSpotColors: Record<string, string> = {
   no_ai_risk_mention: '#e63946', // AISI red
 };
 
+const explicitnessSignalOptions = [
+  { value: 'risk_signal', label: 'AI Risk Signal Strength' },
+  { value: 'adoption_signal', label: 'AI Adoption Signal Strength' },
+  { value: 'vendor_signal', label: 'AI Vendor Signal Strength' },
+] as const;
+
+const riskCategoryDefinitions = [
+  {
+    label: 'Strategic / Competitive',
+    definition: 'AI-driven competitive disadvantage, disruption, or failure to adapt.',
+  },
+  {
+    label: 'Operational / Technical',
+    definition: 'Reliability, accuracy, integration, or model-risk failures that degrade operations or decision-making.',
+  },
+  {
+    label: 'Cybersecurity',
+    definition: 'AI-enabled attacks, fraud, breach pathways, or adversarial AI abuse.',
+  },
+  {
+    label: 'Workforce Impacts',
+    definition: 'AI-related displacement, skills gaps, or risky employee AI usage.',
+  },
+  {
+    label: 'Regulatory / Compliance',
+    definition: 'AI-specific legal, regulatory, privacy, intellectual-property, or compliance exposure.',
+  },
+  {
+    label: 'Information Integrity',
+    definition: 'AI-enabled misinformation, deepfakes, hallucinations, or authenticity manipulation.',
+  },
+  {
+    label: 'Reputational / Ethical',
+    definition: 'AI-linked trust, fairness, ethics, or rights concerns.',
+  },
+  {
+    label: 'Third-Party Supply Chain',
+    definition: 'Dependency on external AI vendors, providers, APIs, or concentrated supplier exposure.',
+  },
+  {
+    label: 'Environmental Impact',
+    definition: 'AI-related energy, carbon, or resource-burden risk.',
+  },
+  {
+    label: 'National Security',
+    definition: 'AI-linked geopolitical or critical-systems exposure with wider security implications.',
+  },
+];
+
+const adoptionTypeDefinitions = [
+  {
+    label: 'Non-LLM',
+    definition: 'Traditional AI or machine-learning systems that are not based on large language models.',
+  },
+  {
+    label: 'LLM',
+    definition: 'Large language model usage, including generative AI assistants and model-based workflows.',
+  },
+  {
+    label: 'Agentic',
+    definition: 'More autonomous AI systems, often coordinating multi-step tasks with limited human intervention.',
+  },
+];
+
+const vendorTagDefinitions = [
+  {
+    label: 'OpenAI / Microsoft / Google',
+    definition: 'The provider is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Internal',
+    definition: 'The company describes AI capabilities as built or operated in-house.',
+  },
+  {
+    label: 'Other',
+    definition: 'A named provider outside the primary tracked vendor set.',
+  },
+];
+
+const signalQualityDefinitions = [
+  {
+    label: 'Signal Strength',
+    definition: 'How directly the text supports a classification: explicit, strong implicit, or weak implicit.',
+  },
+  {
+    label: 'Substantiveness',
+    definition: 'How concrete and detailed AI-risk disclosure is at report level: substantive, moderate, or boilerplate.',
+  },
+];
+
+const blindSpotDefinitions = [
+  {
+    label: 'No AI Mention',
+    definition: 'No AI disclosure signal appears anywhere in the report.',
+  },
+  {
+    label: 'No AI Risk Mention',
+    definition: 'AI may be mentioned, but no AI-risk disclosure is present.',
+  },
+];
+
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('en-GB').format(value);
 
@@ -116,15 +226,41 @@ const formatLabel = (val: string | number) => {
 type DatasetKey = 'perReport' | 'perChunk';
 type TrendTimeAxis = 'year' | 'month';
 type RiskSectorView = 'cni' | 'isic';
-type SignalQualityFilter = 'all' | 'risk_signal' | 'adoption_signal' | 'vendor_signal' | 'substantiveness';
+type SignalQualityMode = 'explicitness' | 'substantiveness';
+type ExplicitnessSignalFilter = 'risk_signal' | 'adoption_signal' | 'vendor_signal';
 type BlindSpotFilter = 'all' | 'no_ai_mention' | 'no_ai_risk_mention';
+type BlindSpotHeatmapSelection = 'no_ai_mention' | 'no_ai_risk_mention';
 type MetricMode = 'count' | 'pct_reports';
 type ChartRow = Record<string, string | number | null | undefined>;
 type HeatmapCell = { x: string | number; y: string | number; value: number };
+type VisualizationExport = {
+  title: string;
+  fileBase: string;
+  csv: string;
+};
 
 const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
 const toPercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const escapeCsvValue = (value: string | number | null | undefined) => {
+  const stringValue = value == null ? '' : String(value);
+  if (!/[",\n]/.test(stringValue)) return stringValue;
+  return `"${stringValue.replace(/"/g, '""')}"`;
+};
+const toCsv = (rows: Array<Record<string, string | number | null | undefined>>) => {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const headerLine = headers.map(escapeCsvValue).join(',');
+  const valueLines = rows.map(row => headers.map(header => escapeCsvValue(row[header])).join(','));
+  return [headerLine, ...valueLines].join('\n');
+};
+const heatmapCellsToCsv = (cells: HeatmapCell[]) =>
+  toCsv(cells.map(cell => ({ x: cell.x, y: cell.y, value: cell.value })));
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 const filterLabelsWithTotals = (
   labels: (string | number)[],
   totals: Map<string, number>
@@ -242,6 +378,7 @@ const aggregateYearLabelTotalsByRowGroups = (
 
   return nextTotals;
 };
+
 const buildVisibleGroupedYLabels = (
   rowGroups: HeatmapRowGroup[],
   ungroupedLabels: string[],
@@ -258,6 +395,7 @@ const buildVisibleGroupedYLabels = (
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
   const [activeView, setActiveView] = useState(1);
+  const [visualizationMode, setVisualizationMode] = useState<'chart' | 'heatmap'>('chart');
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
   const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>('year');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
@@ -266,11 +404,24 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [adoptionSectorView, setAdoptionSectorView] = useState<RiskSectorView>('cni');
   const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>('cni');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
-  const [signalQualityFilter, setSignalQualityFilter] = useState<SignalQualityFilter>('all');
+  const [infoPanelSelections, setInfoPanelSelections] = useState<Record<number, RiskInfoPanelKey>>({
+    1: 'definitions',
+    2: 'definitions',
+    3: 'definitions',
+    4: 'definitions',
+    5: 'definitions',
+  });
+  const [signalQualityMode, setSignalQualityMode] = useState<SignalQualityMode>('explicitness');
+  const [explicitnessSignalFilter, setExplicitnessSignalFilter] = useState<ExplicitnessSignalFilter>('risk_signal');
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
+  const [blindSpotHeatmapSelection, setBlindSpotHeatmapSelection] =
+    useState<BlindSpotHeatmapSelection>('no_ai_mention');
   const [metricMode, setMetricMode] = useState<MetricMode>('count');
   const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
+  const [shareButtonLabel, setShareButtonLabel] = useState('Share');
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const resolvedDatasets =
@@ -1247,51 +1398,92 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     reportTotalsByMonth,
     reportTotalsByYear,
   ]);
-  const blindSpotHeatmapData = blindSpotFilter === 'no_ai_mention'
+  const blindSpotHeatmapData = blindSpotHeatmapSelection === 'no_ai_mention'
     ? noAiBySectorYearInRange
-    : blindSpotFilter === 'no_ai_risk_mention'
-      ? noAiRiskBySectorYearInRange
-      : null;
+    : noAiRiskBySectorYearInRange;
   const displayBlindSpotHeatmapData = useMemo(() => {
-    if (!blindSpotHeatmapData) return blindSpotHeatmapData;
     return convertHeatmapToPercent(
       blindSpotHeatmapData,
       cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
     );
   }, [blindSpotHeatmapData, reportTotalsBySectorYearMap]);
-  const displayNoAiBySectorYearInRange = useMemo(() => {
-    return convertHeatmapToPercent(
-      noAiBySectorYearInRange,
-      cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
-    );
-  }, [noAiBySectorYearInRange, reportTotalsBySectorYearMap]);
-  const displayNoAiRiskBySectorYearInRange = useMemo(() => {
-    return convertHeatmapToPercent(
-      noAiRiskBySectorYearInRange,
-      cell => reportTotalsBySectorYearMap.get(`${cell.x}|||${cell.y}`) || 0
-    );
-  }, [noAiRiskBySectorYearInRange, reportTotalsBySectorYearMap]);
-  const blindSpotHeatmapTitle = blindSpotFilter === 'no_ai_mention'
+  const blindSpotHeatmapTitle = blindSpotHeatmapSelection === 'no_ai_mention'
     ? 'No AI Mention by Sector and Year'
-    : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'No AI Risk Mention by Sector and Year'
-      : '';
-  const blindSpotHeatmapSubtitle = blindSpotFilter === 'no_ai_mention'
+    : 'No AI Risk Mention by Sector and Year';
+  const blindSpotHeatmapSubtitle = blindSpotHeatmapSelection === 'no_ai_mention'
     ? 'Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency.'
-    : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.'
-      : '';
-  const blindSpotHeatmapTooltip = blindSpotFilter === 'no_ai_mention'
+    : 'Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency.';
+  const blindSpotHeatmapTooltip = blindSpotHeatmapSelection === 'no_ai_mention'
     ? 'Each cell is the share of reports in that sector-year that do not mention AI at all. The Avg column and row show simple averages across the displayed years and sectors.'
-    : blindSpotFilter === 'no_ai_risk_mention'
-      ? 'Each cell is the share of reports in that sector-year with no AI risk mention. The Avg column and row show simple averages across the displayed years and sectors.'
-      : '';
-  const blindSpotHeatmapColor = '#b91c1c';
-  const showRiskSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'risk_signal';
-  const showAdoptionSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'adoption_signal';
-  const showVendorSignalPanel = signalQualityFilter === 'all' || signalQualityFilter === 'vendor_signal';
-  const showSubstantivenessPanel = signalQualityFilter === 'all' || signalQualityFilter === 'substantiveness';
-  const signalPanelGridClass = 'grid gap-8';
+    : 'Each cell is the share of reports in that sector-year with no AI risk mention. The Avg column and row show simple averages across the displayed years and sectors.';
+  const blindSpotHeatmapColor = blindSpotHeatmapSelection === 'no_ai_mention' ? '#b91c1c' : '#e63946';
+  const selectedSignalQualityHeatmap = useMemo(() => {
+    if (signalQualityMode === 'substantiveness') {
+      return {
+        data: substantivenessHeatmapInRange,
+        yLabels: data.labels.substantivenessBands,
+        baseColor: '#f59e0b',
+        title: 'AI Risk Substantiveness Distribution',
+        subtitle:
+          'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and fiscal year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency.',
+        tooltip:
+          'Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic.',
+        yAxisLabel: 'Quality Band',
+        compact: false,
+      };
+    }
+
+    switch (explicitnessSignalFilter) {
+      case 'risk_signal':
+        return {
+          data: riskSignalHeatmapInRange,
+          yLabels: data.labels.riskSignalLevels,
+          baseColor: '#e63946',
+          title: 'AI Risk Signal Strength',
+          subtitle:
+            'Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+          tooltip:
+            'Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports.',
+          yAxisLabel: 'Signal Level',
+          compact: true,
+        };
+      case 'adoption_signal':
+        return {
+          data: adoptionSignalHeatmapInRange,
+          yLabels: data.labels.riskSignalLevels,
+          baseColor: '#3b82f6',
+          title: 'AI Adoption Signal Strength',
+          subtitle:
+            'Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+          tooltip:
+            'Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language.',
+          yAxisLabel: 'Signal Level',
+          compact: true,
+        };
+      case 'vendor_signal':
+        return {
+          data: vendorSignalHeatmapInRange,
+          yLabels: data.labels.riskSignalLevels,
+          baseColor: '#64748b',
+          title: 'AI Vendor Signal Strength',
+          subtitle:
+            'Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+          tooltip:
+            'Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution.',
+          yAxisLabel: 'Signal Level',
+          compact: true,
+        };
+    }
+  }, [
+    signalQualityMode,
+    explicitnessSignalFilter,
+    riskSignalHeatmapInRange,
+    adoptionSignalHeatmapInRange,
+    vendorSignalHeatmapInRange,
+    substantivenessHeatmapInRange,
+    data.labels.riskSignalLevels,
+    data.labels.substantivenessBands,
+  ]);
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
@@ -1302,6 +1494,139 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     isReportShareMode ? formatPercent(value) : formatNumber(value);
   const riskHeatmapValueFormatter = (value: number) => formatPercent(value);
   const blindSpotHeatmapValueFormatter = (value: number) => formatPercent(value);
+  const dashboardUpdatedLabel = 'Dataset updated 03.04.2026';
+  const currentVisualizationExport = useMemo<VisualizationExport>(() => {
+    if (activeView === 1) {
+      if (visualizationMode === 'chart') {
+        return {
+          title: 'AI Risk Mentioned Over Time',
+          fileBase: 'ai-risk-mentioned-over-time',
+          csv: toCsv(displayRiskTrend),
+        };
+      }
+
+      return {
+        title: riskFilter === 'all' ? 'Risk Distribution by Sector' : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`,
+        fileBase: riskFilter === 'all' ? 'risk-distribution-by-sector' : `${slugify(formatLabel(riskFilter))}-risk-mentions-by-sector-and-year`,
+        csv: heatmapCellsToCsv(visibleRiskHeatmapData),
+      };
+    }
+
+    if (activeView === 2) {
+      if (visualizationMode === 'chart') {
+        return {
+          title: 'AI Adoption Mentioned Over Time',
+          fileBase: 'ai-adoption-mentioned-over-time',
+          csv: toCsv(displayAdoptionTrend),
+        };
+      }
+
+      return {
+        title: adoptionFilter === 'all' ? 'Adoption Intensity by Sector' : `${formatLabel(adoptionFilter)} Mentions by Sector and Year`,
+        fileBase: adoptionFilter === 'all' ? 'adoption-intensity-by-sector' : `${slugify(formatLabel(adoptionFilter))}-mentions-by-sector-and-year`,
+        csv: heatmapCellsToCsv(visibleAdoptionHeatmapData),
+      };
+    }
+
+    if (activeView === 3) {
+      if (visualizationMode === 'chart') {
+        return {
+          title: 'AI Vendor Mentions Over Time',
+          fileBase: 'ai-vendor-mentions-over-time',
+          csv: toCsv(displayVendorTrend),
+        };
+      }
+
+      return {
+        title: effectiveVendorFilter === 'all' ? 'Vendor Mentions by Sector' : `${formatLabel(effectiveVendorFilter)} Mentions by Sector and Year`,
+        fileBase: effectiveVendorFilter === 'all' ? 'vendor-mentions-by-sector' : `${slugify(formatLabel(effectiveVendorFilter))}-mentions-by-sector-and-year`,
+        csv: heatmapCellsToCsv(visibleVendorHeatmapData),
+      };
+    }
+
+    if (activeView === 4) {
+      return {
+        title: selectedSignalQualityHeatmap.title,
+        fileBase: slugify(selectedSignalQualityHeatmap.title),
+        csv: heatmapCellsToCsv(selectedSignalQualityHeatmap.data),
+      };
+    }
+
+    if (visualizationMode === 'chart') {
+      return {
+        title: trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year',
+        fileBase: trendTimeAxis === 'month' ? 'blind-spots-by-month' : 'blind-spots-by-year',
+        csv: toCsv(displayBlindSpotTrend),
+      };
+    }
+
+    return {
+      title: blindSpotHeatmapTitle,
+      fileBase: slugify(blindSpotHeatmapTitle),
+      csv: heatmapCellsToCsv(displayBlindSpotHeatmapData),
+    };
+  }, [
+    activeView,
+    visualizationMode,
+    displayRiskTrend,
+    riskFilter,
+    visibleRiskHeatmapData,
+    displayAdoptionTrend,
+    adoptionFilter,
+    visibleAdoptionHeatmapData,
+    displayVendorTrend,
+    effectiveVendorFilter,
+    visibleVendorHeatmapData,
+    selectedSignalQualityHeatmap,
+    trendTimeAxis,
+    displayBlindSpotTrend,
+    blindSpotHeatmapTitle,
+    displayBlindSpotHeatmapData,
+  ]);
+
+  const handleDownloadVisualization = () => {
+    if (!currentVisualizationExport.csv) return;
+
+    const blob = new Blob([currentVisualizationExport.csv], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${currentVisualizationExport.fileBase}-${selectedStartYear}-${selectedEndYear}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleShareVisualization = async () => {
+    const shareUrl = window.location.href;
+    const shareText = `${currentVisualizationExport.title} (${riskSelectedYearSpan})`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: currentVisualizationExport.title,
+          text: shareText,
+          url: shareUrl,
+        });
+        setShareButtonLabel('Shared');
+        setTimeout(() => setShareButtonLabel('Share'), 2000);
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      setShareButtonLabel('Copied Link');
+      setTimeout(() => setShareButtonLabel('Share'), 2000);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      setShareButtonLabel('Share Failed');
+      setTimeout(() => setShareButtonLabel('Share'), 2000);
+    }
+  };
 
   const makeSectorToggle = (
     current: RiskSectorView,
@@ -1387,300 +1712,753 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </div>
   ) : null;
 
-  const combinedToggles = (
-    <div className="flex items-center gap-2">
-      {trendTimeToggle}
-      {metricModeToggle}
+  const showVisualizationToggle = activeView !== 4;
+  const canUseLineChart = visualizationMode === 'chart' && activeView !== 4 && trendTimeAxis === 'year';
+  const activeChartDisplayType = canUseLineChart ? chartDisplayType : 'bar';
+
+  const chartTypeToggle = (
+    <div className="inline-flex items-center border border-border bg-white p-1">
+      <button
+        type="button"
+        onClick={() => setChartDisplayType('bar')}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          activeChartDisplayType === 'bar'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Bar
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (!canUseLineChart) return;
+          setChartDisplayType('line');
+        }}
+        disabled={!canUseLineChart}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          activeChartDisplayType === 'line'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        } ${!canUseLineChart ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
+      >
+        Line
+      </button>
+    </div>
+  );
+
+  const settingsPanelToggle = (
+    <button
+      type="button"
+      onClick={() => setIsSettingsOpen(prev => !prev)}
+      className="inline-flex h-9 w-9 items-center justify-center border border-border bg-white text-primary transition hover:bg-secondary"
+      aria-label={isSettingsOpen ? 'Collapse settings panel' : 'Expand settings panel'}
+      title={isSettingsOpen ? 'Collapse settings' : 'Expand settings'}
+    >
+      <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" aria-hidden="true">
+        <path
+          d="M10 3.25L11.05 1.75L13.15 2.45L13.1 4.28C13.55 4.55 13.95 4.88 14.29 5.26L16.06 4.78L17.12 6.72L15.82 7.99C15.88 8.32 15.91 8.66 15.91 9C15.91 9.34 15.88 9.68 15.82 10.01L17.12 11.28L16.06 13.22L14.29 12.74C13.95 13.12 13.55 13.45 13.1 13.72L13.15 15.55L11.05 16.25L10 14.75C9.66 14.79 9.34 14.79 9 14.75L7.95 16.25L5.85 15.55L5.9 13.72C5.45 13.45 5.05 13.12 4.71 12.74L2.94 13.22L1.88 11.28L3.18 10.01C3.12 9.68 3.09 9.34 3.09 9C3.09 8.66 3.12 8.32 3.18 7.99L1.88 6.72L2.94 4.78L4.71 5.26C5.05 4.88 5.45 4.55 5.9 4.28L5.85 2.45L7.95 1.75L9 3.25C9.34 3.21 9.66 3.21 10 3.25Z"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="9.5" cy="9" r="2.35" stroke="currentColor" strokeWidth="1.3" />
+      </svg>
+    </button>
+  );
+
+  const signalQualityModeToggle = (
+    <div className="inline-flex shrink-0 items-center border border-border bg-white p-1">
+      <button
+        type="button"
+        onClick={() => setSignalQualityMode('explicitness')}
+        className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+          signalQualityMode === 'explicitness'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Signal Strength
+      </button>
+      <button
+        type="button"
+        onClick={() => setSignalQualityMode('substantiveness')}
+        className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+          signalQualityMode === 'substantiveness'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Substantiveness
+      </button>
+    </div>
+  );
+
+  const sharedCitationItem: RiskInfoPanelItem = {
+    value: 'cite',
+    label: 'Cite',
+    title: `How To Cite The ${view.title} View`,
+    content: (
+      <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+        <p>
+          When citing a specific dashboard view, include the active visualization title and the date you accessed it.
+        </p>
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-xs text-slate-700">
+          AI Risk Observatory. &quot;{currentVisualizationExport.title}&quot; dashboard view, UK annual-report AI disclosure dataset, accessed [insert date].
+        </p>
+      </div>
+    ),
+  };
+
+  const sharedDownloadItem: RiskInfoPanelItem = {
+    value: 'download',
+    label: 'Download',
+    title: 'Download And Reuse',
+    content: (
+      <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+        <p>
+          Export the current visualization as CSV, or download the full dashboard annotations dataset for offline use.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadVisualization}
+            className="inline-flex items-center justify-center border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+          >
+            Download This View
+          </button>
+          <a
+            href="/api/download-data"
+            download
+            className="inline-flex items-center justify-center border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+          >
+            Download Dataset
+          </a>
+          <a
+            href="/about"
+            className="inline-flex items-center justify-center border border-transparent px-1 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent underline underline-offset-4 transition-colors hover:text-primary"
+          >
+            Read Methodology
+          </a>
+        </div>
+      </div>
+    ),
+  };
+
+  const riskInfoPanelItems: RiskInfoPanelItem[] = [
+    {
+      value: 'definitions',
+      label: 'Definitions',
+      title: 'Risk Category Definitions',
+      content: (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-slate-500">
+            A single report or excerpt can be tagged with more than one category when the disclosure covers multiple AI
+            risk dimensions.
+          </p>
+          <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+            {riskCategoryDefinitions.map(item => (
+              <li key={item.label}>
+                <span className="font-medium text-slate-800">{item.label}:</span> {item.definition}
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    },
+    {
+      value: 'method',
+      label: 'Method',
+      title: 'How Risk Categories Are Assigned',
+      content: (
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p>
+            Risk categories are assigned by an LLM-assisted classifier using a structured AI-risk taxonomy. Labels are
+            applied at excerpt level and then rolled up into report-level and sector-level views.
+          </p>
+          <p>
+            Categories are not mutually exclusive. One disclosure can be counted in multiple risk categories if it
+            covers more than one mechanism of risk.
+          </p>
+        </div>
+      ),
+    },
+    sharedCitationItem,
+    sharedDownloadItem,
+  ];
+
+  const adoptionInfoPanelItems: RiskInfoPanelItem[] = [
+    {
+      value: 'definitions',
+      label: 'Definitions',
+      title: 'Adoption Type Definitions',
+      content: (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-slate-500">
+            Adoption labels describe the maturity of AI deployment referenced in each disclosure.
+          </p>
+          <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+            {adoptionTypeDefinitions.map(item => (
+              <li key={item.label}>
+                <span className="font-medium text-slate-800">{item.label}:</span> {item.definition}
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    },
+    {
+      value: 'method',
+      label: 'Method',
+      title: 'How Adoption Mentions Are Classified',
+      content: (
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p>
+            The adoption view groups disclosures by implementation maturity: non-LLM AI, LLM-based use, and more
+            agentic systems. Classification is applied at excerpt level and can retain more than one adoption tag.
+          </p>
+          <p>
+            The chart view shows how often those adoption patterns appear over time; the heatmap shows where they are
+            concentrated across sectors.
+          </p>
+        </div>
+      ),
+    },
+    sharedCitationItem,
+    sharedDownloadItem,
+  ];
+
+  const vendorInfoPanelItems: RiskInfoPanelItem[] = [
+    {
+      value: 'definitions',
+      label: 'Definitions',
+      title: 'Vendor Tag Definitions',
+      content: (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-slate-500">
+            Vendor tags indicate which provider is named or implied in the disclosure text.
+          </p>
+          <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+            {vendorTagDefinitions.map(item => (
+              <li key={item.label}>
+                <span className="font-medium text-slate-800">{item.label}:</span> {item.definition}
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    },
+    {
+      value: 'method',
+      label: 'Method',
+      title: 'How Vendor Mentions Are Tagged',
+      content: (
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p>
+            Vendor tags are assigned when a disclosure explicitly names a provider or clearly indicates in-house AI
+            development. A single excerpt can carry multiple vendor tags if more than one provider is referenced.
+          </p>
+          <p>
+            The trend view surfaces changes in provider mention frequency over time, while the heatmap shows which
+            sectors most often cite each provider.
+          </p>
+        </div>
+      ),
+    },
+    sharedCitationItem,
+    sharedDownloadItem,
+  ];
+
+  const signalQualityInfoPanelItems: RiskInfoPanelItem[] = [
+    {
+      value: 'definitions',
+      label: 'Definitions',
+      title: 'Quality Metric Definitions',
+      content: (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-slate-500">
+            This view evaluates the quality of AI disclosure, not just the volume of mentions.
+          </p>
+          <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+            {signalQualityDefinitions.map(item => (
+              <li key={item.label}>
+                <span className="font-medium text-slate-800">{item.label}:</span> {item.definition}
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    },
+    {
+      value: 'method',
+      label: 'Method',
+      title: 'How Quality Metrics Are Calculated',
+      content: (
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p>
+            Signal-strength views count label-level outcomes and keep the strongest available evidence tier for each
+            classified label. Substantiveness is a report-level quality assessment for AI-risk disclosure.
+          </p>
+          <p>
+            The settings panel lets you switch between risk, adoption, and vendor signal strength, or move to
+            substantiveness as a separate quality lens.
+          </p>
+        </div>
+      ),
+    },
+    sharedCitationItem,
+    sharedDownloadItem,
+  ];
+
+  const blindSpotInfoPanelItems: RiskInfoPanelItem[] = [
+    {
+      value: 'definitions',
+      label: 'Definitions',
+      title: 'Blind Spot Definitions',
+      content: (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-slate-500">
+            Blind spot metrics are calculated from report-level coverage, including reports with zero extracted AI
+            passages.
+          </p>
+          <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+            {blindSpotDefinitions.map(item => (
+              <li key={item.label}>
+                <span className="font-medium text-slate-800">{item.label}:</span> {item.definition}
+              </li>
+            ))}
+          </ul>
+        </>
+      ),
+    },
+    {
+      value: 'method',
+      label: 'Method',
+      title: 'How Blind Spots Are Computed',
+      content: (
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p>
+            Blind spots are measured on a report-year basis. This makes it possible to distinguish complete AI silence
+            from cases where AI is discussed but AI risk is not.
+          </p>
+          <p>
+            In chart mode, the series show change over time. In heatmap mode, the same absence patterns are mapped
+            across sectors and years.
+          </p>
+        </div>
+      ),
+    },
+    sharedCitationItem,
+    sharedDownloadItem,
+  ];
+
+  const activeInfoPanelItems =
+    activeView === 1
+      ? riskInfoPanelItems
+      : activeView === 2
+        ? adoptionInfoPanelItems
+        : activeView === 3
+          ? vendorInfoPanelItems
+          : activeView === 4
+            ? signalQualityInfoPanelItems
+            : blindSpotInfoPanelItems;
+
+  const selectedInfoPanelKey = infoPanelSelections[activeView] ?? 'definitions';
+  const selectedInfoPanel =
+    activeInfoPanelItems.find(item => item.value === selectedInfoPanelKey) ?? activeInfoPanelItems[0];
+
+  const infoPanelSection = (
+    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+      <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="border-b border-slate-100 bg-slate-50/80 p-5 lg:border-b-0 lg:border-r">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            Reference
+          </p>
+          <div className="mt-4 space-y-1.5">
+            {activeInfoPanelItems.map(item => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() =>
+                  setInfoPanelSelections(prev => ({
+                    ...prev,
+                    [activeView]: item.value,
+                  }))
+                }
+                className={`flex w-full items-center justify-between border px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+                  selectedInfoPanelKey === item.value
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            {view.title}
+          </p>
+          <h3 className="mt-2 text-base font-semibold text-slate-900">{selectedInfoPanel.title}</h3>
+          <div className="mt-4">{selectedInfoPanel.content}</div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const datasetToggle = (
+    <div className="inline-flex items-center border border-border bg-white p-1">
+      <button
+        type="button"
+        onClick={() => {
+          const nextYears = data.datasets.perReport.years;
+          setDatasetKey('perReport');
+          setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
+        }}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          datasetKey === 'perReport'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Per Report
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const nextYears = data.datasets.perChunk.years;
+          setDatasetKey('perChunk');
+          setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
+        }}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          datasetKey === 'perChunk'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Per Excerpt
+      </button>
+    </div>
+  );
+
+  const blindSpotHeatmapToggle = (
+    <div className="inline-flex items-center border border-border bg-white p-1">
+      <button
+        type="button"
+        onClick={() => setBlindSpotHeatmapSelection('no_ai_mention')}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          blindSpotHeatmapSelection === 'no_ai_mention'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        No AI
+      </button>
+      <button
+        type="button"
+        onClick={() => setBlindSpotHeatmapSelection('no_ai_risk_mention')}
+        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          blindSpotHeatmapSelection === 'no_ai_risk_mention'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        No AI Risk
+      </button>
+    </div>
+  );
+
+  const yearRangeSelector = (
+    <div className="px-1">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          Date Range
+        </p>
+        <div className="text-xs font-semibold text-slate-700">
+          {selectedStartYear} - {selectedEndYear}
+        </div>
+      </div>
+      <div className="mt-4">
+        <div
+          className="relative h-3"
+          onMouseDown={event => {
+            if (maxYearIndex === 0) return;
+            if (event.target instanceof HTMLInputElement) return;
+            updateYearRangeFromTrackClick(event.clientX, event.currentTarget);
+          }}
+          onTouchStart={event => {
+            if (maxYearIndex === 0) return;
+            if (event.target instanceof HTMLInputElement) return;
+            const touch = event.touches[0];
+            if (!touch) return;
+            updateYearRangeFromTrackClick(touch.clientX, event.currentTarget);
+          }}
+        >
+          <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-secondary" />
+          <div
+            className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-accent"
+            style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={maxYearIndex}
+            step={1}
+            value={startIndex}
+            onChange={event => {
+              const nextStart = Number(event.target.value);
+              setYearRangeIndices(prev => ({
+                start: Math.min(nextStart, prev.end),
+                end: prev.end,
+              }));
+            }}
+            className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
+            aria-label="Start year"
+            disabled={maxYearIndex === 0}
+          />
+          <input
+            type="range"
+            min={0}
+            max={maxYearIndex}
+            step={1}
+            value={endIndex}
+            onChange={event => {
+              const nextEnd = Number(event.target.value);
+              setYearRangeIndices(prev => ({
+                start: prev.start,
+                end: Math.max(nextEnd, prev.start),
+              }));
+            }}
+            className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
+            aria-label="End year"
+            disabled={maxYearIndex === 0}
+          />
+        </div>
+        <div className="relative mt-2 h-3 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+          {availableYears.length === 0 ? (
+            <span className="block text-center">-</span>
+          ) : (
+            availableYears.map((year, index) => {
+              const leftPct = maxYearIndex <= 0 ? 50 : (index / maxYearIndex) * 100;
+              const edgeClass =
+                index === 0
+                  ? 'translate-x-0 text-left'
+                  : index === availableYears.length - 1
+                    ? '-translate-x-full text-right'
+                    : '-translate-x-1/2 text-center';
+              return (
+                <span
+                  key={year}
+                  className={`absolute top-0 transition-colors ${edgeClass} ${
+                    index >= startIndex && index <= endIndex ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                  style={{ left: `${leftPct}%` }}
+                >
+                  {year}
+                </span>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const visualizationFooter = yearRangeSelector;
+
+  const visualizationActions = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleDownloadVisualization}
+          className="inline-flex h-9 items-center justify-center border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          title="Download current visualization data as CSV"
+        >
+          Download
+        </button>
+        <button
+          type="button"
+          onClick={handleShareVisualization}
+          className="inline-flex h-9 items-center justify-center border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          title="Share the current dashboard page"
+        >
+          {shareButtonLabel}
+        </button>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-white text-primary">
-      {/* Sticky control bar */}
-      <div className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6">
-          {/* Row 1: View tabs */}
-          <div className="flex items-center">
-            {VIEWS.map(item => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveView(item.id);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className={`relative px-5 py-4 text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
-                  activeView === item.id
-                    ? 'text-accent'
-                    : 'text-muted-foreground hover:text-primary'
-                }`}
-              >
-                {item.title}
-                {activeView === item.id && (
-                  <span className="absolute inset-x-0 bottom-0 h-1 bg-accent" />
-                )}
-              </button>
-            ))}
+      <main className="mx-auto max-w-[1320px] px-6 py-10 sm:py-14">
+        <div className="border-b border-border pb-7">
+          <div className="mb-5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            {dashboardUpdatedLabel}
           </div>
 
-          {/* Row 2: Year range + dataset toggle + view-specific controls */}
-          <div className="flex flex-wrap items-center gap-4 border-t border-border py-4">
-            <div className="h-10 w-[240px] shrink-0 flex flex-col justify-center border border-border bg-white px-3 sm:w-[320px] lg:w-[340px]">
-              <div
-                className="relative h-3"
-                onMouseDown={event => {
-                  if (maxYearIndex === 0) return;
-                  if (event.target instanceof HTMLInputElement) return;
-                  updateYearRangeFromTrackClick(event.clientX, event.currentTarget);
-                }}
-                onTouchStart={event => {
-                  if (maxYearIndex === 0) return;
-                  if (event.target instanceof HTMLInputElement) return;
-                  const touch = event.touches[0];
-                  if (!touch) return;
-                  updateYearRangeFromTrackClick(touch.clientX, event.currentTarget);
-                }}
-              >
-                <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-secondary" />
-                <div
-                  className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-accent"
-                  style={{ left: `${selectedLeftPct}%`, right: `${selectedRightPct}%` }}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={maxYearIndex}
-                  step={1}
-                  value={startIndex}
-                  onChange={event => {
-                    const nextStart = Number(event.target.value);
-                    setYearRangeIndices(prev => ({
-                      start: Math.min(nextStart, prev.end),
-                      end: prev.end,
-                    }));
+          <div>
+            <h2 className="aisi-h2 uppercase">
+              <span className="mr-3 inline-block h-6 w-1.5 bg-accent align-middle" />
+              {view.heading}
+            </h2>
+            <p className={`mt-3 max-w-3xl text-sm leading-relaxed text-muted sm:text-base ${
+              activeView === 5 ? 'xl:whitespace-nowrap' : ''
+            }`}>
+              {view.description}
+            </p>
+          </div>
+
+          <div className="mt-8 flex items-start justify-between gap-3 overflow-x-auto">
+            <div className="flex shrink-0 items-center gap-2.5">
+              {VIEWS.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveView(item.id);
+                    setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
-                  aria-label="Start year"
-                  disabled={maxYearIndex === 0}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={maxYearIndex}
-                  step={1}
-                  value={endIndex}
-                  onChange={event => {
-                    const nextEnd = Number(event.target.value);
-                    setYearRangeIndices(prev => ({
-                      start: prev.start,
-                      end: Math.max(nextEnd, prev.start),
-                    }));
-                  }}
-                  className="year-range-slider pointer-events-none absolute inset-0 h-3 w-full appearance-none bg-transparent"
-                  aria-label="End year"
-                  disabled={maxYearIndex === 0}
-                />
-              </div>
-              <div className="relative h-3 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                {availableYears.length === 0 ? (
-                  <span className="block text-center">-</span>
-                ) : (
-                  availableYears.map((year, index) => {
-                    const leftPct = maxYearIndex <= 0 ? 50 : (index / maxYearIndex) * 100;
-                    const edgeClass =
-                      index === 0
-                        ? 'translate-x-0 text-left'
-                        : index === availableYears.length - 1
-                          ? '-translate-x-full text-right'
-                          : '-translate-x-1/2 text-center';
-                    return (
-                      <span
-                        key={year}
-                        className={`absolute top-0 transition-colors ${edgeClass} ${
-                          index >= startIndex && index <= endIndex ? 'text-primary' : 'text-muted-foreground'
-                        }`}
-                        style={{ left: `${leftPct}%` }}
-                      >
-                        {year}
-                      </span>
-                    );
-                  })
-                )}
-              </div>
+                  className={`border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    activeView === item.id
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-border bg-secondary text-muted-foreground hover:bg-white hover:text-primary'
+                  }`}
+                >
+                  {item.title}
+                </button>
+              ))}
             </div>
 
-            {/* Dataset toggle */}
-            {activeView !== 5 && (
-              <select
-                value={datasetKey}
-                onChange={event => {
-                  const nextDatasetKey = event.target.value as DatasetKey;
-                  setDatasetKey(nextDatasetKey);
-                  const nextYears = data.datasets[nextDatasetKey].years;
-                  setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
-                }}
-                className="aisi-select"
-              >
-                <option value="perReport">Per Report</option>
-                <option value="perChunk">Per Excerpt</option>
-              </select>
-            )}
-
-            {/* Market segment filter */}
-            <select
-              value={marketSegmentFilter}
-              onChange={event => {
-                setMarketSegmentFilter(event.target.value);
-                setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
-              }}
-              className="aisi-select"
-            >
-              <option value="all">All Companies</option>
-              {data.marketSegments.map(segment => (
-                <option key={segment} value={segment}>{segment}</option>
-              ))}
-            </select>
-
-            {/* Risk-specific controls */}
-            {activeView === 1 && (
-              <>
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <select
-                  id="risk-filter"
-                  value={riskFilter}
-                  onChange={e => setRiskFilter(e.target.value)}
-                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
+            {showVisualizationToggle && (
+              <div className="inline-flex shrink-0 items-center border border-border bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => setVisualizationMode('chart')}
+                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                    visualizationMode === 'chart'
+                      ? 'bg-primary text-white'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  }`}
                 >
-                  <option value="all">All Risk Types</option>
-                  {riskStackKeys.map(label => (
-                    <option key={label} value={label}>{formatLabel(label)}</option>
-                  ))}
-                </select>
-                {riskFilter !== 'all' && (
-                  <button
-                    onClick={() => setRiskFilter('all')}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Adoption-specific controls */}
-            {activeView === 2 && (
-              <>
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <select
-                  id="adoption-filter"
-                  value={adoptionFilter}
-                  onChange={e => setAdoptionFilter(e.target.value)}
-                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
+                  Chart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisualizationMode('heatmap')}
+                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                    visualizationMode === 'heatmap'
+                      ? 'bg-primary text-white'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  }`}
                 >
-                  <option value="all">All Adoption Types</option>
-                  {data.labels.adoptionTypes.map(label => (
-                    <option key={label} value={label}>{formatLabel(label)}</option>
-                  ))}
-                </select>
-                {adoptionFilter !== 'all' && (
-                  <button
-                    onClick={() => setAdoptionFilter('all')}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Vendor-specific controls */}
-            {activeView === 3 && (
-              <>
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <select
-                  id="vendor-filter"
-                  value={effectiveVendorFilter}
-                  onChange={e => setVendorFilter(e.target.value)}
-                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
-                >
-                  <option value="all">All Vendors</option>
-                  {vendorStackKeys.map(label => (
-                    <option key={label} value={label}>{formatLabel(label)}</option>
-                  ))}
-                </select>
-                {effectiveVendorFilter !== 'all' && (
-                  <button
-                    onClick={() => setVendorFilter('all')}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Signal-quality specific controls */}
-            {activeView === 4 && (
-              <>
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <select
-                  id="signal-quality-filter"
-                  value={signalQualityFilter}
-                  onChange={e => setSignalQualityFilter(e.target.value as SignalQualityFilter)}
-                  className="aisi-select appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat pr-8"
-                >
-                  <option value="all">All Quality Panels</option>
-                  <option value="risk_signal">Risk Signal Strength</option>
-                  <option value="adoption_signal">Adoption Signal Strength</option>
-                  <option value="vendor_signal">Vendor Signal Strength</option>
-                  <option value="substantiveness">Risk Substantiveness</option>
-                </select>
-                {signalQualityFilter !== 'all' && (
-                  <button
-                    onClick={() => setSignalQualityFilter('all')}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Blind-spot specific controls */}
-            {activeView === 5 && (
-              <>
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <select
-                  id="blind-spot-filter"
-                  value={blindSpotFilter}
-                  onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                  className="h-10 border border-border bg-white px-3 pr-8 text-[10px] font-bold uppercase tracking-widest text-primary focus:outline-none focus:ring-1 focus:ring-accent appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236f777b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_0.75rem_center] bg-no-repeat"
-                >
-                  <option value="all">All Blind Spots</option>
-                  <option value="no_ai_mention">No AI Mention</option>
-                  <option value="no_ai_risk_mention">No AI Risk Mention</option>
-                </select>
-                {blindSpotFilter !== 'all' && (
-                  <button
-                    onClick={() => setBlindSpotFilter('all')}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                )}
-              </>
+                  Sector Heatmap
+                </button>
+              </div>
             )}
           </div>
         </div>
-      </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-16">
-        <div className="mb-12">
-          <h2 className="aisi-h2 uppercase">
-            <span className="mr-3 inline-block h-6 w-1.5 bg-accent align-middle" />
-            {view.heading}
-          </h2>
-          {activeView === 1 ? (
-            <div className="mt-4 max-w-5xl space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
+        <div
+          className={`mt-8 grid gap-8 xl:items-start ${
+            isSettingsOpen
+              ? 'xl:grid-cols-[minmax(0,1fr)_280px]'
+              : 'xl:grid-cols-1'
+          }`}
+        >
+          <div className="min-w-0">
+
+        {activeView === 1 && (
+          <div className="space-y-8">
+            {visualizationMode === 'chart' ? (
+              <div className="space-y-4">
+                <StackedBarChart
+                  key={`risk-trend-${trendTimeAxis}`}
+                  data={displayRiskTrend}
+                  xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
+                  stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
+                  colors={riskColors}
+                  yAxisTickFormatter={stackedChartYAxisFormatter}
+                  tooltipValueFormatter={stackedChartTooltipFormatter}
+                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  allowLineChart={trendTimeAxis === 'year'}
+                  showChartTypeToggle={false}
+                  chartType={activeChartDisplayType}
+                  onChartTypeChange={setChartDisplayType}
+                  legendPosition="right"
+                  headerExtra={settingsPanelToggle}
+                  legendKeys={[...riskStackKeys].reverse()}
+                  activeLegendKey={riskFilter === 'all' ? null : riskFilter}
+                  onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
+                  footerExtra={visualizationFooter}
+                subtitle={
+                  isReportShareMode
+                      ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category. Because a single report can carry multiple risk labels, stacked totals can exceed 100%.`
+                      : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`
+                  }
+                  tooltip={
+                    <>
+                      <p>
+                        {isReportShareMode
+                          ? 'Each segment shows the share of reports in that period tagged with the risk category.'
+                          : 'Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.'}
+                      </p>
+                      <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year&apos;s bar; segments are not mutually exclusive.</p>
+                      <p className="mt-2">Year-on-year growth may also reflect shifts in disclosure requirements or reporting culture rather than changes in actual risk levels — see the About page for more detail.</p>
+                      <p className="mt-2">Click a legend item to isolate a single category.</p>
+                    </>
+                  }
+                />
+                {visualizationActions}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <GenericHeatmap
+                  data={visibleRiskHeatmapData}
+                  xLabels={riskHeatmapXLabels}
+                  yLabels={riskHeatmapYLabels}
+                  baseColor={riskHeatmapBaseColor}
+                  valueFormatter={riskHeatmapValueFormatter}
+                  xLabelFormatter={formatLabel}
+                  showTotals={true}
+                  totalsMode="average"
+                  totalsLabel="Avg"
+                  showBlindSpots={true}
+                  title={riskFilter === 'all' ? 'Risk Distribution by Sector' : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`}
+                  subtitle={
+                    riskFilter === 'all'
+                      ? `Heatmap of report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Each cell shows the percentage of reports in that sector, across the selected years, that mention the risk type at least once.`
+                      : `Heatmap of ${formatLabel(riskFilter)} report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(riskFilter)}.`
+                  }
+                  tooltip={
+                    riskFilter === 'all'
+                      ? <>
+                          <p>Each cell is normalised by the total number of reports in that sector across the selected years, so sectors of different sizes can be compared directly.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed categories and sectors.</p>
+                          <p className="mt-2">Select one risk type in the settings panel to switch the columns from risk categories to years.</p>
+                        </>
+                      : <>
+                          <p>Each cell is the share of reports in that sector-year mentioning the selected risk category.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
+                          <p className="mt-2">Clearing the risk-type filter returns the categorical sector view.</p>
+                        </>
+                  }
+                  xAxisLabel={riskFilter === 'all' ? 'Risk Type' : 'Year'}
+                  yAxisLabel={riskHeatmapAxisSectorLabel}
+                  rowGroups={riskSectorView === 'isic' ? isicRowGroups : undefined}
+                  expandedRowGroups={riskSectorView === 'isic' ? expandedIsicGroups : undefined}
+                  onToggleRowGroup={riskSectorView === 'isic' ? toggleIsicGroup : undefined}
+                  labelColumnWidth={riskSectorView === 'isic' ? 330 : undefined}
+                  rowHeight={riskSectorView === 'isic' ? 58 : undefined}
+                  yLabelClassName={riskSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  headerExtra={settingsPanelToggle}
+                  footerExtra={visualizationFooter}
+                />
+                {visualizationActions}
+              </div>
+            )}
+
+            <div className="space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
               <p>
                 <span className="font-bold text-primary">{formatNumber(riskOverviewStats.riskMentionReports)}</span>{' '}
                 of the{' '}
@@ -1698,8 +2476,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 a risk from AI appears — useful for visualising the depth of emphasis companies place on that risk.
               </p>
               <div>
-                You can use the controls above to narrow the date range, focus on a specific risk category, or switch
-                the sector taxonomy between{' '}
+                Use the date range slider below the visualization together with the settings panel to focus on a
+                specific time window, isolate a risk category, or switch the sector taxonomy between{' '}
                 <span className="font-medium text-slate-800">CNI</span> (Critical National Infrastructure) and{' '}
                 <span className="font-medium text-slate-800">ISIC</span> (international standard industry codes).
                 <InfoTooltip content="Sector classifications for companies that do not fall clearly within a CNI sector have been approximated using an LLM-assisted mapping process. Full details are available on the About page." />
@@ -1712,8 +2490,98 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 how that risk has evolved within each sector over time.
               </p>
             </div>
-          ) : activeView === 2 ? (
-            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+
+            {infoPanelSection}
+          </div>
+        )}
+
+        {activeView === 2 && (
+          <div className="space-y-8">
+            {visualizationMode === 'chart' ? (
+              <div className="space-y-4">
+                <StackedBarChart
+                  key={`adoption-trend-${trendTimeAxis}`}
+                  data={displayAdoptionTrend}
+                  xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
+                  stackKeys={adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter]}
+                  colors={adoptionColors}
+                  yAxisTickFormatter={stackedChartYAxisFormatter}
+                  tooltipValueFormatter={stackedChartTooltipFormatter}
+                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  allowLineChart={trendTimeAxis === 'year'}
+                  showChartTypeToggle={false}
+                  chartType={activeChartDisplayType}
+                  onChartTypeChange={setChartDisplayType}
+                  legendPosition="right"
+                  headerExtra={settingsPanelToggle}
+                  legendKeys={adoptionStackKeys}
+                  activeLegendKey={adoptionFilter === 'all' ? null : adoptionFilter}
+                  onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
+                  footerExtra={visualizationFooter}
+                  title="AI Adoption Mentioned Over Time"
+                  subtitle={
+                    isReportShareMode
+                      ? `Stacked bar chart showing the percentage of annual reports referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
+                      : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
+                  }
+                  tooltip={
+                    <>
+                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the adoption type.' : 'Each bar is stacked by adoption type: Non-LLM, LLM, and Agentic.'}</p>
+                      <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple adoption types and can therefore contribute to more than one segment within the same year.</p>
+                      <p className="mt-2">Click a legend item to isolate one adoption type.</p>
+                    </>
+                  }
+                />
+                {visualizationActions}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <GenericHeatmap
+                  data={visibleAdoptionHeatmapData}
+                  xLabels={adoptionHeatmapXLabels}
+                  yLabels={adoptionHeatmapYLabels}
+                  baseColor={adoptionHeatmapBaseColor}
+                  valueFormatter={riskHeatmapValueFormatter}
+                  xLabelFormatter={formatLabel}
+                  showTotals={true}
+                  totalsMode="average"
+                  totalsLabel="Avg"
+                  showBlindSpots={true}
+                  title={adoptionFilter === 'all' ? 'Adoption Intensity by Sector' : `${formatLabel(adoptionFilter)} Mentions by Sector and Year`}
+                  subtitle={
+                    adoptionFilter === 'all'
+                      ? `Heatmap of report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Each cell shows the percentage of reports in that sector, across the selected years, mentioning the adoption type at least once.`
+                      : `Heatmap of ${formatLabel(adoptionFilter)} report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(adoptionFilter)}.`
+                  }
+                  tooltip={
+                    adoptionFilter === 'all'
+                      ? <>
+                          <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed adoption types and sectors.</p>
+                          <p className="mt-2">Select one adoption type in the settings panel to switch the columns from adoption types to years.</p>
+                        </>
+                      : <>
+                          <p>This filtered view shows the share of reports in each sector-year mentioning one adoption type.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
+                          <p className="mt-2">Clearing the filter returns the categorical sector view.</p>
+                        </>
+                  }
+                  xAxisLabel={adoptionFilter === 'all' ? 'Adoption Type' : 'Year'}
+                  yAxisLabel={adoptionSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
+                  rowGroups={adoptionSectorView === 'isic' ? isicRowGroups : undefined}
+                  expandedRowGroups={adoptionSectorView === 'isic' ? expandedIsicGroups : undefined}
+                  onToggleRowGroup={adoptionSectorView === 'isic' ? toggleIsicGroup : undefined}
+                  labelColumnWidth={adoptionSectorView === 'isic' ? 330 : undefined}
+                  rowHeight={adoptionSectorView === 'isic' ? 58 : undefined}
+                  yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  headerExtra={settingsPanelToggle}
+                  footerExtra={visualizationFooter}
+                />
+                {visualizationActions}
+              </div>
+            )}
+
+            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 <span className="font-semibold text-slate-900">{formatNumber(adoptionOverviewStats.adoptionMentionReports)}</span>{' '}
                 of the{' '}
@@ -1731,7 +2599,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 as adoption, giving a more granular view of how heavily companies discuss implementation.
               </p>
               <p>
-                Use the controls above to narrow the year range and focus on a single adoption type (
+                Use the date range slider below the visualization and the settings panel to focus on a single adoption type (
                 <span className="font-medium text-slate-800">Non-LLM</span>,{' '}
                 <span className="font-medium text-slate-800">LLM</span>, or{' '}
                 <span className="font-medium text-slate-800">Agentic</span>). Selecting one type switches the heatmap
@@ -1743,8 +2611,99 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 is concentrated across sectors.
               </p>
             </div>
-          ) : activeView === 3 ? (
-            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+
+            {infoPanelSection}
+          </div>
+        )}
+
+        {activeView === 3 && (
+          <div className="space-y-8">
+            {visualizationMode === 'chart' ? (
+              <div className="space-y-4">
+                <StackedBarChart
+                  key={`vendor-trend-${trendTimeAxis}`}
+                  data={displayVendorTrend}
+                  xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
+                  stackKeys={effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter]}
+                  colors={vendorColors}
+                  yAxisTickFormatter={stackedChartYAxisFormatter}
+                  tooltipValueFormatter={stackedChartTooltipFormatter}
+                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  allowLineChart={trendTimeAxis === 'year'}
+                  showChartTypeToggle={false}
+                  chartType={activeChartDisplayType}
+                  onChartTypeChange={setChartDisplayType}
+                  legendPosition="right"
+                  headerExtra={settingsPanelToggle}
+                  legendKeys={vendorStackKeys}
+                  activeLegendKey={effectiveVendorFilter === 'all' ? null : effectiveVendorFilter}
+                  onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
+                  footerExtra={visualizationFooter}
+                  title="AI Vendors Mentioned Over Time"
+                  subtitle={
+                    isReportShareMode
+                      ? `Stacked bar chart showing the percentage of annual reports referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
+                      : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`
+                  }
+                  tooltip={
+                    <>
+                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).'}</p>
+                      <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
+                      <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
+                      <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
+                    </>
+                  }
+                />
+                {visualizationActions}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <GenericHeatmap
+                  data={visibleVendorHeatmapData}
+                  xLabels={vendorHeatmapXLabels}
+                  yLabels={vendorHeatmapYLabels}
+                  baseColor={vendorHeatmapBaseColor}
+                  valueFormatter={riskHeatmapValueFormatter}
+                  xLabelFormatter={formatLabel}
+                  showTotals={true}
+                  totalsMode="average"
+                  totalsLabel="Avg"
+                  showBlindSpots={true}
+                  title={effectiveVendorFilter === 'all' ? 'Vendor Concentration by Sector' : `${formatLabel(effectiveVendorFilter)} Mentions by Sector and Year`}
+                  subtitle={
+                    effectiveVendorFilter === 'all'
+                      ? `Heatmap of report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Each cell shows the percentage of reports in that sector, across the selected years, naming the vendor tag at least once.`
+                      : `Heatmap of ${formatLabel(effectiveVendorFilter)} report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(effectiveVendorFilter)}.`
+                  }
+                  tooltip={
+                    effectiveVendorFilter === 'all'
+                      ? <>
+                          <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed vendor tags and sectors.</p>
+                          <p className="mt-2">Select one vendor in the settings panel to switch columns from vendor tags to years.</p>
+                        </>
+                      : <>
+                          <p>This filtered view shows the share of reports in each sector-year mentioning one vendor tag.</p>
+                          <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
+                          <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
+                        </>
+                  }
+                  xAxisLabel={effectiveVendorFilter === 'all' ? 'Vendor' : 'Year'}
+                  yAxisLabel={vendorSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
+                  rowGroups={vendorSectorView === 'isic' ? isicRowGroups : undefined}
+                  expandedRowGroups={vendorSectorView === 'isic' ? expandedIsicGroups : undefined}
+                  onToggleRowGroup={vendorSectorView === 'isic' ? toggleIsicGroup : undefined}
+                  labelColumnWidth={vendorSectorView === 'isic' ? 330 : undefined}
+                  rowHeight={vendorSectorView === 'isic' ? 58 : undefined}
+                  yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  headerExtra={settingsPanelToggle}
+                  footerExtra={visualizationFooter}
+                />
+                {visualizationActions}
+              </div>
+            )}
+
+            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 Of the{' '}
                 <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.totalReports)}</span>{' '}
@@ -1761,7 +2720,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 volume of vendor-tagged passages across all reports and therefore the depth of mention.
               </p>
               <p>
-                Use the control above to focus on one vendor tag (
+                Use the settings panel to focus on one vendor tag (
                 <span className="font-medium text-slate-800">OpenAI</span>,{' '}
                 <span className="font-medium text-slate-800">Microsoft</span>,{' '}
                 <span className="font-medium text-slate-800">Google</span>,{' '}
@@ -1774,8 +2733,35 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 which vendors are cited and where those dependencies appear most strongly.
               </p>
             </div>
-          ) : activeView === 4 ? (
-            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+
+            {infoPanelSection}
+          </div>
+        )}
+
+        {activeView === 4 && (
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <GenericHeatmap
+                data={selectedSignalQualityHeatmap.data}
+                xLabels={filteredYears}
+                yLabels={selectedSignalQualityHeatmap.yLabels}
+                baseColor={selectedSignalQualityHeatmap.baseColor}
+                valueFormatter={value => `${value}`}
+                yLabelFormatter={formatLabel}
+                showTotals={true}
+                showBlindSpots={false}
+                title={selectedSignalQualityHeatmap.title}
+                subtitle={selectedSignalQualityHeatmap.subtitle}
+                tooltip={selectedSignalQualityHeatmap.tooltip}
+                xAxisLabel="Year"
+                yAxisLabel={selectedSignalQualityHeatmap.yAxisLabel}
+                compact={selectedSignalQualityHeatmap.compact}
+                headerExtra={settingsPanelToggle}
+                footerExtra={visualizationFooter}
+              />
+              {visualizationActions}
+            </div>
+            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 This section evaluates disclosure quality, not just volume. Across{' '}
                 <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.totalReports)}</span>{' '}
@@ -1798,12 +2784,84 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 reports are classified as substantive.
               </p>
               <p>
-                Use the control above to focus on a single quality panel, or keep all panels visible to compare
-                risk/adoption/vendor explicitness against risk substantiveness side-by-side.
+                Use the settings panel to switch between AI risk signal strength, AI adoption signal strength,
+                AI vendor signal strength, and risk substantiveness within the same view.
               </p>
             </div>
-          ) : activeView === 5 ? (
-            <div className="mt-2 max-w-5xl space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
+            {infoPanelSection}
+          </div>
+        )}
+
+        {activeView === 5 && (
+          <div className="space-y-8">
+            {visualizationMode === 'chart' ? (
+              <div className="space-y-4">
+                <StackedBarChart
+                  key={`blind-spot-trend-${trendTimeAxis}`}
+                  data={displayBlindSpotTrend}
+                  xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
+                  stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
+                  colors={blindSpotColors}
+                  yAxisTickFormatter={stackedChartYAxisFormatter}
+                  tooltipValueFormatter={stackedChartTooltipFormatter}
+                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  allowLineChart={trendTimeAxis === 'year'}
+                  showChartTypeToggle={false}
+                  chartType={activeChartDisplayType}
+                  onChartTypeChange={setChartDisplayType}
+                  legendPosition="right"
+                  headerExtra={settingsPanelToggle}
+                  legendKeys={['no_ai_mention', 'no_ai_risk_mention']}
+                  activeLegendKey={blindSpotFilter === 'all' ? null : blindSpotFilter}
+                  onLegendItemClick={(key) =>
+                    setBlindSpotFilter(prev => (prev === key ? 'all' : (key as BlindSpotFilter)))
+                  }
+                  footerExtra={visualizationFooter}
+                  title={trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year'}
+                  subtitle={
+                    isReportShareMode
+                      ? blindSpotFilter === 'all'
+                        ? `Stacked bar chart showing the percentage of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive, so stacked totals can exceed 100%.`
+                        : `Bar chart showing the percentage of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis).`
+                      : blindSpotFilter === 'all'
+                        ? `Stacked bar chart showing the number of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive: a report with no AI mention is also counted under no AI risk mention. The y-axis scale adjusts dynamically to the data shown.`
+                        : `Bar chart showing the number of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). The y-axis scale adjusts dynamically to the data shown.`
+                  }
+                  tooltip={
+                    blindSpotFilter === 'all'
+                      ? isReportShareMode
+                        ? 'This report-level view compares the share of reports exhibiting two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or the settings panel to isolate one series.'
+                        : 'This report-level view compares two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or the settings panel to isolate one series.'
+                      : `${formatLabel(blindSpotFilter)} is currently isolated. Clear the filter to compare both blind-spot types together.`
+                  }
+                />
+                {visualizationActions}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <GenericHeatmap
+                  data={displayBlindSpotHeatmapData}
+                  xLabels={blindSpotYearsInRange}
+                  yLabels={data.sectors}
+                  baseColor={blindSpotHeatmapColor}
+                  valueFormatter={blindSpotHeatmapValueFormatter}
+                  showTotals={true}
+                  totalsMode="average"
+                  totalsLabel="Avg"
+                  showBlindSpots={false}
+                  title={blindSpotHeatmapTitle}
+                  subtitle={blindSpotHeatmapSubtitle}
+                  tooltip={blindSpotHeatmapTooltip}
+                  xAxisLabel="Year"
+                  yAxisLabel="Sector"
+                  headerExtra={settingsPanelToggle}
+                  footerExtra={visualizationFooter}
+                />
+                {visualizationActions}
+              </div>
+            )}
+
+            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 In the selected period (<span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>),
                 the dataset includes <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.totalReports)}</span>{' '}
@@ -1820,544 +2878,238 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 associated risk disclosure.
               </p>
               <p>
-                Use the filter above to focus on one blind-spot type. The trend chart and heatmap will then isolate that
-                specific absence pattern by year and sector.
+                Use the settings panel to focus the trend chart on one blind-spot type or switch the heatmap between
+                {' '}<span className="font-medium text-slate-800">No AI Mention</span> and{' '}
+                <span className="font-medium text-slate-800">No AI Risk Mention</span>.
               </p>
             </div>
-          ) : (
-            <p className="mt-2 max-w-3xl text-slate-600">{view.description}</p>
-          )}
-        </div>
 
-        {activeView === 1 && (
-          <div className="space-y-8">
-            {/* Risk Trend Over Time */}
-            <StackedBarChart
-              key={`risk-trend-${trendTimeAxis}`}
-              data={displayRiskTrend}
-              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
-              stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
-              colors={riskColors}
-              yAxisTickFormatter={stackedChartYAxisFormatter}
-              tooltipValueFormatter={stackedChartTooltipFormatter}
-              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
-              allowLineChart={trendTimeAxis === 'year'}
-              showChartTypeToggle
-              legendPosition="right"
-              legendKeys={[...riskStackKeys].reverse()}
-              activeLegendKey={riskFilter === 'all' ? null : riskFilter}
-              onLegendItemClick={(key) => setRiskFilter(prev => (prev === key ? 'all' : key))}
-              title="AI Risk Mentioned Over Time"
-              headerExtra={combinedToggles}
-              subtitle={
-                isReportShareMode
-                  ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category. Because a single report can carry multiple risk labels, stacked totals can exceed 100%.`
-                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`
-              }
-              tooltip={
-                <>
-                  <p>
-                    {isReportShareMode
-                      ? 'Each segment shows the share of reports in that period tagged with the risk category.'
-                      : 'Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.'}
+            {infoPanelSection}
+          </div>
+        )}
+          </div>
+
+          {isSettingsOpen && (
+            <aside className="self-start">
+              <div className="border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                <div className="border-b border-border px-5 py-4">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
+                </div>
+                <div className="p-5 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-5">
+                {activeView !== 5 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Dataset
+                    </p>
+                    {datasetToggle}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                    Coverage
                   </p>
-                  <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year&apos;s bar; segments are not mutually exclusive.</p>
-                  <p className="mt-2">Year-on-year growth may also reflect shifts in disclosure requirements or reporting culture rather than changes in actual risk levels — see the About page for more detail.</p>
-                  <p className="mt-2">Click a legend item to isolate a single category.</p>
-                </>
-              }
-            />
+                  <select
+                    value={marketSegmentFilter}
+                    onChange={event => {
+                      setMarketSegmentFilter(event.target.value);
+                      setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
+                    }}
+                    className="w-full aisi-select"
+                  >
+                    <option value="all">All Companies</option>
+                    {data.marketSegments.map(segment => (
+                      <option key={segment} value={segment}>{segment}</option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* Risk by Sector Heatmap */}
-            <GenericHeatmap
-              data={visibleRiskHeatmapData}
-              xLabels={riskHeatmapXLabels}
-              yLabels={riskHeatmapYLabels}
-              baseColor={riskHeatmapBaseColor}
-              valueFormatter={riskHeatmapValueFormatter}
-              xLabelFormatter={formatLabel}
-              showTotals={true}
-              totalsMode="average"
-              totalsLabel="Avg"
-              showBlindSpots={true}
-              title={riskFilter === 'all' ? 'Risk Distribution by Sector' : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`}
-              subtitle={
-                riskFilter === 'all'
-                  ? `Heatmap of report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and risk category (columns). Each cell shows the percentage of reports in that sector, across the selected years, that mention the risk type at least once.`
-                  : `Heatmap of ${formatLabel(riskFilter)} report-share percentages by ${riskSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(riskFilter)}.`
-              }
-              tooltip={
-                riskFilter === 'all'
-                  ? <>
-                      <p>Each cell is normalised by the total number of reports in that sector across the selected years, so sectors of different sizes can be compared directly.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed categories and sectors.</p>
-                      <p className="mt-2">Select one risk type above to switch the columns from risk categories to years.</p>
-                    </>
-                  : <>
-                      <p>Each cell is the share of reports in that sector-year mentioning the selected risk category.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
-                      <p className="mt-2">Clearing the risk-type filter returns the categorical sector view.</p>
-                    </>
-              }
-              xAxisLabel={riskFilter === 'all' ? 'Risk Type' : 'Year'}
-              yAxisLabel={riskHeatmapAxisSectorLabel}
-              rowGroups={riskSectorView === 'isic' ? isicRowGroups : undefined}
-              expandedRowGroups={riskSectorView === 'isic' ? expandedIsicGroups : undefined}
-              onToggleRowGroup={riskSectorView === 'isic' ? toggleIsicGroup : undefined}
-              labelColumnWidth={riskSectorView === 'isic' ? 330 : undefined}
-              rowHeight={riskSectorView === 'isic' ? 58 : undefined}
-              yLabelClassName={riskSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
-              headerExtra={makeSectorToggle(riskSectorView, setRiskSectorView)}
-            />
-
-            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
-                Risk Category Definitions
-                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div className="border-t border-slate-100 px-6 pb-5 pt-4">
-                <p className="mb-3 text-sm leading-relaxed text-slate-500">
-                  Categories were assigned by an LLM-assisted classifier trained on an AI risk taxonomy. A single report or passage can be tagged with more than one category.
-                </p>
-                <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
-                  <li><span className="font-medium text-slate-800">Cybersecurity:</span> Risks relating to data breaches, AI-enabled attacks, or vulnerabilities introduced by deploying AI systems.</li>
-                  <li><span className="font-medium text-slate-800">Operational / Technical:</span> Risks of system failures, integration problems, or performance degradation arising from AI implementation.</li>
-                  <li><span className="font-medium text-slate-800">Regulatory / Compliance:</span> Risks from evolving compliance obligations, legal liability, or uncertainty in the regulatory landscape for AI.</li>
-                  <li><span className="font-medium text-slate-800">Reputational / Ethical:</span> Risks of brand damage, public concern over algorithmic bias, or broader ethical considerations in AI deployment.</li>
-                  <li><span className="font-medium text-slate-800">Information Integrity:</span> Risks from AI-generated misinformation, model hallucinations, or degraded data quality affecting decision-making.</li>
-                  <li><span className="font-medium text-slate-800">Third-Party Supply Chain:</span> Risks arising from dependence on external AI vendors, APIs, or suppliers whose reliability or conduct is outside the company&apos;s direct control.</li>
-                  <li><span className="font-medium text-slate-800">Strategic / Competitive:</span> Risks of competitive displacement, market disruption, or falling behind peers in AI adoption and innovation.</li>
-                  <li><span className="font-medium text-slate-800">Workforce Impacts:</span> Risks relating to job displacement, emerging skills gaps, or changes in labour relations driven by AI automation.</li>
-                  <li><span className="font-medium text-slate-800">Environmental Impact:</span> Risks associated with the energy consumption, carbon footprint, or resource demands of AI infrastructure.</li>
-                  <li><span className="font-medium text-slate-800">National Security:</span> Risks to critical systems, geopolitical exposure, or security-of-state concerns linked to AI deployment or dependency.</li>
-                </ul>
-              </div>
-            </details>
-          </div>
-        )}
-
-        {activeView === 2 && (
-          <div className="space-y-8">
-            <StackedBarChart
-              key={`adoption-trend-${trendTimeAxis}`}
-              data={displayAdoptionTrend}
-              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
-              stackKeys={adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter]}
-              colors={adoptionColors}
-              yAxisTickFormatter={stackedChartYAxisFormatter}
-              tooltipValueFormatter={stackedChartTooltipFormatter}
-              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
-              allowLineChart={trendTimeAxis === 'year'}
-              showChartTypeToggle
-              legendPosition="right"
-              legendKeys={adoptionStackKeys}
-              activeLegendKey={adoptionFilter === 'all' ? null : adoptionFilter}
-              onLegendItemClick={(key) => setAdoptionFilter(prev => (prev === key ? 'all' : key))}
-              title="AI Adoption Mentioned Over Time"
-              headerExtra={combinedToggles}
-              subtitle={
-                isReportShareMode
-                  ? `Stacked bar chart showing the percentage of annual reports referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
-                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI adoption maturity level — Non-LLM, LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
-              }
-              tooltip={
-                <>
-                  <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the adoption type.' : 'Each bar is stacked by adoption type: Non-LLM, LLM, and Agentic.'}</p>
-                  <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can be tagged with multiple adoption types and can therefore contribute to more than one segment within the same year.</p>
-                  <p className="mt-2">Click a legend item to isolate one adoption type.</p>
-                </>
-              }
-            />
-            <GenericHeatmap
-              data={visibleAdoptionHeatmapData}
-              xLabels={adoptionHeatmapXLabels}
-              yLabels={adoptionHeatmapYLabels}
-              baseColor={adoptionHeatmapBaseColor}
-              valueFormatter={riskHeatmapValueFormatter}
-              xLabelFormatter={formatLabel}
-              showTotals={true}
-              totalsMode="average"
-              totalsLabel="Avg"
-              showBlindSpots={true}
-              title={adoptionFilter === 'all' ? 'Adoption Intensity by Sector' : `${formatLabel(adoptionFilter)} Mentions by Sector and Year`}
-              subtitle={
-                adoptionFilter === 'all'
-                  ? `Heatmap of report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and adoption type (columns). Each cell shows the percentage of reports in that sector, across the selected years, mentioning the adoption type at least once.`
-                  : `Heatmap of ${formatLabel(adoptionFilter)} report-share percentages by ${adoptionSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(adoptionFilter)}.`
-              }
-              tooltip={
-                adoptionFilter === 'all'
-                  ? <>
-                      <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed adoption types and sectors.</p>
-                      <p className="mt-2">Select one adoption type above to switch the columns from adoption types to years.</p>
-                    </>
-                  : <>
-                      <p>This filtered view shows the share of reports in each sector-year mentioning one adoption type.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
-                      <p className="mt-2">Clearing the filter returns the categorical sector view.</p>
-                    </>
-              }
-              xAxisLabel={adoptionFilter === 'all' ? 'Adoption Type' : 'Year'}
-              yAxisLabel={adoptionSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
-              headerExtra={makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
-              rowGroups={adoptionSectorView === 'isic' ? isicRowGroups : undefined}
-              expandedRowGroups={adoptionSectorView === 'isic' ? expandedIsicGroups : undefined}
-              onToggleRowGroup={adoptionSectorView === 'isic' ? toggleIsicGroup : undefined}
-              labelColumnWidth={adoptionSectorView === 'isic' ? 330 : undefined}
-              rowHeight={adoptionSectorView === 'isic' ? 58 : undefined}
-              yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
-            />
-
-            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
-                Adoption Type Definitions
-                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div className="border-t border-slate-100 px-6 pb-5 pt-4">
-                <p className="mb-3 text-sm leading-relaxed text-slate-500">
-                  Adoption labels describe the maturity of AI deployment referenced in each disclosure.
-                </p>
-                <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
-                  <li><span className="font-medium text-slate-800">Non-LLM:</span> Traditional AI or machine-learning systems that are not based on large language models.</li>
-                  <li><span className="font-medium text-slate-800">LLM:</span> Large language model usage, including generative AI assistants and model-based workflows.</li>
-                  <li><span className="font-medium text-slate-800">Agentic:</span> More autonomous AI systems, often coordinating multi-step tasks with limited human intervention.</li>
-                </ul>
-              </div>
-            </details>
-          </div>
-        )}
-
-        {activeView === 3 && (
-          <div className="space-y-8">
-            <StackedBarChart
-              key={`vendor-trend-${trendTimeAxis}`}
-              data={displayVendorTrend}
-              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
-              stackKeys={effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter]}
-              colors={vendorColors}
-              yAxisTickFormatter={stackedChartYAxisFormatter}
-              tooltipValueFormatter={stackedChartTooltipFormatter}
-              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
-              allowLineChart={trendTimeAxis === 'year'}
-              showChartTypeToggle
-              legendPosition="right"
-              legendKeys={vendorStackKeys}
-              activeLegendKey={effectiveVendorFilter === 'all' ? null : effectiveVendorFilter}
-              onLegendItemClick={(key) => setVendorFilter(prev => (prev === key ? 'all' : key))}
-              title="AI Vendors Mentioned Over Time"
-              headerExtra={combinedToggles}
-              subtitle={
-                isReportShareMode
-                  ? `Stacked bar chart showing the percentage of annual reports referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
-                  : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'text passages'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'passage'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`
-              }
-              tooltip={
-                <>
-                  <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).'}</p>
-                  <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
-                  <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
-                  <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
-                </>
-              }
-            />
-            <GenericHeatmap
-              data={visibleVendorHeatmapData}
-              xLabels={vendorHeatmapXLabels}
-              yLabels={vendorHeatmapYLabels}
-              baseColor={vendorHeatmapBaseColor}
-              valueFormatter={riskHeatmapValueFormatter}
-              xLabelFormatter={formatLabel}
-              showTotals={true}
-              totalsMode="average"
-              totalsLabel="Avg"
-              showBlindSpots={true}
-              title={effectiveVendorFilter === 'all' ? 'Vendor Concentration by Sector' : `${formatLabel(effectiveVendorFilter)} Mentions by Sector and Year`}
-              subtitle={
-                effectiveVendorFilter === 'all'
-                  ? `Heatmap of report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and vendor tag (columns). Each cell shows the percentage of reports in that sector, across the selected years, naming the vendor tag at least once.`
-                  : `Heatmap of ${formatLabel(effectiveVendorFilter)} report-share percentages by ${vendorSectorView === 'cni' ? 'CNI' : 'ISIC'} sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year mentioning ${formatLabel(effectiveVendorFilter)}.`
-              }
-              tooltip={
-                effectiveVendorFilter === 'all'
-                  ? <>
-                      <p>Each cell is normalised by the total number of reports in that sector across the selected years.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed vendor tags and sectors.</p>
-                      <p className="mt-2">Select one vendor above to switch columns from vendor tags to years.</p>
-                    </>
-                  : <>
-                      <p>This filtered view shows the share of reports in each sector-year mentioning one vendor tag.</p>
-                      <p className="mt-2">The Avg column and Avg row show simple averages across the displayed years and sectors.</p>
-                      <p className="mt-2">Clear the filter to return to the all-vendor categorical view.</p>
-                    </>
-              }
-              xAxisLabel={effectiveVendorFilter === 'all' ? 'Vendor' : 'Year'}
-              yAxisLabel={vendorSectorView === 'cni' ? 'CNI Sector' : 'ISIC Sector'}
-              headerExtra={makeSectorToggle(vendorSectorView, setVendorSectorView)}
-              rowGroups={vendorSectorView === 'isic' ? isicRowGroups : undefined}
-              expandedRowGroups={vendorSectorView === 'isic' ? expandedIsicGroups : undefined}
-              onToggleRowGroup={vendorSectorView === 'isic' ? toggleIsicGroup : undefined}
-              labelColumnWidth={vendorSectorView === 'isic' ? 330 : undefined}
-              rowHeight={vendorSectorView === 'isic' ? 58 : undefined}
-              yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
-            />
-
-            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
-                Vendor Tag Definitions
-                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div className="border-t border-slate-100 px-6 pb-5 pt-4">
-                <p className="mb-3 text-sm leading-relaxed text-slate-500">
-                  Vendor tags indicate which provider is named (or implied) in the disclosure text.
-                </p>
-                <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
-                  <li><span className="font-medium text-slate-800">OpenAI / Microsoft / Google:</span> The provider is explicitly named in the text.</li>
-                  <li><span className="font-medium text-slate-800">Internal:</span> The company describes AI as built or operated in-house.</li>
-                  <li><span className="font-medium text-slate-800">Other:</span> A named provider outside the primary tracked vendor set.</li>
-                </ul>
-              </div>
-            </details>
-          </div>
-        )}
-
-        {activeView === 4 && (
-          <div className="space-y-8">
-            {(showRiskSignalPanel || showAdoptionSignalPanel || showVendorSignalPanel) && (
-            <div className={signalPanelGridClass}>
-              {showRiskSignalPanel && (
-              <GenericHeatmap
-                data={riskSignalHeatmapInRange}
-                xLabels={filteredYears}
-                yLabels={data.labels.riskSignalLevels}
-                baseColor="#e63946"
-                valueFormatter={value => `${value}`}
-                yLabelFormatter={formatLabel}
-                showTotals={true}
-                showBlindSpots={false}
-                title="AI Risk Signal Strength"
-                subtitle="Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
-                tooltip="Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports."
-                xAxisLabel="Year"
-                yAxisLabel="Signal Level"
-                compact={true}
-              />
-              )}
-              {showAdoptionSignalPanel && (
-              <GenericHeatmap
-                data={adoptionSignalHeatmapInRange}
-                xLabels={filteredYears}
-                yLabels={data.labels.riskSignalLevels}
-                baseColor="#3b82f6"
-                valueFormatter={value => `${value}`}
-                yLabelFormatter={formatLabel}
-                showTotals={true}
-                showBlindSpots={false}
-                title="AI Adoption Signal Strength"
-                subtitle="Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
-                tooltip="Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language."
-                xAxisLabel="Year"
-                yAxisLabel="Signal Level"
-                compact={true}
-              />
-              )}
-              {showVendorSignalPanel && (
-              <GenericHeatmap
-                data={vendorSignalHeatmapInRange}
-                xLabels={filteredYears}
-                yLabels={data.labels.riskSignalLevels}
-                baseColor="#64748b"
-                valueFormatter={value => `${value}`}
-                yLabelFormatter={formatLabel}
-                showTotals={true}
-                showBlindSpots={false}
-                title="AI Vendor Signal Strength"
-                subtitle="Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and fiscal year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency."
-                tooltip="Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution."
-                xAxisLabel="Year"
-                yAxisLabel="Signal Level"
-                compact={true}
-              />
-              )}
-            </div>
-            )}
-            {showSubstantivenessPanel && (
-            <GenericHeatmap
-              data={substantivenessHeatmapInRange}
-              xLabels={filteredYears}
-              yLabels={data.labels.substantivenessBands}
-              baseColor="#f59e0b"
-              valueFormatter={value => `${value}`}
-              yLabelFormatter={formatLabel}
-              showTotals={true}
-              showBlindSpots={false}
-              title="AI Risk Substantiveness Distribution"
-              subtitle="Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and fiscal year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency."
-              tooltip="Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic."
-              xAxisLabel="Year"
-              yAxisLabel="Quality Band"
-            />
-            )}
-            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
-                Quality Metric Definitions
-                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm text-slate-600">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="font-medium text-slate-800">Signal Strength (Risk / Adoption / Vendor):</p>
-                    <p className="mt-1 leading-relaxed">
-                      Signal strength captures how explicitly a label is supported by the text.
-                      Each cell counts label-level classifications, and the strongest available signal per label is retained.
+                {visualizationMode === 'chart' && activeView !== 4 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Chart Settings
                     </p>
-                    <ul className="mt-2 space-y-0.5 text-xs">
-                      <li><span className="font-medium">3 Explicit:</span> direct, named, concrete statement</li>
-                      <li><span className="font-medium">2 Strong implicit:</span> clear but inferential evidence</li>
-                      <li><span className="font-medium">1 Weak implicit:</span> plausible but lightly supported evidence</li>
-                    </ul>
+                    <div className="flex flex-wrap gap-2">
+                      {chartTypeToggle}
+                      {trendTimeToggle}
+                      {metricModeToggle}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-slate-800">Substantiveness:</p>
-                    <p className="mt-1 leading-relaxed">
-                      Substantiveness evaluates the quality of AI-risk disclosure at report level.
+                )}
+
+                {visualizationMode === 'heatmap' && activeView === 1 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Sector Taxonomy
                     </p>
-                    <ul className="mt-2 space-y-0.5 text-xs">
-                      <li><span className="font-medium">Substantive:</span> concrete mechanism + tangible mitigation/action</li>
-                      <li><span className="font-medium">Moderate:</span> specific risk area, limited detail</li>
-                      <li><span className="font-medium">Boilerplate:</span> generic risk language without concrete detail</li>
-                    </ul>
+                    {makeSectorToggle(riskSectorView, setRiskSectorView)}
                   </div>
+                )}
+
+                {visualizationMode === 'heatmap' && activeView === 2 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Sector Taxonomy
+                    </p>
+                    {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
+                  </div>
+                )}
+
+                {visualizationMode === 'heatmap' && activeView === 3 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Sector Taxonomy
+                    </p>
+                    {makeSectorToggle(vendorSectorView, setVendorSectorView)}
+                  </div>
+                )}
+
+                {activeView === 1 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Risk Filter
+                    </p>
+                    <select
+                      id="risk-filter"
+                      value={riskFilter}
+                      onChange={e => setRiskFilter(e.target.value)}
+                      className="w-full aisi-select"
+                    >
+                      <option value="all">All Risk Types</option>
+                      {riskStackKeys.map(label => (
+                        <option key={label} value={label}>{formatLabel(label)}</option>
+                      ))}
+                    </select>
+                    {riskFilter !== 'all' && (
+                      <button
+                        onClick={() => setRiskFilter('all')}
+                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {activeView === 2 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Adoption Filter
+                    </p>
+                    <select
+                      id="adoption-filter"
+                      value={adoptionFilter}
+                      onChange={e => setAdoptionFilter(e.target.value)}
+                      className="w-full aisi-select"
+                    >
+                      <option value="all">All Adoption Types</option>
+                      {data.labels.adoptionTypes.map(label => (
+                        <option key={label} value={label}>{formatLabel(label)}</option>
+                      ))}
+                    </select>
+                    {adoptionFilter !== 'all' && (
+                      <button
+                        onClick={() => setAdoptionFilter('all')}
+                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+
+	                {activeView === 3 && (
+	                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Vendor Filter
+                    </p>
+                    <select
+                      id="vendor-filter"
+                      value={effectiveVendorFilter}
+                      onChange={e => setVendorFilter(e.target.value)}
+                      className="w-full aisi-select"
+                    >
+                      <option value="all">All Vendors</option>
+                      {vendorStackKeys.map(label => (
+                        <option key={label} value={label}>{formatLabel(label)}</option>
+                      ))}
+                    </select>
+                    {effectiveVendorFilter !== 'all' && (
+                      <button
+                        onClick={() => setVendorFilter('all')}
+                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                      >
+                        Clear
+                      </button>
+                    )}
+	                  </div>
+	                )}
+
+	                {activeView === 4 && (
+	                  <div className="space-y-3">
+	                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+	                      Quality View
+	                    </p>
+	                    {signalQualityModeToggle}
+                      {signalQualityMode === 'explicitness' && (
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                            Signal Metric
+                          </p>
+                          <select
+                            id="signal-quality-metric"
+                            value={explicitnessSignalFilter}
+                            onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
+                            className="w-full aisi-select"
+                          >
+                            {explicitnessSignalOptions.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+	                  </div>
+	                )}
+
+	                {activeView === 5 && visualizationMode === 'chart' && (
+	                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Blind Spot Filter
+                    </p>
+                    <select
+                      id="blind-spot-filter"
+                      value={blindSpotFilter}
+                      onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
+                      className="w-full aisi-select"
+                    >
+                      <option value="all">All Blind Spots</option>
+                      <option value="no_ai_mention">No AI Mention</option>
+                      <option value="no_ai_risk_mention">No AI Risk Mention</option>
+                    </select>
+                    {blindSpotFilter !== 'all' && (
+                      <button
+                        onClick={() => setBlindSpotFilter('all')}
+                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {activeView === 5 && visualizationMode === 'heatmap' && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                      Heatmap View
+                    </p>
+                    {blindSpotHeatmapToggle}
+                  </div>
+                )}
                 </div>
               </div>
-            </details>
-          </div>
-        )}
-
-        {activeView === 5 && (
-          <div className="space-y-8">
-            <StackedBarChart
-              key={`blind-spot-trend-${trendTimeAxis}`}
-              data={displayBlindSpotTrend}
-              xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
-              stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
-              colors={blindSpotColors}
-              yAxisTickFormatter={stackedChartYAxisFormatter}
-              tooltipValueFormatter={stackedChartTooltipFormatter}
-              yAxisDomain={isReportShareMode ? [0, 100] : undefined}
-              allowLineChart={trendTimeAxis === 'year'}
-              showChartTypeToggle
-              legendPosition="right"
-              legendKeys={['no_ai_mention', 'no_ai_risk_mention']}
-              activeLegendKey={blindSpotFilter === 'all' ? null : blindSpotFilter}
-              onLegendItemClick={(key) =>
-                setBlindSpotFilter(prev => (prev === key ? 'all' : (key as BlindSpotFilter)))
-              }
-              title={trendTimeAxis === 'month' ? 'Blind Spots by Month' : 'Blind Spots by Year'}
-              headerExtra={combinedToggles}
-              subtitle={
-                isReportShareMode
-                  ? blindSpotFilter === 'all'
-                    ? `Stacked bar chart showing the percentage of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive, so stacked totals can exceed 100%.`
-                    : `Bar chart showing the percentage of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis).`
-                  : blindSpotFilter === 'all'
-                    ? `Stacked bar chart showing the number of annual reports with no AI mention (red) and no AI risk mention (amber) on the y-axis, plotted across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} on the x-axis. The two series are not mutually exclusive: a report with no AI mention is also counted under no AI risk mention. The y-axis scale adjusts dynamically to the data shown.`
-                    : `Bar chart showing the number of annual reports classified as ${formatLabel(blindSpotFilter)} (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'fiscal years'} (x-axis). The y-axis scale adjusts dynamically to the data shown.`
-              }
-              tooltip={
-                blindSpotFilter === 'all'
-                  ? isReportShareMode
-                    ? 'This report-level view compares the share of reports exhibiting two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
-                    : 'This report-level view compares two absence patterns: no AI mention at all vs. no AI risk mention. Use the legend or top filter to isolate one series.'
-                  : `${formatLabel(blindSpotFilter)} is currently isolated. Clear the filter to compare both blind-spot types together.`
-              }
-            />
-
-            {blindSpotFilter === 'all' ? (
-              <div className="grid gap-8 xl:grid-cols-2">
-                <GenericHeatmap
-                  data={displayNoAiBySectorYearInRange}
-                  xLabels={blindSpotYearsInRange}
-                  yLabels={data.sectors}
-                  baseColor="#b91c1c"
-                  valueFormatter={blindSpotHeatmapValueFormatter}
-                  showTotals={true}
-                  totalsMode="average"
-                  totalsLabel="Avg"
-                  showBlindSpots={false}
-                  title="No AI Mention by Sector and Year"
-                  subtitle="Heatmap of annual reports containing no AI mention, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with zero AI mention signal; colour intensity encodes relative frequency."
-                  tooltip="Each cell is the share of reports in that sector-year that do not mention AI at all. The Avg column and row show simple averages across the displayed years and sectors."
-                  xAxisLabel="Year"
-                  yAxisLabel="Sector"
-                />
-                <GenericHeatmap
-                  data={displayNoAiRiskBySectorYearInRange}
-                  xLabels={blindSpotYearsInRange}
-                  yLabels={data.sectors}
-                  baseColor="#e63946"
-                  valueFormatter={blindSpotHeatmapValueFormatter}
-                  showTotals={true}
-                  totalsMode="average"
-                  totalsLabel="Avg"
-                  showBlindSpots={false}
-                  title="No AI Risk Mention by Sector and Year"
-                  subtitle="Heatmap of annual reports containing no AI risk disclosure, by CNI sector (rows) and fiscal year (columns). Each cell shows the percentage of reports in that sector-year with no AI risk mention; colour intensity encodes relative frequency."
-                  tooltip="Each cell is the share of reports in that sector-year with no AI risk mention. The Avg column and row show simple averages across the displayed years and sectors."
-                  xAxisLabel="Year"
-                  yAxisLabel="Sector"
-                />
-              </div>
-            ) : (
-              displayBlindSpotHeatmapData && (
-                <GenericHeatmap
-                  data={displayBlindSpotHeatmapData}
-                  xLabels={blindSpotYearsInRange}
-                  yLabels={data.sectors}
-                  baseColor={blindSpotHeatmapColor}
-                  valueFormatter={blindSpotHeatmapValueFormatter}
-                  showTotals={true}
-                  totalsMode="average"
-                  totalsLabel="Avg"
-                  showBlindSpots={false}
-                  title={blindSpotHeatmapTitle}
-                  subtitle={blindSpotHeatmapSubtitle}
-                  tooltip={blindSpotHeatmapTooltip}
-                  xAxisLabel="Year"
-                  yAxisLabel="Sector"
-                />
-              )
-            )}
-
-            <details className="group rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
-                Blind Spot Definitions
-                <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div className="border-t border-slate-100 px-6 pb-5 pt-4 text-sm leading-relaxed text-slate-600">
-                <p>
-                  Blind spot metrics are calculated from report-level coverage (one annual report per company-year baseline),
-                  including reports with zero extracted AI passages.
-                </p>
-                <ul className="mt-3 space-y-1 text-xs">
-                  <li><span className="font-medium text-slate-800">No AI Mention:</span> no AI disclosure signal appears in the report.</li>
-                  <li><span className="font-medium text-slate-800">No AI Risk Mention:</span> AI may be mentioned, but no AI-risk disclosure is present.</li>
-                </ul>
-              </div>
-            </details>
-          </div>
-        )}
-
+            </aside>
+          )}
+        </div>
       </main>
     </div>
   );

@@ -108,7 +108,7 @@ body {
   }
 
   .aisi-select {
-    @apply h-10 border border-border bg-white px-3 text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
+    @apply h-10 border border-border bg-white px-3 pr-10 text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
     font-family: var(--font-sans);
   }
 

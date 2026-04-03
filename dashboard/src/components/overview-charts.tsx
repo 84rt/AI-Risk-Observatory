@@ -89,12 +89,22 @@ interface StackedBarChartProps {
   subtitle?: string;
   tooltip?: React.ReactNode;
   headerExtra?: React.ReactNode;
-  legendPosition?: 'bottom' | 'right';
+  legendPosition?: 'bottom' | 'left' | 'right' | 'floating-top-left';
   legendKeys?: string[];
   activeLegendKey?: string | null;
   onLegendItemClick?: (key: string) => void;
   yAxisDomain?: [number, number];
+  footerExtra?: React.ReactNode;
+  chartType?: 'bar' | 'line';
+  onChartTypeChange?: (type: 'bar' | 'line') => void;
 }
+
+type ChartTooltipEntry = {
+  color?: string;
+  dataKey?: string | number;
+  name?: string;
+  value?: string | number;
+};
 
 export function StackedBarChart({
   data,
@@ -114,12 +124,64 @@ export function StackedBarChart({
   activeLegendKey = null,
   onLegendItemClick,
   yAxisDomain,
+  footerExtra,
+  chartType,
+  onChartTypeChange,
 }: StackedBarChartProps) {
-  const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
-  const activeChartType = allowLineChart ? chartType : 'bar';
+  const [internalChartType, setInternalChartType] = useState<'bar' | 'line'>('bar');
+  const resolvedChartType = chartType ?? internalChartType;
+  const setResolvedChartType = (nextType: 'bar' | 'line') => {
+    if (onChartTypeChange) {
+      onChartTypeChange(nextType);
+      return;
+    }
+    setInternalChartType(nextType);
+  };
+  const activeChartType = allowLineChart ? resolvedChartType : 'bar';
   const showChartModeToggle = showChartTypeToggle ?? allowLineChart;
+  const showLeftLegend = legendPosition === 'left';
   const showSideLegend = legendPosition === 'right';
+  const showFloatingLegend = legendPosition === 'floating-top-left';
   const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])];
+  const renderLegendItems = () =>
+    visibleLegendKeys.map((key) => {
+      const isSelected = activeLegendKey === key;
+      const isDimmed = !!activeLegendKey && !isSelected;
+      const itemClass = [
+        'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+        isSelected ? 'border-slate-300 bg-white font-semibold text-slate-900' : 'border-transparent',
+        isDimmed ? 'text-slate-400' : 'text-slate-700',
+        onLegendItemClick ? 'hover:border-slate-200 hover:bg-secondary/70 cursor-pointer' : '',
+      ].join(' ');
+
+      if (!onLegendItemClick) {
+        return (
+          <div key={key} className={itemClass}>
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: colors[key] || colors.default }}
+            />
+            <span className="truncate">{formatLabel(key)}</span>
+          </div>
+        );
+      }
+
+      return (
+        <button
+          key={key}
+          type="button"
+          className={itemClass}
+          onClick={() => onLegendItemClick(key)}
+          title={isSelected ? `Show all risk types` : `Filter to ${formatLabel(key)}`}
+        >
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: colors[key] || colors.default }}
+          />
+          <span className="truncate">{formatLabel(key)}</span>
+        </button>
+      );
+    });
 
   const hasMonthAxis = xAxisKey === 'month';
   const sharedAxisProps = {
@@ -142,49 +204,87 @@ export function StackedBarChart({
 
   const tooltipProps = {
     cursor: activeChartType === 'bar' ? { fill: '#f3f2f1' } : { stroke: '#b1b4b6' },
-    contentStyle: {
-      backgroundColor: '#fff',
-      borderRadius: '0',
-      border: '1px solid #b1b4b6',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-      color: '#0b0c0c',
-      fontSize: '11px',
-      textTransform: 'uppercase',
-      fontWeight: 'bold',
-      letterSpacing: '0.05em'
+    wrapperStyle: { outline: 'none', zIndex: 20 },
+    content: ({
+      active,
+      payload,
+      label,
+    }: {
+      active?: boolean;
+      payload?: ChartTooltipEntry[];
+      label?: string | number;
+    }) => {
+      if (!active || !payload || payload.length === 0) return null;
+
+      const rows = payload.filter(
+        (entry): entry is Required<Pick<ChartTooltipEntry, 'value'>> & ChartTooltipEntry =>
+          entry.value !== undefined && entry.value !== null
+      );
+
+      if (rows.length === 0) return null;
+
+      return (
+        <div className="min-w-[220px] border border-slate-200 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+          <div className="mb-2 border-b border-slate-100 pb-2 text-xs font-semibold tracking-[0.08em] text-slate-500">
+            {label}
+          </div>
+          <div className="space-y-2">
+            {rows.map((entry, index) => {
+              const rawName = entry.name ?? (typeof entry.dataKey === 'string' ? formatLabel(entry.dataKey) : String(entry.dataKey ?? ''));
+              const color = entry.color || colors[String(entry.dataKey)] || colors.default;
+              const formattedValue =
+                typeof entry.value === 'number' && tooltipValueFormatter
+                  ? tooltipValueFormatter(entry.value, rawName)
+                  : entry.value;
+
+              return (
+                <div key={`${String(entry.dataKey)}-${index}`} className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm font-medium leading-tight text-slate-700">
+                      {rawName}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold leading-none text-slate-900">
+                    {formattedValue}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     },
-    itemStyle: { color: '#0b0c0c' },
-    formatter: (value: number, name: string) => [
-      tooltipValueFormatter ? tooltipValueFormatter(value, name) : value,
-      formatLabel(name),
-    ] as [string | number, string],
   };
 
   return (
-    <div className="w-full border border-border bg-white p-6 relative">
+    <div className="relative w-full border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {title && (
-        <h3 className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
           <span className="w-1.5 h-1.5 bg-accent" />
           {title}
           {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
       )}
       {(showChartModeToggle || headerExtra) && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-5 sm:top-5">
           {headerExtra}
           {showChartModeToggle && (
-            <div className="flex h-10 border border-border bg-white p-0.5">
+            <div className="flex h-9 border border-border bg-white p-0.5">
               <button
-                onClick={() => setChartType('bar')}
-                className={`h-full px-4 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                onClick={() => setResolvedChartType('bar')}
+                className={`h-full px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                 title="Bar chart"
               >
                 Bar
               </button>
               {allowLineChart && (
                 <button
-                  onClick={() => setChartType('line')}
-                  className={`h-full px-4 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                  onClick={() => setResolvedChartType('line')}
+                  className={`h-full px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                   title="Line chart"
                 >
                   Line
@@ -194,8 +294,18 @@ export function StackedBarChart({
           )}
         </div>
       )}
-      <div className={showSideLegend ? 'flex flex-col gap-4 lg:flex-row lg:items-start' : ''}>
-        <div className={showSideLegend ? 'h-[460px] w-full lg:flex-1' : 'h-[460px]'}>
+      {showFloatingLegend && (
+        <div className="mb-4 mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {renderLegendItems()}
+        </div>
+      )}
+      <div className={showLeftLegend || showSideLegend ? 'flex flex-col gap-3 lg:flex-row lg:items-start' : ''}>
+        {showLeftLegend && (
+          <div className="w-full border border-border bg-secondary/35 p-3 lg:mt-4 lg:w-56 lg:shrink-0">
+            <div className="space-y-1">{renderLegendItems()}</div>
+          </div>
+        )}
+        <div className={`relative ${(showLeftLegend || showSideLegend) ? 'h-[420px] w-full lg:flex-1' : 'h-[420px]'}`}>
           <ResponsiveContainer width="100%" height="100%">
             {activeChartType === 'line' ? (
               <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -203,7 +313,9 @@ export function StackedBarChart({
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
                 <Tooltip {...tooltipProps} />
-                {!showSideLegend && <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />}
+                {!showSideLegend && !showFloatingLegend && (
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                )}
                 {stackKeys.map((key) => (
                   <Line
                     key={key}
@@ -222,7 +334,9 @@ export function StackedBarChart({
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
                 <Tooltip {...tooltipProps} />
-                {!showSideLegend && <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />}
+                {!showSideLegend && !showFloatingLegend && (
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                )}
                 {stackKeys.map((key) => (
                   <Bar
                     key={key}
@@ -237,52 +351,14 @@ export function StackedBarChart({
           </ResponsiveContainer>
         </div>
         {showSideLegend && (
-          <div className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 lg:mt-4 lg:w-60">
-            <div className="space-y-1">
-              {visibleLegendKeys.map((key) => {
-                const isSelected = activeLegendKey === key;
-                const isDimmed = !!activeLegendKey && !isSelected;
-                const itemClass = [
-                  'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
-                  isSelected ? 'border-slate-300 bg-white font-semibold text-slate-900' : 'border-transparent',
-                  isDimmed ? 'text-slate-400' : 'text-slate-700',
-                  onLegendItemClick ? 'hover:border-slate-200 hover:bg-white cursor-pointer' : '',
-                ].join(' ');
-
-                if (!onLegendItemClick) {
-                  return (
-                    <div key={key} className={itemClass}>
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: colors[key] || colors.default }}
-                      />
-                      <span className="truncate">{formatLabel(key)}</span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={itemClass}
-                    onClick={() => onLegendItemClick(key)}
-                    title={isSelected ? `Show all risk types` : `Filter to ${formatLabel(key)}`}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: colors[key] || colors.default }}
-                    />
-                    <span className="truncate">{formatLabel(key)}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="w-full border border-border bg-secondary/35 p-3 lg:mt-6 lg:w-56">
+            <div className="space-y-1">{renderLegendItems()}</div>
           </div>
         )}
       </div>
+      {footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
-        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-400">{subtitle}</p>
+        <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-relaxed text-slate-500">{subtitle}</p>
       )}
     </div>
   );
@@ -323,6 +399,7 @@ interface GenericHeatmapProps {
   }[];
   expandedRowGroups?: string[];
   onToggleRowGroup?: (groupLabel: string) => void;
+  footerExtra?: React.ReactNode;
 }
 
 export function GenericHeatmap({
@@ -351,6 +428,7 @@ export function GenericHeatmap({
   rowGroups,
   expandedRowGroups = [],
   onToggleRowGroup,
+  footerExtra,
 }: GenericHeatmapProps) {
   const rowGroupsByLabel = new Map(
     (rowGroups ?? []).map(group => [String(group.label), group])
@@ -426,11 +504,11 @@ export function GenericHeatmap({
       : grandTotal;
 
   return (
-    <div className="w-full border border-border bg-white p-6 relative">
+    <div className="relative w-full border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {(title || headerExtra) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           {title ? (
-            <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
               <span className="w-1.5 h-1.5 bg-accent" />
               {title}
               {tooltip && <InfoTooltip content={tooltip} />}
@@ -625,8 +703,9 @@ export function GenericHeatmap({
           <span>No reports containing specified mention</span>
         </div>
       )}
+      {footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
-        <p className="mt-4 border-t border-border pt-4 text-[10px] font-bold uppercase tracking-widest leading-relaxed text-muted-foreground">{subtitle}</p>
+        <p className="mt-4 border-t border-border pt-4 text-sm leading-relaxed text-muted">{subtitle}</p>
       )}
     </div>
   );

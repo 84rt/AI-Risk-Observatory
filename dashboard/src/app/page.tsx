@@ -21,8 +21,6 @@ export default function HomePage() {
       color: '#e63946', // AISI Signal Red
       data: data.datasets.perReport.riskTrend.map(row => {
         const year = Number(row.year);
-        const totalForYear = data.datasets.perReport.summary.totalReports / data.years.length; // Approximate baseline if exact per-year total isn't in this specific object
-        // Actually, let's use the exact count of reports for that year from the dataset if available
         const riskCount = riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
         return {
           year,
@@ -60,9 +58,8 @@ export default function HomePage() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-6 py-24">
-          <div className="flex flex-col items-start gap-12 lg:flex-row lg:items-center lg:justify-between">
-            {/* Left — text & stats */}
-            <div className="lg:max-w-2xl">
+          <div className="max-w-4xl">
+            <div>
               <h1 className="aisi-h1 leading-[0.9]">
                 AI Risk <br />Observatory
               </h1>
@@ -78,23 +75,25 @@ export default function HomePage() {
                 </a>.
               </p>
 
-              {/* Stats */}
-              <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{perReportSummary.totalCompanies}</span>
-                  <span className="aisi-metadata uppercase tracking-widest font-bold">Companies</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{perReportSummary.totalReports}</span>
-                  <span className="aisi-metadata uppercase tracking-widest font-bold">Reports</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{perChunkSummary.totalReports}</span>
-                  <span className="aisi-metadata uppercase tracking-widest font-bold">AI Mentioning Excerpts</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{yearRange}</span>
-                  <span className="aisi-metadata uppercase tracking-widest font-bold">Scope</span>
+              <div className="mt-12 border-t border-border pt-8">
+                <span className="aisi-tag mb-4">Coverage</span>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex flex-col border-l-4 border-primary pl-4">
+                    <span className="text-3xl font-bold">{perReportSummary.totalCompanies}</span>
+                    <span className="aisi-metadata uppercase tracking-widest font-bold">Companies</span>
+                  </div>
+                  <div className="flex flex-col border-l-4 border-primary pl-4">
+                    <span className="text-3xl font-bold">{perReportSummary.totalReports}</span>
+                    <span className="aisi-metadata uppercase tracking-widest font-bold">Reports</span>
+                  </div>
+                  <div className="flex flex-col border-l-4 border-primary pl-4">
+                    <span className="text-3xl font-bold">{perChunkSummary.totalReports}</span>
+                    <span className="aisi-metadata uppercase tracking-widest font-bold">AI Mentioning Excerpts</span>
+                  </div>
+                  <div className="flex flex-col border-l-4 border-primary pl-4">
+                    <span className="text-3xl font-bold">{yearRange}</span>
+                    <span className="aisi-metadata uppercase tracking-widest font-bold">Scope</span>
+                  </div>
                 </div>
               </div>
 
@@ -110,13 +109,6 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-
-            {/* Right — chart */}
-            <div className="flex-shrink-0 w-full lg:w-auto">
-              <div className="border-l-4 border-accent pl-6">
-                <HeroRiskChart series={heroSeries} />
-              </div>
-            </div>
           </div>
         </div>
       </header>
@@ -124,77 +116,80 @@ export default function HomePage() {
       {/* Sponsors & Partners Bar */}
       <section className="border-b border-border bg-white py-8">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-wrap items-center justify-center gap-12 text-center">
-            <div className="group flex items-center gap-4 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Main Sponsor</span>
-              <a 
-                href="https://www.aisi.gov.uk/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center transition-colors group-hover:text-accent"
-              >
-                <svg
-                  viewBox="0 0 840 180"
-                  className="h-10 w-auto"
-                  aria-label="AI Safety Institute"
-                  role="img"
+          <div className="grid gap-0 md:grid-cols-2">
+            <div className="flex justify-center py-4 md:border-r md:border-border md:px-8">
+              <div className="group flex items-center gap-4 opacity-80 transition-opacity hover:opacity-100">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Main Sponsor</span>
+                <a 
+                  href="https://www.aisi.gov.uk/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center transition-colors group-hover:text-accent"
                 >
-                  <g fill="none" fillRule="evenodd">
-                    <text
-                      x="0"
-                      y="120"
-                      fill="#e63946"
-                      fontFamily="Arial, Helvetica, sans-serif"
-                      fontSize="132"
-                      fontWeight="700"
-                      letterSpacing="-6"
-                    >
-                      AISI
-                    </text>
-                    <rect x="390" y="26" width="6" height="122" fill="#0b0c0c" />
-                    <text
-                      x="426"
-                      y="78"
-                      fill="#0b0c0c"
-                      fontFamily="Arial, Helvetica, sans-serif"
-                      fontSize="54"
-                      fontWeight="400"
-                      letterSpacing="1"
-                    >
-                      AI SECURITY
-                    </text>
-                    <text
-                      x="426"
-                      y="146"
-                      fill="#0b0c0c"
-                      fontFamily="Arial, Helvetica, sans-serif"
-                      fontSize="54"
-                      fontWeight="400"
-                      letterSpacing="1"
-                    >
-                      INSTITUTE
-                    </text>
-                  </g>
-                </svg>
-              </a>
+                  <svg
+                    viewBox="0 0 840 180"
+                    className="h-10 w-auto"
+                    aria-label="AI Safety Institute"
+                    role="img"
+                  >
+                    <g fill="none" fillRule="evenodd">
+                      <text
+                        x="0"
+                        y="120"
+                        fill="#e63946"
+                        fontFamily="Arial, Helvetica, sans-serif"
+                        fontSize="132"
+                        fontWeight="700"
+                        letterSpacing="-6"
+                      >
+                        AISI
+                      </text>
+                      <rect x="390" y="26" width="6" height="122" fill="#0b0c0c" />
+                      <text
+                        x="426"
+                        y="78"
+                        fill="#0b0c0c"
+                        fontFamily="Arial, Helvetica, sans-serif"
+                        fontSize="54"
+                        fontWeight="400"
+                        letterSpacing="1"
+                      >
+                        AI SECURITY
+                      </text>
+                      <text
+                        x="426"
+                        y="146"
+                        fill="#0b0c0c"
+                        fontFamily="Arial, Helvetica, sans-serif"
+                        fontSize="54"
+                        fontWeight="400"
+                        letterSpacing="1"
+                      >
+                        INSTITUTE
+                      </text>
+                    </g>
+                  </svg>
+                </a>
+              </div>
             </div>
-            <div className="h-4 w-px bg-border hidden md:block" />
-            <div className="group flex items-center gap-4 opacity-50 grayscale transition-all hover:opacity-100 hover:grayscale-0">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Data Provider</span>
-              <a 
-                href="https://financialreports.eu/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center transition-colors"
-              >
-                <Image
-                  src="/fr-logo.svg"
-                  alt="Financial Reports"
-                  width={210}
-                  height={29}
-                  className="h-6 w-auto"
-                />
-              </a>
+            <div className="flex justify-center py-4 md:px-8">
+              <div className="group flex items-center gap-4 opacity-80 transition-opacity hover:opacity-100">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Data Provider</span>
+                <a 
+                  href="https://financialreports.eu/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center transition-colors"
+                >
+                  <Image
+                    src="/fr-logo.svg"
+                    alt="Financial Reports"
+                    width={210}
+                    height={29}
+                    className="h-6 w-auto"
+                  />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -223,6 +218,26 @@ export default function HomePage() {
               >
                 Methodology
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trend chart */}
+      <section className="border-b border-border bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="aisi-tag">Signals</span>
+            <h2 className="text-3xl font-bold uppercase tracking-tight text-primary sm:text-4xl">
+              Disclosure Trends Over Time
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-muted">
+              The rotating chart tracks how AI risk mentions, LLM adoption, and cybersecurity disclosures shift across the reporting period.
+            </p>
+          </div>
+          <div className="mt-12 flex justify-center">
+            <div className="border-l-4 border-accent pl-6">
+              <HeroRiskChart series={heroSeries} />
             </div>
           </div>
         </div>

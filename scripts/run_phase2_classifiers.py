@@ -299,16 +299,18 @@ def extract_risk_labels(parsed: dict) -> list[str]:
 
 
 def build_metadata(chunk: dict) -> dict:
+    filing_year = int(chunk["filing_date"][:4]) if chunk.get("filing_date") else chunk.get("report_year", 0)
+    sector = (
+        chunk.get("cni_sector_primary")
+        or chunk.get("sector")
+        or "Unknown"
+    ) or "Unknown"
     return {
-        "firm_id": chunk.get("company_id", "Unknown"),
+        "firm_id": chunk.get("company_slug") or chunk.get("company_id", "Unknown"),
         "firm_name": chunk.get("company_name", "Unknown"),
-        "report_year": chunk.get("report_year", 0),
-        "sector": "Unknown",
-        "report_section": (
-            chunk.get("report_sections", ["Unknown"])[0]
-            if chunk.get("report_sections")
-            else "Unknown"
-        ),
+        "report_year": filing_year,
+        "sector": sector,
+        "report_section": "Unknown",
         "mention_types": chunk.get("mention_types", []),
     }
 

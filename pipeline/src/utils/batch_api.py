@@ -61,13 +61,9 @@ class BatchClient:
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         firm_name = chunk.get("company_name", "Unknown Company")
-        report_year = chunk.get("report_year", "Unknown")
+        report_year = chunk["filing_date"][:4] if chunk.get("filing_date") else "Unknown"
         sector = "Unknown"
-        report_section = (
-            chunk.get("report_sections", ["Unknown"])[0]
-            if chunk.get("report_sections")
-            else "Unknown"
-        )
+        report_section = "Unknown"
 
         return get_prompt_messages(
             "mention_type_v3",
@@ -377,7 +373,7 @@ class BatchClient:
                 results.append({
                     "chunk_id": chunk_id,
                     "company_name": chunk.get("company_name", "Unknown"),
-                    "report_year": chunk.get("report_year", 0),
+                    "report_year": int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0,
                     "human_mention_types": chunk.get("mention_types", []),
                     "llm_mention_types": llm_types,
                     "confidence": confidence,
@@ -402,7 +398,7 @@ class BatchClient:
         return {
             "chunk_id": chunk_id,
             "company_name": chunk.get("company_name", "Unknown"),
-            "report_year": chunk.get("report_year", 0),
+            "report_year": int(chunk["filing_date"][:4]) if chunk.get("filing_date") else 0,
             "human_mention_types": chunk.get("mention_types", []),
             "llm_mention_types": [],
             "confidence": 0.0,
