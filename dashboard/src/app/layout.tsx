@@ -3,6 +3,12 @@ import { Onest } from "next/font/google";
 import { PageNav } from "@/components/page-nav";
 import "./globals.css";
 
+const emojiFavicon = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="52">📡</text>
+  </svg>`,
+)}`;
+
 const onest = Onest({
   variable: "--font-onest",
   subsets: ["latin"],
@@ -13,7 +19,9 @@ export const metadata: Metadata = {
   title: "AI Risk Observatory",
   description: "Monitoring AI adoption and risk in UK Public Companies",
   icons: {
-    icon: "/favicon.ico",
+    icon: emojiFavicon,
+    shortcut: emojiFavicon,
+    apple: emojiFavicon,
   },
 };
 
