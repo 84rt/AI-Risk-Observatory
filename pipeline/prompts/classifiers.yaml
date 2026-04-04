@@ -164,7 +164,7 @@ adoption_type: |
   ## CATEGORIES
   - non_llm: Traditional AI/ML — everything that is AI but not LLM or Agentic AI (e.g., computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, robotic process automation with ML).
   - llm: Large Language Models — GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarization, code generation or anything in the GenAI category.
-  - agentic: Autonomous/agentic AI — self-directed AI agents that perform tasks with limited human intervention, or AI systems replacing human decision-making workflows end-to-end. These can often be LLM-based, so when stated explicitly select both.
+  - agentic: Agentic AI — AI systems or agents that autonomously execute tasks and take actions with limited human oversight. The key characteristic is autonomous execution: the AI acts, decides, and operates on its own rather than assisting a human who decides. The word "agentic" need not appear, but there must be clear evidence of autonomous AI action — not just AI-assisted decision support. When agentic AI is LLM-based, select both.
 
   ## RULES
   1. If the mention is falsely classified as adoption—i.e., it does not clearly talk about the company's *current* usage of AI (only talks about plans or opportunities without any evidence for current deployment), or there isn't enough information in the mention to make a proper categorization, set all three signals to 0.
@@ -172,7 +172,8 @@ adoption_type: |
   3. If the excerpt is vague about which type, assign low signals (1) rather than guessing.
   4. "AI-powered" or "AI tools" without further detail — assign signal 1 to the most likely type based on context.
   5. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
-  6. Generic "automation" without AI specificity should get a very low signal (1) across all types.
+  6. Generic "automation" without AI specificity should get a very low signal (1) across non_llm only — do NOT assign agentic signal for generic automation.
+  7. Agentic signal must be 0 for: standard RPA or workflow automation, AI that assists or augments human decisions, AI copilots/assistants, and any excerpt where AI is a tool humans use rather than an agent that acts independently.
 
   ## SUBSTANTIVENESS
   How tangible is the AI adoption disclosure?
@@ -187,12 +188,15 @@ adoption_type: |
   - 3: explicit, unambiguous type mention
 
   ## EXAMPLES
-  - "We deployed a GPT-based chatbot for HR queries." → llm (signal 3)
+  - "We deployed a GPT-based chatbot for HR queries." → llm (signal 3), agentic (signal 0)
   - "We use predictive analytics and machine learning to detect fraud." → non_llm (signal 3)
   - "We are rolling out AI agents to fully automate claims processing end-to-end." → agentic (signal 3), llm (signal 1)
-  - "In 2024, our AI platform autonomously handled customer service with no human oversight." → agentic (signal 3), llm (signal 1)
-  - "We integrated Microsoft Copilot across our organisation." → llm (signal 3)
-  - "We use AI to improve operations." → assign signal 1 to the most likely type based on context 
+  - "In 2024, our AI platform autonomously handled customer service with no human oversight." → agentic (signal 2), llm (signal 1)
+  - "We deployed autonomous AI agents that triage, investigate, and resolve IT incidents without human input." → agentic (signal 3), llm (signal 2)
+  - "We integrated Microsoft Copilot across our organisation." → llm (signal 3), agentic (signal 1)
+  - "We use AI to improve operations." → assign signal 1 to the most likely type based on context, agentic (signal 0)
+  - "Our autonomous vehicles use AI for navigation and safety." → non_llm (signal 3), agentic (signal 2)
+  - "We are automating back-office workflows using AI." → non_llm (signal 2), agentic (signal 0) unless explicit agent behaviour is described
   - "Our computer vision system detects manufacturing defects on the production line." → non_llm (signal 3)
   - "We have established a committee to navigate the GenAI change and plan" → this only gives us a slight hint of potential implementation of LLMs, but we don't have enough information to determine that the company has any current deployment of LLM systems (signal 0)
 

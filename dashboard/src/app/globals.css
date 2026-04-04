@@ -18,7 +18,7 @@
   --border: #b1b4b6;
   --input: #b1b4b6;
   --ring: #0b0c0c;
-  --radius: 0; /* Sharper, more institutional corners */
+  --radius: 4px; /* Subtle rounded corners for visual polish */
   /* Font Stack matching the clean geometric sans used by AISI */
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 }
@@ -38,6 +38,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
   --font-sans: var(--font-sans);
+  --border-radius-sm: 2px;
+  --border-radius-md: var(--radius);
+  --border-radius-lg: 8px;
+  --border-radius-xl: 12px;
 }
 
 /* Force light mode styling regardless of system preference */
@@ -108,7 +112,7 @@ body {
   }
 
   .aisi-select {
-    @apply h-10 border border-border bg-white px-3 pr-10 text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
+    @apply h-10 border border-border bg-white px-3 pr-10 rounded text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
     font-family: var(--font-sans);
   }
 
@@ -143,7 +147,7 @@ body {
   pointer-events: auto;
   width: 12px;
   height: 12px;
-  border-radius: 0;
+  border-radius: 2px;
   border: 2px solid var(--accent);
   background: #ffffff;
   cursor: pointer;
@@ -160,7 +164,7 @@ body {
   pointer-events: auto;
   width: 12px;
   height: 12px;
-  border-radius: 0;
+  border-radius: 2px;
   border: 2px solid var(--accent);
   background: #ffffff;
   cursor: pointer;

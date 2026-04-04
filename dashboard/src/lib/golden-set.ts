@@ -20,6 +20,16 @@ type GoldenAnnotation = {
   report_sections?: string[];
 };
 
+type ReportUniverseRow = {
+  report_id: string;
+  company_name: string;
+  report_year: number;
+  release_month: string;
+  sector: string;
+  isicSector: string;
+  marketSegment: string;
+};
+
 export type ReportClassificationFlowNode = {
   id: string;
   name: string;
@@ -229,6 +239,19 @@ const RISK_LABEL_ALIASES: Record<string, string> = {
 };
 
 const toKey = (value: string) => value.trim().toLowerCase();
+const parseYearFromDate = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(\d{4})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return Number.isFinite(year) ? year : null;
+};
+
+const parseMonthFromDate = (value: string) => {
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}/.test(trimmed) ? trimmed.slice(0, 7) : '';
+};
 
 const parseCsvRow = (line: string): string[] => {
   const cells: string[] = [];
@@ -270,6 +293,7 @@ const parseCompanySectors = () => {
       cniSectors: [] as string[],
       isicSectors: [] as string[],
       companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
+      reportUniverseRows: [] as ReportUniverseRow[],
     };
   }
 
@@ -284,10 +308,14 @@ const parseCompanySectors = () => {
       cniSectors: [] as string[],
       isicSectors: [] as string[],
       companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
+      reportUniverseRows: [] as ReportUniverseRow[],
     };
   }
   const headers = parseCsvRow(header);
   const nameIndex = headers.indexOf('company_name');
+  const filingIdIndex = headers.indexOf('filing_id');
+  const filingDateIndex = headers.indexOf('filing_date');
+  const releaseDatetimeIndex = headers.indexOf('release_datetime');
   const cniSectorIndex = headers.indexOf('sector') >= 0
     ? headers.indexOf('sector')
     : headers.indexOf('cni_sector');
@@ -302,16 +330,20 @@ const parseCompanySectors = () => {
   const cniSectors: string[] = [];
   const isicSectors: string[] = [];
   const companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[] = [];
+  const reportUniverseRows: ReportUniverseRow[] = [];
   const cniSectorSet = new Set<string>();
   const isicSectorSet = new Set<string>();
 
   if (nameIndex < 0 || cniSectorIndex < 0) {
-    return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors };
+    return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors, reportUniverseRows };
   }
 
   lines.forEach(line => {
     const cells = parseCsvRow(line);
     const name = cells[nameIndex]?.trim();
+    const filingId = filingIdIndex >= 0 ? cells[filingIdIndex]?.trim() || '' : '';
+    const filingDate = filingDateIndex >= 0 ? cells[filingDateIndex]?.trim() || '' : '';
+    const releaseDatetime = releaseDatetimeIndex >= 0 ? cells[releaseDatetimeIndex]?.trim() || '' : '';
     const cniSector = cells[cniSectorIndex]?.trim() || 'Unknown';
     const isicSector = isicSectorIndex >= 0
       ? (cells[isicSectorIndex]?.trim() || 'Unknown')
@@ -324,6 +356,19 @@ const parseCompanySectors = () => {
     isicSectorMap.set(toKey(name), isicSector);
     marketSegmentMap.set(toKey(name), marketSegment);
     companySectors.push({ company_name: name, cniSector, isicSector, marketSegment });
+    const reportDate = filingDate || releaseDatetime;
+    const reportYear = parseYearFromDate(reportDate);
+    if (filingId && reportYear !== null && reportYear >= 2020) {
+      reportUniverseRows.push({
+        report_id: filingId,
+        company_name: name,
+        report_year: reportYear,
+        release_month: parseMonthFromDate(reportDate),
+        sector: cniSector,
+        isicSector,
+        marketSegment,
+      });
+    }
     if (!cniSectorSet.has(cniSector)) {
       cniSectorSet.add(cniSector);
       cniSectors.push(cniSector);
@@ -334,7 +379,7 @@ const parseCompanySectors = () => {
     }
   });
 
-  return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors };
+  return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors, reportUniverseRows };
 };
 
 const parseAnnotations = (filepath: string) => {
@@ -502,6 +547,7 @@ const extractRiskSignalMap = (item: GoldenAnnotation): Record<string, number> =>
 };
 
 type ReportData = {
+  report_id: string;
   company_name: string;
   report_year: number;
   release_month: string;
@@ -521,6 +567,7 @@ type ReportData = {
 };
 
 const makeEmptyReportData = (
+  reportId: string,
   companyName: string,
   reportYear: number,
   sector: string,
@@ -528,6 +575,7 @@ const makeEmptyReportData = (
   releaseMonth: string = '',
   marketSegment: string = 'Other'
 ): ReportData => ({
+  report_id: reportId,
   company_name: companyName,
   report_year: reportYear,
   release_month: releaseMonth,
@@ -551,19 +599,37 @@ const aggregateToReports = (
   cniSectorMap: Map<string, string>,
   isicSectorMap: Map<string, string>,
   marketSegmentMap: Map<string, string>,
-  years: number[],
-  companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
+  reportUniverseRows: ReportUniverseRow[],
   documentMonths: Map<string, string>
 ): ReportData[] => {
   const reportMap = new Map<string, ReportData>();
 
+  reportUniverseRows.forEach(report => {
+    if (reportMap.has(report.report_id)) return;
+    reportMap.set(
+      report.report_id,
+      makeEmptyReportData(
+        report.report_id,
+        report.company_name,
+        report.report_year,
+        report.sector,
+        report.isicSector,
+        report.release_month,
+        report.marketSegment
+      )
+    );
+  });
+
   annotations.forEach(item => {
-    const reportKey = `${item.company_name}|||${item.report_year}`;
+    if (item.report_year < 2020) return;
+
+    const reportKey = String(item.document_id).trim() || `${item.company_name}|||${item.report_year}`;
 
     if (!reportMap.has(reportKey)) {
       reportMap.set(
         reportKey,
         makeEmptyReportData(
+          reportKey,
           item.company_name,
           item.report_year,
           cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
@@ -644,29 +710,6 @@ const aggregateToReports = (
     const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
     if (riskSubstantiveness) report.riskSubstantivenessValues.push(riskSubstantiveness);
   });
-
-  // Ensure report-level dataset includes all expected company-year pairs,
-  // including reports with zero AI chunks.
-  if (years.length > 0 && companySectors.length > 0) {
-    companySectors.forEach(({ company_name, cniSector, isicSector }) => {
-      years.forEach(year => {
-        const key = `${company_name}|||${year}`;
-        if (!reportMap.has(key)) {
-          reportMap.set(
-            key,
-            makeEmptyReportData(
-              company_name,
-              year,
-              cniSector || 'Unknown',
-              isicSector || 'Unknown',
-              documentMonths.get(key) || '',
-              marketSegmentMap.get(toKey(company_name)) || 'Other'
-            )
-          );
-        }
-      });
-    });
-  }
 
   return Array.from(reportMap.values());
 };
@@ -943,7 +986,7 @@ const annotationsAsChunks = (
   marketSegmentMap: Map<string, string>,
   documentMonths: Map<string, string>
 ): ReportData[] => {
-  return annotations.map(item => {
+  return annotations.filter(item => item.report_year >= 2020).map(item => {
     const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
     const riskConfMap = resolveConfidenceMap(item, 'risk');
     const riskSignalMap = extractRiskSignalMap(item);
@@ -992,6 +1035,7 @@ const annotationsAsChunks = (
     }
 
     return {
+      report_id: String(item.document_id || item.annotation_id),
       company_name: item.company_name,
       report_year: item.report_year,
       release_month: documentMonths.get(item.document_id) || '',
@@ -1492,12 +1536,15 @@ const buildDataset = (
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors } = parseCompanySectors();
+  const { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, reportUniverseRows } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
   const documentMonths = loadDocumentMonths();
 
   const years = Array.from(
-    new Set(annotations.map(item => item.report_year))
+    new Set([
+      ...annotations.map(item => item.report_year),
+      ...reportUniverseRows.map(report => report.report_year),
+    ])
   ).sort((a, b) => a - b);
 
   const resolvedCniSectors = cniSectors.length ? cniSectors : ['Unknown'];
@@ -1510,8 +1557,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     cniSectorMap,
     isicSectorMap,
     marketSegmentMap,
-    years,
-    companySectors,
+    reportUniverseRows,
     documentMonths
   );
   const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, marketSegmentMap, documentMonths);

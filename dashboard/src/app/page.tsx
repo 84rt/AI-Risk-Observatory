@@ -12,19 +12,24 @@ export default function HomePage() {
       ? `${data.years[0]}–${data.years[data.years.length - 1]}`
       : `${data.years[0] ?? 'N/A'}`;
 
-  const riskLabels = data.labels.riskLabels;
+  // Build a per-year totals map from the report universe (correct denominator for % calculations)
+  const reportTotalsByYear = new Map(
+    data.datasets.perReport.blindSpotTrend.map(row => [
+      Number(row.year),
+      Number(row.total_reports) || 0,
+    ])
+  );
 
   const heroSeries = [
     {
       label: '% Risk mentions',
       subtitle: '% of reports identifying AI as a corporate risk',
       color: '#e63946', // AISI Signal Red
-      data: data.datasets.perReport.riskTrend.map(row => {
-        const year = Number(row.year);
-        const riskCount = riskLabels.reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
+      data: data.datasets.perReport.blindSpotTrend.map(row => {
+        const total = Number(row.total_reports) || 0;
         return {
-          year,
-          value: Math.round((riskCount / 350) * 100), // Normalized to approx FTSE 350 size for a clean % visual
+          year: Number(row.year),
+          value: total > 0 ? Math.round((Number(row.ai_risk_mention) / total) * 100) : 0,
         };
       }),
     },
@@ -32,19 +37,27 @@ export default function HomePage() {
       label: 'LLM adoption',
       subtitle: 'Growth in Generative AI implementation',
       color: '#0ea5e9',
-      data: data.datasets.perReport.adoptionTrend.map(row => ({
-        year: Number(row.year),
-        value: Math.round((Number(row.llm) / 350) * 100),
-      })),
+      data: data.datasets.perReport.adoptionTrend.map(row => {
+        const year = Number(row.year);
+        const total = reportTotalsByYear.get(year) || 0;
+        return {
+          year,
+          value: total > 0 ? Math.round((Number(row.llm) / total) * 100) : 0,
+        };
+      }),
     },
     {
       label: 'Cybersecurity',
       subtitle: 'AI-related security & breach concerns',
       color: '#0b0c0c',
-      data: data.datasets.perReport.riskTrend.map(row => ({
-        year: Number(row.year),
-        value: Math.round((Number(row.cybersecurity) / 350) * 100),
-      })),
+      data: data.datasets.perReport.riskTrend.map(row => {
+        const year = Number(row.year);
+        const total = reportTotalsByYear.get(year) || 0;
+        return {
+          year,
+          value: total > 0 ? Math.round((Number(row.cybersecurity) / total) * 100) : 0,
+        };
+      }),
     },
   ];
 
@@ -98,12 +111,12 @@ export default function HomePage() {
               </div>
 
               <div className="mt-10 flex flex-wrap gap-4">
-                <span className="inline-flex items-center gap-2 border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
+                <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
                   Full Report Coming Soon
                 </span>
                 <Link
                   href="/data"
-                  className="inline-flex items-center gap-2 border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+                  className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
                 >
                   Explore Data
                 </Link>
@@ -208,13 +221,13 @@ export default function HomePage() {
                 href="https://github.com/84rt/AI-Risk-Observatory"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-white hover:bg-muted transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-white hover:bg-muted transition-colors"
               >
                 View on GitHub
               </a>
               <Link
                 href="/about"
-                className="inline-flex items-center gap-2 border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+                className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
               >
                 Methodology
               </Link>

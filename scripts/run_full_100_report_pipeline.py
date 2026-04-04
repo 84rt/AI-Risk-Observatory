@@ -649,10 +649,12 @@ def parse_phase1_results(
                     response_text = "\n".join(text_parts).strip()
                     break
             parsed, parse_err = try_parse_json_with_error(response_text or "")
+            _was_salvaged = False
             if parsed is None:
                 parsed = salvage_phase1_payload(response_text or "")
                 if parsed is not None:
                     salvaged += 1
+                    _was_salvaged = True
             if parsed is None:
                 raise ValueError(parse_err or "unable to parse model JSON response")
 
@@ -676,12 +678,23 @@ def parse_phase1_results(
                 for k, v in conf_raw.items():
                     if isinstance(v, (int, float)):
                         conf_map[normalize_label_token(k)] = float(v)
+            # Salvage truncated floats from raw text (e.g. "0.951111111..." → 0.95)
+            if not conf_map and response_text:
+                for k, v_str in re.findall(
+                    r'"(adoption|risk|vendor|general_ambiguous|none)"\s*:\s*(-?\d+(?:\.\d{1,4})?)',
+                    response_text,
+                ):
+                    try:
+                        conf_map[k] = float(v_str)
+                    except ValueError:
+                        pass
             confidence = max(conf_map.values()) if conf_map else 0.0
 
             base["llm_mention_types"] = mention_types
             base["mention_confidences"] = conf_map
             base["confidence"] = confidence
             base["reasoning"] = parsed.get("reasoning", "") or ""
+            base["salvaged"] = _was_salvaged
             matched += 1
         except (ValueError, KeyError, IndexError) as exc:
             base["error"] = f"Key '{i}': parse error: {exc}"
@@ -820,6 +833,7 @@ def write_phase1_annotations(
                     "mention_confidences": p1.get("mention_confidences", {}),
                     "reasoning": p1.get("reasoning", ""),
                     "phase1_confidence": p1.get("confidence", 0.0),
+                    "phase1_salvaged": p1.get("salvaged", False),
                     "phase1_error": p1.get("error"),
                     "phase1_response_preview": p1.get("response_preview"),
                 },

@@ -416,7 +416,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [blindSpotFilter, setBlindSpotFilter] = useState<BlindSpotFilter>('all');
   const [blindSpotHeatmapSelection, setBlindSpotHeatmapSelection] =
     useState<BlindSpotHeatmapSelection>('no_ai_mention');
-  const [metricMode, setMetricMode] = useState<MetricMode>('count');
+  const [metricMode, setMetricMode] = useState<MetricMode>('pct_reports');
   const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
@@ -1632,7 +1632,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     current: RiskSectorView,
     setter: (v: RiskSectorView) => void
   ) => (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setter('cni')}
@@ -1659,7 +1659,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const trendTimeToggle = (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
@@ -1686,7 +1686,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const metricModeToggle = canShowReportShare ? (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setMetricMode('count')}
@@ -1717,7 +1717,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const activeChartDisplayType = canUseLineChart ? chartDisplayType : 'bar';
 
   const chartTypeToggle = (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setChartDisplayType('bar')}
@@ -1751,7 +1751,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     <button
       type="button"
       onClick={() => setIsSettingsOpen(prev => !prev)}
-      className="inline-flex h-9 w-9 items-center justify-center border border-border bg-white text-primary transition hover:bg-secondary"
+      className="inline-flex h-9 w-9 items-center justify-center rounded border border-border bg-white text-primary transition hover:bg-secondary"
       aria-label={isSettingsOpen ? 'Collapse settings panel' : 'Expand settings panel'}
       title={isSettingsOpen ? 'Collapse settings' : 'Expand settings'}
     >
@@ -1769,7 +1769,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const signalQualityModeToggle = (
-    <div className="inline-flex shrink-0 items-center border border-border bg-white p-1">
+    <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setSignalQualityMode('explicitness')}
@@ -1824,14 +1824,14 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <button
             type="button"
             onClick={handleDownloadVisualization}
-            className="inline-flex items-center justify-center border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
           >
             Download This View
           </button>
           <a
             href="/api/download-data"
             download
-            className="inline-flex items-center justify-center border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
           >
             Download Dataset
           </a>
@@ -2086,7 +2086,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     [activeView]: item.value,
                   }))
                 }
-                className={`flex w-full items-center justify-between border px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.14em] transition ${
                   selectedInfoPanelKey === item.value
                     ? 'border-primary bg-primary text-white'
                     : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-100'
@@ -2109,7 +2109,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const datasetToggle = (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => {
@@ -2144,7 +2144,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const blindSpotHeatmapToggle = (
-    <div className="inline-flex items-center border border-border bg-white p-1">
+    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setBlindSpotHeatmapSelection('no_ai_mention')}
@@ -2273,7 +2273,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         <button
           type="button"
           onClick={handleDownloadVisualization}
-          className="inline-flex h-9 items-center justify-center border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          className="inline-flex h-9 items-center justify-center rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
           title="Download current visualization data as CSV"
         >
           Download
@@ -2281,7 +2281,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         <button
           type="button"
           onClick={handleShareVisualization}
-          className="inline-flex h-9 items-center justify-center border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          className="inline-flex h-9 items-center justify-center rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
           title="Share the current dashboard page"
         >
           {shareButtonLabel}
@@ -2319,7 +2319,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  className={`rounded border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
                     activeView === item.id
                       ? 'border-primary bg-primary text-white'
                       : 'border-border bg-secondary text-muted-foreground hover:bg-white hover:text-primary'
@@ -2331,7 +2331,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             </div>
 
             {showVisualizationToggle && (
-              <div className="inline-flex shrink-0 items-center border border-border bg-white p-1">
+              <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-1">
                 <button
                   type="button"
                   onClick={() => setVisualizationMode('chart')}
@@ -2891,7 +2891,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
           {isSettingsOpen && (
             <aside className="self-start">
-              <div className="border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+              <div className="overflow-hidden rounded border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
                 <div className="border-b border-border px-5 py-4">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
                 </div>
@@ -2983,7 +2983,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     {riskFilter !== 'all' && (
                       <button
                         onClick={() => setRiskFilter('all')}
-                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
                       >
                         Clear
                       </button>
@@ -3010,7 +3010,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     {adoptionFilter !== 'all' && (
                       <button
                         onClick={() => setAdoptionFilter('all')}
-                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
                       >
                         Clear
                       </button>
@@ -3037,7 +3037,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     {effectiveVendorFilter !== 'all' && (
                       <button
                         onClick={() => setVendorFilter('all')}
-                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
                       >
                         Clear
                       </button>
@@ -3089,7 +3089,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     {blindSpotFilter !== 'all' && (
                       <button
                         onClick={() => setBlindSpotFilter('all')}
-                        className="w-full border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
                       >
                         Clear
                       </button>
