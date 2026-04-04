@@ -211,7 +211,7 @@ export function StackedBarChart({
       label,
     }: {
       active?: boolean;
-      payload?: ChartTooltipEntry[];
+      payload?: readonly ChartTooltipEntry[];
       label?: string | number;
     }) => {
       if (!active || !payload || payload.length === 0) return null;
