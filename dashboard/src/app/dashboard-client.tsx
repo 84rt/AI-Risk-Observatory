@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import { buildIsicSectorGroups, type HeatmapRowGroup } from '@/lib/isic';
 import type { GoldenDashboardData } from '@/lib/golden-set';
@@ -23,6 +23,40 @@ type RiskInfoPanelItem = {
   label: string;
   title: string;
   content: ReactNode;
+};
+
+const getViewHash = (viewId: number) => {
+  switch (viewId) {
+    case 1:
+      return 'risk';
+    case 2:
+      return 'adoption';
+    case 3:
+      return 'vendors';
+    case 4:
+      return 'signal-quality';
+    case 5:
+      return 'blind-spots';
+    default:
+      return 'risk';
+  }
+};
+
+const getViewIdFromHash = (hash: string) => {
+  switch (hash.replace(/^#/, '')) {
+    case 'risk':
+      return 1;
+    case 'adoption':
+      return 2;
+    case 'vendors':
+      return 3;
+    case 'signal-quality':
+      return 4;
+    case 'blind-spots':
+      return 5;
+    default:
+      return 1;
+  }
 };
 
 const VIEWS: View[] = [
@@ -80,10 +114,10 @@ const riskColors: Record<string, string> = {
   regulatory_compliance:    '#dbeafe', // pale blue
   reputational_ethical:     '#fecdd3', // soft rose
   third_party_supply_chain: '#fca5a5', // light red
-  information_integrity:    '#f87171', // red-rose
-  workforce_impacts:        '#ef4444', // red
-  environmental_impact:     '#b91c1c', // deep red
-  national_security:        '#7f1d1d', // darkest red
+  information_integrity:    '#ef4444', // red
+  workforce_impacts:        '#f87171', // red-rose
+  environmental_impact:     '#7f1d1d', // darkest red
+  national_security:        '#b91c1c', // deep red
 };
 
 const blindSpotColors: Record<string, string> = {
@@ -394,8 +428,11 @@ const buildVisibleGroupedYLabels = (
 };
 
 export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
-  const [activeView, setActiveView] = useState(1);
-  const [visualizationMode, setVisualizationMode] = useState<'chart' | 'heatmap'>('chart');
+  const initialView = typeof window === 'undefined' ? 1 : getViewIdFromHash(window.location.hash);
+  const [activeView, setActiveView] = useState(initialView);
+  const [visualizationMode, setVisualizationMode] = useState<'chart' | 'heatmap'>(
+    initialView === 4 ? 'heatmap' : 'chart'
+  );
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
   const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>('year');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
@@ -422,6 +459,32 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
   const [shareButtonLabel, setShareButtonLabel] = useState('Share');
+  const [copiedReferenceKey, setCopiedReferenceKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncViewFromHash = () => {
+      const nextView = getViewIdFromHash(window.location.hash);
+      setActiveView(prev => (prev === nextView ? prev : nextView));
+      setVisualizationMode(nextView === 4 ? 'heatmap' : 'chart');
+    };
+
+    window.addEventListener('hashchange', syncViewFromHash);
+    return () => window.removeEventListener('hashchange', syncViewFromHash);
+  }, []);
+
+  useEffect(() => {
+    const nextHash = `#${getViewHash(activeView)}`;
+    if ((window.location.hash || activeView !== 1) && window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
+    }
+  }, [activeView]);
+
+  const currentViewUrl =
+    typeof window === 'undefined'
+      ? 'https://www.riskobservatory.ai/'
+      : `${window.location.origin}${window.location.pathname}${window.location.search}${
+          activeView === 1 && !window.location.hash ? '' : `#${getViewHash(activeView)}`
+        }`;
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const resolvedDatasets =
@@ -821,8 +884,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     [data.isicSectors, reportTotalsByIsicSectorInRange]
   );
   const { groups: isicRowGroups, ungroupedLabels: ungroupedIsicSectorLabels } = useMemo(
-    () => buildIsicSectorGroups(visibleIsicSectorLabels),
-    [visibleIsicSectorLabels]
+    () => buildIsicSectorGroups(visibleIsicSectorLabels, data.isicSectorParents),
+    [visibleIsicSectorLabels, data.isicSectorParents]
   );
   const expandedIsicGroupSet = useMemo(
     () => new Set(expandedIsicGroups),
@@ -1601,7 +1664,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   };
 
   const handleShareVisualization = async () => {
-    const shareUrl = window.location.href;
+    const shareUrl = currentViewUrl;
     const shareText = `${currentVisualizationExport.title} (${riskSelectedYearSpan})`;
 
     try {
@@ -1628,6 +1691,18 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     }
   };
 
+  const handleCopyReferenceText = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedReferenceKey(key);
+      setTimeout(() => {
+        setCopiedReferenceKey(prev => (prev === key ? null : prev));
+      }, 2000);
+    } catch {
+      setCopiedReferenceKey(null);
+    }
+  };
+
   const makeSectorToggle = (
     current: RiskSectorView,
     setter: (v: RiskSectorView) => void
@@ -1636,7 +1711,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('cni')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           current === 'cni'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1647,7 +1722,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('isic')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           current === 'isic'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1663,7 +1738,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           trendTimeAxis === 'year'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1674,7 +1749,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('month')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           trendTimeAxis === 'month'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1689,25 +1764,25 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
-        onClick={() => setMetricMode('count')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
-          effectiveMetricMode === 'count'
-            ? 'bg-primary text-white'
-            : 'text-muted-foreground hover:bg-secondary'
-        }`}
-      >
-        Count
-      </button>
-      <button
-        type="button"
         onClick={() => setMetricMode('pct_reports')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           effectiveMetricMode === 'pct_reports'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
         % of Reports
+      </button>
+      <button
+        type="button"
+        onClick={() => setMetricMode('count')}
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+          effectiveMetricMode === 'count'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Count
       </button>
     </div>
   ) : null;
@@ -1721,7 +1796,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setChartDisplayType('bar')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           activeChartDisplayType === 'bar'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1736,7 +1811,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setChartDisplayType('line');
         }}
         disabled={!canUseLineChart}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           activeChartDisplayType === 'line'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1768,12 +1843,273 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </button>
   );
 
+  const renderSettingsPanel = () => (
+    <div className="overflow-hidden rounded border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(false)}
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-muted-foreground transition hover:bg-secondary hover:text-primary"
+          aria-label="Collapse settings panel"
+          title="Collapse settings"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+            <path
+              d="M7.5 6L12 10L7.5 14"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+      <div className="p-5 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-5">
+        {activeView !== 5 && activeView !== 4 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Dataset</p>
+              <InfoTooltip content="Count by report (one annual filing = one data point) or by excerpt (each AI mention counts separately). Per Report is the default and avoids double-counting a single filing." />
+            </div>
+            {datasetToggle}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Coverage</p>
+            <InfoTooltip content="Filter the company universe to a specific market segment or index. Changing this resets the date range to show all available years." />
+          </div>
+          <select
+            value={marketSegmentFilter}
+            onChange={event => {
+              setMarketSegmentFilter(event.target.value);
+              setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
+            }}
+            className="w-full aisi-select"
+          >
+            <option value="all">All Companies</option>
+            {data.marketSegments.map(segment => (
+              <option key={segment} value={segment}>{segment}</option>
+            ))}
+          </select>
+        </div>
+
+        {visualizationMode === 'chart' && activeView !== 4 && (
+          <>
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Metric</p>
+                <InfoTooltip content="% of Reports shows what share of annual filings contain this label each year. Count shows the raw number of matching reports." />
+              </div>
+              {metricModeToggle}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Time Axis</p>
+                <InfoTooltip content="Group data by filing year (default) or by calendar month for finer-grained trends. Line chart requires Year axis." />
+              </div>
+              {trendTimeToggle}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Chart Type</p>
+                <InfoTooltip content="Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line requires Year axis and is disabled otherwise." />
+              </div>
+              {chartTypeToggle}
+            </div>
+          </>
+        )}
+
+        {visualizationMode === 'heatmap' && activeView === 1 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
+              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
+            </div>
+            {makeSectorToggle(riskSectorView, setRiskSectorView)}
+          </div>
+        )}
+
+        {visualizationMode === 'heatmap' && activeView === 2 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
+              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
+            </div>
+            {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
+          </div>
+        )}
+
+        {visualizationMode === 'heatmap' && activeView === 3 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
+              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
+            </div>
+            {makeSectorToggle(vendorSectorView, setVendorSectorView)}
+          </div>
+        )}
+
+        {activeView === 1 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Risk Filter</p>
+              <InfoTooltip content="Isolate a single risk category. When active, all other categories are hidden and the chart focuses on the selected type only." />
+            </div>
+            <select
+              id="risk-filter"
+              value={riskFilter}
+              onChange={e => setRiskFilter(e.target.value)}
+              className="w-full aisi-select"
+            >
+              <option value="all">All Risk Types</option>
+              {riskStackKeys.map(label => (
+                <option key={label} value={label}>{formatLabel(label)}</option>
+              ))}
+            </select>
+            {riskFilter !== 'all' && (
+              <button
+                onClick={() => setRiskFilter('all')}
+                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeView === 2 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Adoption Filter</p>
+              <InfoTooltip content="Isolate a single adoption type (LLM, Non-LLM, or Agentic). When active, all other categories are hidden." />
+            </div>
+            <select
+              id="adoption-filter"
+              value={adoptionFilter}
+              onChange={e => setAdoptionFilter(e.target.value)}
+              className="w-full aisi-select"
+            >
+              <option value="all">All Adoption Types</option>
+              {data.labels.adoptionTypes.map(label => (
+                <option key={label} value={label}>{formatLabel(label)}</option>
+              ))}
+            </select>
+            {adoptionFilter !== 'all' && (
+              <button
+                onClick={() => setAdoptionFilter('all')}
+                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeView === 3 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Vendor Filter</p>
+              <InfoTooltip content="Isolate a single AI vendor or provider. When active, only mentions of the selected vendor are shown." />
+            </div>
+            <select
+              id="vendor-filter"
+              value={effectiveVendorFilter}
+              onChange={e => setVendorFilter(e.target.value)}
+              className="w-full aisi-select"
+            >
+              <option value="all">All Vendors</option>
+              {vendorStackKeys.map(label => (
+                <option key={label} value={label}>{formatLabel(label)}</option>
+              ))}
+            </select>
+            {effectiveVendorFilter !== 'all' && (
+              <button
+                onClick={() => setVendorFilter('all')}
+                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeView === 4 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Quality View</p>
+              <InfoTooltip content="Explicitness measures how detailed and specific the AI language is (boilerplate → substantive). Confidence shows how certain the classifier was about each label." />
+            </div>
+            {signalQualityModeToggle}
+            {signalQualityMode === 'explicitness' && (
+              <div className="space-y-3 border-t border-border pt-5">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Signal Metric</p>
+                  <InfoTooltip content="Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels." />
+                </div>
+                <select
+                  id="signal-quality-metric"
+                  value={explicitnessSignalFilter}
+                  onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
+                  className="w-full aisi-select"
+                >
+                  {explicitnessSignalOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeView === 5 && visualizationMode === 'chart' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Blind Spot Filter</p>
+              <InfoTooltip content="Show all companies, only those with no AI mention at all, or only those that mention AI but include no risk disclosure." />
+            </div>
+            <select
+              id="blind-spot-filter"
+              value={blindSpotFilter}
+              onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
+              className="w-full aisi-select"
+            >
+              <option value="all">All Blind Spots</option>
+              <option value="no_ai_mention">No AI Mention</option>
+              <option value="no_ai_risk_mention">No AI Risk Mention</option>
+            </select>
+            {blindSpotFilter !== 'all' && (
+              <button
+                onClick={() => setBlindSpotFilter('all')}
+                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeView === 5 && visualizationMode === 'heatmap' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Heatmap View</p>
+              <InfoTooltip content="Switch between companies with no AI mention at all, or those that mention AI but have no associated risk disclosure." />
+            </div>
+            {blindSpotHeatmapToggle}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const signalQualityModeToggle = (
     <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => setSignalQualityMode('explicitness')}
-        className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
           signalQualityMode === 'explicitness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1784,7 +2120,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setSignalQualityMode('substantiveness')}
-        className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
           signalQualityMode === 'substantiveness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1795,18 +2131,76 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </div>
   );
 
+  const accessedOnLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(new Date()),
+    []
+  );
+  const citationTargetUrl = currentViewUrl;
+  const plainCitation = `AI Risk Observatory. "${currentVisualizationExport.title}" dashboard view, UK annual-report AI disclosure dataset. Accessed ${accessedOnLabel}. ${citationTargetUrl}`;
+  const bibtexCitation = `@misc{AIRiskObservatory${slugify(currentVisualizationExport.title).replace(/-/g, '')},
+  title = {${currentVisualizationExport.title}},
+  author = {{AI Risk Observatory}},
+  year = {2026},
+  note = {Dashboard view, accessed ${accessedOnLabel}},
+  url = {${citationTargetUrl}}
+}`;
+
+  const renderCopyableReferenceBlock = (
+    key: string,
+    heading: string,
+    value: string
+  ) => (
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold text-primary">{heading}</h4>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => handleCopyReferenceText(key, value)}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-primary"
+          aria-label={copiedReferenceKey === key ? `${heading} copied` : `Copy ${heading}`}
+          title={copiedReferenceKey === key ? 'Copied' : `Copy ${heading}`}
+        >
+          {copiedReferenceKey === key ? (
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+              <path
+                d="M4.5 10.5L8 14L15.5 6.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+              <rect x="7" y="4" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M4 7.5V15C4 15.55 4.45 16 5 16H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+        <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-14 font-mono text-xs leading-relaxed text-slate-700">
+        {value}
+        </pre>
+      </div>
+    </div>
+  );
+
   const sharedCitationItem: RiskInfoPanelItem = {
     value: 'cite',
     label: 'Cite',
     title: `How To Cite The ${view.title} View`,
     content: (
-      <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+      <div className="space-y-5 text-sm leading-relaxed text-slate-600">
         <p>
-          When citing a specific dashboard view, include the active visualization title and the date you accessed it.
+          Use the citation format that fits your workflow. Each block can be copied directly.
         </p>
-        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-xs text-slate-700">
-          AI Risk Observatory. &quot;{currentVisualizationExport.title}&quot; dashboard view, UK annual-report AI disclosure dataset, accessed [insert date].
-        </p>
+        {renderCopyableReferenceBlock('citation-plain', 'Citation', plainCitation)}
+        {renderCopyableReferenceBlock('citation-bibtex', 'BibTeX Citation', bibtexCitation)}
+        {renderCopyableReferenceBlock('citation-link', 'Direct Link', citationTargetUrl)}
       </div>
     ),
   };
@@ -2069,13 +2463,13 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     activeInfoPanelItems.find(item => item.value === selectedInfoPanelKey) ?? activeInfoPanelItems[0];
 
   const infoPanelSection = (
-    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
-      <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="border-b border-slate-100 bg-slate-50/80 p-5 lg:border-b-0 lg:border-r">
+    <section className="border-t border-border pt-8">
+      <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-8">
+        <div className="lg:pr-2">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             Reference
           </p>
-          <div className="mt-4 space-y-1.5">
+          <div className="mt-4 flex flex-wrap gap-2 lg:flex-col lg:gap-1.5">
             {activeInfoPanelItems.map(item => (
               <button
                 key={item.value}
@@ -2086,23 +2480,23 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     [activeView]: item.value,
                   }))
                 }
-                className={`flex w-full items-center justify-between rounded border px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+                className={`flex items-center rounded border px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.14em] transition lg:w-full ${
                   selectedInfoPanelKey === item.value
                     ? 'border-primary bg-primary text-white'
-                    : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-100'
+                    : 'border-border bg-white text-muted-foreground hover:bg-secondary hover:text-primary'
                 }`}
               >
-                <span>{item.label}</span>
+                {item.label}
               </button>
             ))}
           </div>
         </div>
-        <div className="p-6">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            {view.title}
-          </p>
-          <h3 className="mt-2 text-base font-semibold text-slate-900">{selectedInfoPanel.title}</h3>
-          <div className="mt-4">{selectedInfoPanel.content}</div>
+        <div className="lg:border-l lg:border-border lg:pl-8">
+          <div className="h-[540px] overflow-y-auto pr-1 sm:h-[600px]">
+            <span className="aisi-tag">{view.title}</span>
+            <h3 className="mt-3 text-base font-semibold text-primary">{selectedInfoPanel.title}</h3>
+            <div className="mt-4 text-sm leading-relaxed text-muted">{selectedInfoPanel.content}</div>
+          </div>
         </div>
       </div>
     </section>
@@ -2117,7 +2511,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setDatasetKey('perReport');
           setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
         }}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           datasetKey === 'perReport'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2132,7 +2526,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setDatasetKey('perChunk');
           setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
         }}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           datasetKey === 'perChunk'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2148,7 +2542,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setBlindSpotHeatmapSelection('no_ai_mention')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           blindSpotHeatmapSelection === 'no_ai_mention'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2159,7 +2553,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setBlindSpotHeatmapSelection('no_ai_risk_mention')}
-        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           blindSpotHeatmapSelection === 'no_ai_risk_mention'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2292,6 +2686,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   return (
     <div className="min-h-screen bg-white text-primary">
       <main className="mx-auto max-w-[1320px] px-6 py-10 sm:py-14">
+        <div aria-hidden="true" className="h-0 overflow-hidden">
+          {VIEWS.map(item => (
+            <div key={item.id} id={getViewHash(item.id)} />
+          ))}
+        </div>
         <div className="border-b border-border pb-7">
           <div className="mb-5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             {dashboardUpdatedLabel}
@@ -2312,48 +2711,53 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="mt-8 flex items-start justify-between gap-3 overflow-x-auto">
             <div className="flex shrink-0 items-center gap-2.5">
               {VIEWS.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveView(item.id);
-                    setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`rounded border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                    activeView === item.id
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-border bg-secondary text-muted-foreground hover:bg-white hover:text-primary'
-                  }`}
-                >
-                  {item.title}
-                </button>
+                <div key={item.id} className="flex items-center gap-2.5">
+                  {item.id === 4 && <span aria-hidden="true" className="h-5 w-px bg-border" />}
+                  <button
+                    onClick={() => {
+                      setActiveView(item.id);
+                      setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`rounded border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                      activeView === item.id
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-border bg-secondary text-muted-foreground hover:bg-white hover:text-primary'
+                    }`}
+                  >
+                    {item.title}
+                  </button>
+                </div>
               ))}
             </div>
 
             {showVisualizationToggle && (
-              <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-1">
-                <button
-                  type="button"
-                  onClick={() => setVisualizationMode('chart')}
-                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
-                    visualizationMode === 'chart'
-                      ? 'bg-primary text-white'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  }`}
-                >
-                  Chart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVisualizationMode('heatmap')}
-                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
-                    visualizationMode === 'heatmap'
-                      ? 'bg-primary text-white'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  }`}
-                >
-                  Sector Heatmap
-                </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden text-[9px] font-bold uppercase tracking-[0.2em] text-accent sm:block">View</span>
+                <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setVisualizationMode('chart')}
+                    className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                      visualizationMode === 'chart'
+                        ? 'bg-primary text-white'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    Trend Chart
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisualizationMode('heatmap')}
+                    className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                      visualizationMode === 'heatmap'
+                        ? 'bg-primary text-white'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    Sector Heatmap
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2457,6 +2861,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 {visualizationActions}
               </div>
             )}
+
+            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
               <p>
@@ -2581,6 +2987,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
+            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 <span className="font-semibold text-slate-900">{formatNumber(adoptionOverviewStats.adoptionMentionReports)}</span>{' '}
@@ -2703,6 +3111,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
+            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 Of the{' '}
@@ -2761,6 +3171,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               />
               {visualizationActions}
             </div>
+
+            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 This section evaluates disclosure quality, not just volume. Across{' '}
@@ -2861,6 +3274,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
+            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
                 In the selected period (<span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>),
@@ -2889,226 +3304,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         )}
           </div>
 
-          {isSettingsOpen && (
-            <aside className="self-start">
-              <div className="overflow-hidden rounded border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-                <div className="border-b border-border px-5 py-4">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
-                </div>
-                <div className="p-5 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-5">
-                {activeView !== 5 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Dataset
-                    </p>
-                    {datasetToggle}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                    Coverage
-                  </p>
-                  <select
-                    value={marketSegmentFilter}
-                    onChange={event => {
-                      setMarketSegmentFilter(event.target.value);
-                      setYearRangeIndices({ start: 0, end: Math.max(data.years.length - 1, 0) });
-                    }}
-                    className="w-full aisi-select"
-                  >
-                    <option value="all">All Companies</option>
-                    {data.marketSegments.map(segment => (
-                      <option key={segment} value={segment}>{segment}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {visualizationMode === 'chart' && activeView !== 4 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Chart Settings
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {chartTypeToggle}
-                      {trendTimeToggle}
-                      {metricModeToggle}
-                    </div>
-                  </div>
-                )}
-
-                {visualizationMode === 'heatmap' && activeView === 1 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Sector Taxonomy
-                    </p>
-                    {makeSectorToggle(riskSectorView, setRiskSectorView)}
-                  </div>
-                )}
-
-                {visualizationMode === 'heatmap' && activeView === 2 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Sector Taxonomy
-                    </p>
-                    {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
-                  </div>
-                )}
-
-                {visualizationMode === 'heatmap' && activeView === 3 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Sector Taxonomy
-                    </p>
-                    {makeSectorToggle(vendorSectorView, setVendorSectorView)}
-                  </div>
-                )}
-
-                {activeView === 1 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Risk Filter
-                    </p>
-                    <select
-                      id="risk-filter"
-                      value={riskFilter}
-                      onChange={e => setRiskFilter(e.target.value)}
-                      className="w-full aisi-select"
-                    >
-                      <option value="all">All Risk Types</option>
-                      {riskStackKeys.map(label => (
-                        <option key={label} value={label}>{formatLabel(label)}</option>
-                      ))}
-                    </select>
-                    {riskFilter !== 'all' && (
-                      <button
-                        onClick={() => setRiskFilter('all')}
-                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {activeView === 2 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Adoption Filter
-                    </p>
-                    <select
-                      id="adoption-filter"
-                      value={adoptionFilter}
-                      onChange={e => setAdoptionFilter(e.target.value)}
-                      className="w-full aisi-select"
-                    >
-                      <option value="all">All Adoption Types</option>
-                      {data.labels.adoptionTypes.map(label => (
-                        <option key={label} value={label}>{formatLabel(label)}</option>
-                      ))}
-                    </select>
-                    {adoptionFilter !== 'all' && (
-                      <button
-                        onClick={() => setAdoptionFilter('all')}
-                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-
-	                {activeView === 3 && (
-	                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Vendor Filter
-                    </p>
-                    <select
-                      id="vendor-filter"
-                      value={effectiveVendorFilter}
-                      onChange={e => setVendorFilter(e.target.value)}
-                      className="w-full aisi-select"
-                    >
-                      <option value="all">All Vendors</option>
-                      {vendorStackKeys.map(label => (
-                        <option key={label} value={label}>{formatLabel(label)}</option>
-                      ))}
-                    </select>
-                    {effectiveVendorFilter !== 'all' && (
-                      <button
-                        onClick={() => setVendorFilter('all')}
-                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
-                      >
-                        Clear
-                      </button>
-                    )}
-	                  </div>
-	                )}
-
-	                {activeView === 4 && (
-	                  <div className="space-y-3">
-	                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-	                      Quality View
-	                    </p>
-	                    {signalQualityModeToggle}
-                      {signalQualityMode === 'explicitness' && (
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                            Signal Metric
-                          </p>
-                          <select
-                            id="signal-quality-metric"
-                            value={explicitnessSignalFilter}
-                            onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
-                            className="w-full aisi-select"
-                          >
-                            {explicitnessSignalOptions.map(option => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-	                  </div>
-	                )}
-
-	                {activeView === 5 && visualizationMode === 'chart' && (
-	                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Blind Spot Filter
-                    </p>
-                    <select
-                      id="blind-spot-filter"
-                      value={blindSpotFilter}
-                      onChange={e => setBlindSpotFilter(e.target.value as BlindSpotFilter)}
-                      className="w-full aisi-select"
-                    >
-                      <option value="all">All Blind Spots</option>
-                      <option value="no_ai_mention">No AI Mention</option>
-                      <option value="no_ai_risk_mention">No AI Risk Mention</option>
-                    </select>
-                    {blindSpotFilter !== 'all' && (
-                      <button
-                        onClick={() => setBlindSpotFilter('all')}
-                        className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {activeView === 5 && visualizationMode === 'heatmap' && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                      Heatmap View
-                    </p>
-                    {blindSpotHeatmapToggle}
-                  </div>
-                )}
-                </div>
-              </div>
-            </aside>
-          )}
+          {isSettingsOpen && <aside className="hidden self-start xl:block">{renderSettingsPanel()}</aside>}
         </div>
       </main>
     </div>

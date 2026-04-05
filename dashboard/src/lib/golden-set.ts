@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { resolveIsicSectionFromCode } from '@/lib/isic';
 
 type GoldenAnnotation = {
   annotation_id: string;
@@ -82,6 +83,7 @@ export type GoldenDashboardData = {
   years: number[];
   sectors: string[];
   isicSectors: string[];
+  isicSectorParents: Record<string, string>;
   marketSegments: string[];
   reportClassificationFlow: ReportClassificationFlow;
   reportClassificationBreakdown: ReportClassificationBreakdown;
@@ -207,30 +209,6 @@ const vendorTags = ['openai', 'microsoft', 'google', 'internal', 'other', 'undis
 const substantivenessBands = ['substantive', 'moderate', 'boilerplate'];
 const riskSignalLevels = ['3-explicit', '2-strong_implicit', '1-weak_implicit'];
 
-const ALL_ISIC_SECTION_NAMES = [
-  'Agriculture, forestry and fishing',
-  'Mining and quarrying',
-  'Manufacturing',
-  'Electricity, gas, steam and air conditioning supply',
-  'Water supply; sewerage, waste management and remediation activities',
-  'Construction',
-  'Wholesale and retail trade; repair of motor vehicles and motorcycles',
-  'Transportation and storage',
-  'Accommodation and food service activities',
-  'Information and communication',
-  'Financial and insurance activities',
-  'Real estate activities',
-  'Professional, scientific and technical activities',
-  'Administrative and support service activities',
-  'Public administration and defence; compulsory social security',
-  'Education',
-  'Human health and social work activities',
-  'Arts, entertainment and recreation',
-  'Other service activities',
-  'Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use',
-  'Activities of extraterritorial organizations and bodies',
-];
-
 const RISK_LABEL_ALIASES: Record<string, string> = {
   strategic_market: 'strategic_competitive',
   regulatory: 'regulatory_compliance',
@@ -304,6 +282,7 @@ const parseCompanySectors = () => {
     return {
       cniSectorMap: new Map<string, string>(),
       isicSectorMap: new Map<string, string>(),
+      isicSectorParentMap: new Map<string, string>(),
       marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],
@@ -316,16 +295,20 @@ const parseCompanySectors = () => {
   const filingIdIndex = headers.indexOf('filing_id');
   const filingDateIndex = headers.indexOf('filing_date');
   const releaseDatetimeIndex = headers.indexOf('release_datetime');
+  const isicCodeIndex = headers.indexOf('isic_code');
   const cniSectorIndex = headers.indexOf('sector') >= 0
     ? headers.indexOf('sector')
     : headers.indexOf('cni_sector');
   const isicSectorIndex = headers.indexOf('isic_section_name') >= 0
     ? headers.indexOf('isic_section_name')
-    : headers.indexOf('isic_sector_name');
+    : headers.indexOf('isic_sector_name') >= 0
+      ? headers.indexOf('isic_sector_name')
+      : headers.indexOf('isic_sector');
   const marketSegmentIndex = headers.indexOf('market_segment');
 
   const cniSectorMap = new Map<string, string>();
   const isicSectorMap = new Map<string, string>();
+  const isicSectorParentMap = new Map<string, string>();
   const marketSegmentMap = new Map<string, string>();
   const cniSectors: string[] = [];
   const isicSectors: string[] = [];
@@ -335,7 +318,16 @@ const parseCompanySectors = () => {
   const isicSectorSet = new Set<string>();
 
   if (nameIndex < 0 || cniSectorIndex < 0) {
-    return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors, reportUniverseRows };
+    return {
+      cniSectorMap,
+      isicSectorMap,
+      isicSectorParentMap,
+      marketSegmentMap,
+      cniSectors,
+      isicSectors,
+      companySectors,
+      reportUniverseRows,
+    };
   }
 
   lines.forEach(line => {
@@ -344,16 +336,21 @@ const parseCompanySectors = () => {
     const filingId = filingIdIndex >= 0 ? cells[filingIdIndex]?.trim() || '' : '';
     const filingDate = filingDateIndex >= 0 ? cells[filingDateIndex]?.trim() || '' : '';
     const releaseDatetime = releaseDatetimeIndex >= 0 ? cells[releaseDatetimeIndex]?.trim() || '' : '';
+    const isicCode = isicCodeIndex >= 0 ? cells[isicCodeIndex]?.trim() || '' : '';
     const cniSector = cells[cniSectorIndex]?.trim() || 'Unknown';
     const isicSector = isicSectorIndex >= 0
       ? (cells[isicSectorIndex]?.trim() || 'Unknown')
       : 'Unknown';
+    const isicParentSector = resolveIsicSectionFromCode(isicCode) || 'Unknown';
     const marketSegment = marketSegmentIndex >= 0
       ? (cells[marketSegmentIndex]?.trim() || 'Other')
       : 'Other';
     if (!name) return;
     cniSectorMap.set(toKey(name), cniSector);
     isicSectorMap.set(toKey(name), isicSector);
+    if (isicSector && isicSector !== 'Unknown') {
+      isicSectorParentMap.set(isicSector, isicParentSector);
+    }
     marketSegmentMap.set(toKey(name), marketSegment);
     companySectors.push({ company_name: name, cniSector, isicSector, marketSegment });
     const reportDate = filingDate || releaseDatetime;
@@ -379,7 +376,16 @@ const parseCompanySectors = () => {
     }
   });
 
-  return { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, companySectors, reportUniverseRows };
+  return {
+    cniSectorMap,
+    isicSectorMap,
+    isicSectorParentMap,
+    marketSegmentMap,
+    cniSectors,
+    isicSectors,
+    companySectors,
+    reportUniverseRows,
+  };
 };
 
 const parseAnnotations = (filepath: string) => {
@@ -1536,7 +1542,15 @@ const buildDataset = (
 };
 
 export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
-  const { cniSectorMap, isicSectorMap, marketSegmentMap, cniSectors, isicSectors, reportUniverseRows } = parseCompanySectors();
+  const {
+    cniSectorMap,
+    isicSectorMap,
+    isicSectorParentMap,
+    marketSegmentMap,
+    cniSectors,
+    isicSectors,
+    reportUniverseRows,
+  } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
   const documentMonths = loadDocumentMonths();
 
@@ -1548,8 +1562,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   ).sort((a, b) => a - b);
 
   const resolvedCniSectors = cniSectors.length ? cniSectors : ['Unknown'];
-  const extraIsicSectors = isicSectors.filter(section => !ALL_ISIC_SECTION_NAMES.includes(section));
-  const resolvedIsicSectors = [...ALL_ISIC_SECTION_NAMES, ...extraIsicSectors];
+  const resolvedIsicSectors = [...isicSectors].sort((a, b) => a.localeCompare(b, 'en'));
   const resolvedMarketSegments = ['FTSE 350', 'Main Market', 'AIM'];
 
   const perReportData = aggregateToReports(
@@ -1577,6 +1590,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     years,
     sectors: resolvedCniSectors,
     isicSectors: resolvedIsicSectors,
+    isicSectorParents: Object.fromEntries(isicSectorParentMap),
     marketSegments: resolvedMarketSegments,
     reportClassificationFlow: buildReportClassificationFlow(perReportData),
     reportClassificationBreakdown: buildReportClassificationBreakdown(perReportData),

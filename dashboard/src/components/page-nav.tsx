@@ -46,9 +46,9 @@ export function PageNav() {
         </div>
         
         <div className="flex items-center">
-          <div className="inline-flex flex-col items-end border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-accent shadow-sm">
+          <div className="inline-flex flex-col items-end rounded border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-accent shadow-sm">
             <span className="text-accent">
-              Beta v0.9.9
+              Beta v1.0.0
             </span>
             <span className="text-[9px] tracking-[0.18em] text-accent/70">
               Updated: 04.04.2026

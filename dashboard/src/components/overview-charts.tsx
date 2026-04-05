@@ -224,7 +224,7 @@ export function StackedBarChart({
       if (rows.length === 0) return null;
 
       return (
-        <div className="min-w-[220px] border border-slate-200 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+        <div className="min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
           <div className="mb-2 border-b border-slate-100 pb-2 text-xs font-semibold tracking-[0.08em] text-slate-500">
             {label}
           </div>
@@ -261,7 +261,7 @@ export function StackedBarChart({
   };
 
   return (
-    <div className="relative w-full border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
+    <div className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {title && (
         <h3 className="mb-2 flex items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
           <span className="w-1.5 h-1.5 bg-accent" />
@@ -273,10 +273,10 @@ export function StackedBarChart({
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-5 sm:top-5">
           {headerExtra}
           {showChartModeToggle && (
-            <div className="flex h-9 border border-border bg-white p-0.5">
+            <div className="flex h-9 overflow-hidden rounded border border-border bg-white p-0.5">
               <button
                 onClick={() => setResolvedChartType('bar')}
-                className={`h-full px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                 title="Bar chart"
               >
                 Bar
@@ -284,7 +284,7 @@ export function StackedBarChart({
               {allowLineChart && (
                 <button
                   onClick={() => setResolvedChartType('line')}
-                  className={`h-full px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                  className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
                   title="Line chart"
                 >
                   Line
@@ -301,7 +301,7 @@ export function StackedBarChart({
       )}
       <div className={showLeftLegend || showSideLegend ? 'flex flex-col gap-3 lg:flex-row lg:items-start' : ''}>
         {showLeftLegend && (
-          <div className="w-full border border-border bg-secondary/35 p-3 lg:mt-4 lg:w-56 lg:shrink-0">
+          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:mt-4 lg:w-56 lg:shrink-0">
             <div className="space-y-1">{renderLegendItems()}</div>
           </div>
         )}
@@ -351,7 +351,7 @@ export function StackedBarChart({
           </ResponsiveContainer>
         </div>
         {showSideLegend && (
-          <div className="w-full border border-border bg-secondary/35 p-3 lg:mt-6 lg:w-56">
+          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:mt-12 lg:w-56">
             <div className="space-y-1">{renderLegendItems()}</div>
           </div>
         )}
@@ -465,20 +465,43 @@ export function GenericHeatmap({
     const formatted = String(yLabelFormatter(y));
     return Math.max(max, formatted.length);
   }, 0);
+  const longestXLabelLength = xLabels.reduce<number>((max, x) => {
+    const formatted = String(xLabelFormatter(x));
+    return Math.max(max, formatted.length);
+  }, 0);
   const inferredLabelCol = compact
     ? 110
     : Math.max(150, Math.min(320, Math.round(longestYLabelLength * 5.2)));
   const labelCol = labelColumnWidth ?? inferredLabelCol;
-  const valueCol = compact ? 44 : 60;
+  const valueCol = compact
+    ? 44
+    : longestXLabelLength > 20
+      ? 106
+      : longestXLabelLength > 14
+        ? 92
+        : longestXLabelLength > 8
+          ? 76
+          : 60;
   const totalCol = compact ? 44 : 54;
+  const columnCount = 1 + xLabels.length + (showTotals ? 1 : 0);
+  const gapAndBorderAllowance = Math.max(0, columnCount - 1) + 2;
   const minGridWidth = showTotals
-    ? labelCol + (xLabels.length * valueCol) + totalCol
-    : labelCol + (xLabels.length * valueCol);
+    ? labelCol + (xLabels.length * valueCol) + totalCol + gapAndBorderAllowance
+    : labelCol + (xLabels.length * valueCol) + gapAndBorderAllowance;
   const gridCols = showTotals
     ? `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr)) ${totalCol}px`
     : `${labelCol}px repeat(${xLabels.length}, minmax(${valueCol}px, 1fr))`;
+  const headerMinHeight = compact
+    ? 60
+    : longestXLabelLength > 20
+      ? 90
+      : longestXLabelLength > 14
+        ? 82
+        : 60;
 
   const needsScroll = yLabels.length > 25;
+  const lockGroupedViewport = Boolean(rowGroups?.length);
+  const useVerticalScroll = needsScroll || lockGroupedViewport;
   const inferredCellHeight = compact
     ? 36
     : longestYLabelLength > 44
@@ -486,7 +509,7 @@ export function GenericHeatmap({
       : longestYLabelLength > 30
         ? 52
         : 40;
-  const cellHeight = rowHeight ?? (needsScroll ? Math.max(36, inferredCellHeight - 4) : inferredCellHeight);
+  const cellHeight = rowHeight ?? inferredCellHeight;
   const summaryLabel = totalsLabel ?? (totalsMode === 'average' ? 'Avg' : 'Total');
   const formatSummaryValue = totalValueFormatter ?? valueFormatter;
   const averageOrZero = (sum: number, count: number) => (count > 0 ? sum / count : 0);
@@ -504,7 +527,7 @@ export function GenericHeatmap({
       : grandTotal;
 
   return (
-    <div className="relative w-full border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
+    <div className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {(title || headerExtra) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           {title ? (
@@ -517,13 +540,21 @@ export function GenericHeatmap({
           {headerExtra && <div className="shrink-0">{headerExtra}</div>}
         </div>
       )}
-      <div className={needsScroll ? 'max-h-[800px] overflow-y-auto' : ''}>
       <div
-        className="grid w-full gap-px overflow-hidden border border-border bg-border"
+        className={`overflow-x-auto pb-2 ${
+          useVerticalScroll ? 'overflow-y-auto' : ''
+        }`}
+        style={lockGroupedViewport ? { height: '720px' } : undefined}
+      >
+      <div
+        className="grid w-full gap-px overflow-hidden rounded border border-border bg-border"
         style={{ gridTemplateColumns: gridCols, minWidth: `${minGridWidth}px` }}
       >
         {/* Header Row */}
-        <div className={`relative bg-secondary min-h-[60px] overflow-hidden ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+        <div
+          className={`relative bg-secondary overflow-hidden ${useVerticalScroll ? 'sticky top-0 z-10' : ''}`}
+          style={{ minHeight: headerMinHeight }}
+        >
           {xAxisLabel && yAxisLabel ? (
             <>
               <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
@@ -539,12 +570,19 @@ export function GenericHeatmap({
           ) : null}
         </div>
         {xLabels.map(x => (
-          <div key={x} className={`bg-secondary px-1 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center min-h-[60px] leading-tight ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+          <div
+            key={x}
+            className={`bg-secondary px-2 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center leading-tight ${useVerticalScroll ? 'sticky top-0 z-10' : ''}`}
+            style={{ minHeight: headerMinHeight }}
+          >
             {xLabelFormatter(x)}
           </div>
         ))}
         {showTotals && (
-          <div className={`bg-border px-1 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center min-h-[60px] ${needsScroll ? 'sticky top-0 z-10' : ''}`}>
+          <div
+            className={`bg-border px-1 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center ${useVerticalScroll ? 'sticky top-0 z-10' : ''}`}
+            style={{ minHeight: headerMinHeight }}
+          >
             {summaryLabel}
           </div>
         )}
@@ -576,6 +614,7 @@ export function GenericHeatmap({
                       <button
                         type="button"
                         onClick={() => onToggleRowGroup(rowGroup.label)}
+                        aria-expanded={isExpanded}
                         className={`flex h-full w-full items-center justify-between gap-3 text-left font-bold uppercase tracking-wider transition ${
                           isExpanded
                             ? 'text-primary'
@@ -584,10 +623,34 @@ export function GenericHeatmap({
                         title={`${isExpanded ? 'Collapse' : 'Expand'} ${rowGroup.label}`}
                       >
                         <span className="min-w-0 break-words leading-tight">{yLabelFormatter(y)}</span>
-                        <span className={`shrink-0 text-[10px] ${
-                          isExpanded ? 'text-accent' : 'text-muted-foreground'
-                        }`}>
-                          {isExpanded ? '-' : '+'} {rowGroup.childKeys.length}
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          <span className="rounded-full border border-border bg-white px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {rowGroup.childKeys.length}
+                          </span>
+                          <span
+                            className={`inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
+                              isExpanded
+                                ? 'border-accent/30 bg-accent/8 text-accent'
+                                : 'border-border bg-white text-muted-foreground'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <svg
+                              viewBox="0 0 16 16"
+                              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                              fill="none"
+                            >
+                              <path
+                                d="M4 6.5L8 10L12 6.5"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </span>
                         </span>
                       </button>
                     ) : (

@@ -6,7 +6,6 @@ import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 export default function HomePage() {
   const data = loadGoldenSetDashboardData();
   const perReportSummary = data.datasets.perReport.summary;
-  const perChunkSummary = data.datasets.perChunk.summary;
   const yearRange =
     data.years.length > 1
       ? `${data.years[0]}–${data.years[data.years.length - 1]}`
@@ -22,8 +21,8 @@ export default function HomePage() {
 
   const heroSeries = [
     {
-      label: '% Risk mentions',
-      subtitle: '% of reports identifying AI as a corporate risk',
+      label: 'AI risk mentions',
+      subtitle: 'Share of UK public-company annual reports mentioning AI as a corporate risk',
       color: '#e63946', // AISI Signal Red
       data: data.datasets.perReport.blindSpotTrend.map(row => {
         const total = Number(row.total_reports) || 0;
@@ -34,9 +33,9 @@ export default function HomePage() {
       }),
     },
     {
-      label: 'LLM adoption',
-      subtitle: 'Growth in Generative AI implementation',
-      color: '#0ea5e9',
+      label: 'LLM adoption mentions',
+      subtitle: 'Share of UK public-company annual reports mentioning LLM adoption',
+      color: '#0b0c0c',
       data: data.datasets.perReport.adoptionTrend.map(row => {
         const year = Number(row.year);
         const total = reportTotalsByYear.get(year) || 0;
@@ -47,9 +46,9 @@ export default function HomePage() {
       }),
     },
     {
-      label: 'Cybersecurity',
-      subtitle: 'AI-related security & breach concerns',
-      color: '#0b0c0c',
+      label: 'AI as a cybersecurity threat mentions',
+      subtitle: 'Share of UK public-company annual reports mentioning AI as a cybersecurity threat to the business',
+      color: '#0ea5e9',
       data: data.datasets.perReport.riskTrend.map(row => {
         const year = Number(row.year);
         const total = reportTotalsByYear.get(year) || 0;
@@ -64,78 +63,81 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white text-primary">
       {/* Hero */}
-      <header className="relative border-b border-border bg-white overflow-hidden">
-        {/* Decorative Blobs */}
-        <div className="absolute inset-0 pointer-events-none">
+      <header id="overview" className="relative overflow-hidden border-b border-border bg-white">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <div className="absolute -top-24 left-10 h-96 w-96 rounded-full bg-red-200/60 blur-[100px]" />
         </div>
-
-        <div className="relative mx-auto max-w-7xl px-6 py-24">
+        <div className="relative mx-auto max-w-7xl px-6 py-20 lg:py-24">
           <div className="max-w-4xl">
-            <div>
-              <h1 className="aisi-h1 leading-[0.9]">
-                AI Risk <br />Observatory
-              </h1>
-              <p className="mt-8 text-xl font-medium leading-relaxed text-muted">
-                Tracking how UK Critical National Infrastructure companies disclose AI-related risks, adoption, and vendor dependencies in their{' '}
-                <a
-                  href="https://en.wikipedia.org/wiki/Annual_report"
-                  className="underline decoration-accent underline-offset-4 hover:text-accent transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  annual reports
-                </a>.
-              </p>
+            <h1 className="aisi-h1 leading-[0.9]">
+              AI Risk <br />Observatory
+            </h1>
+            <p className="mt-8 text-xl font-medium leading-relaxed text-muted">
+              Tracking AI-related risks, adoption, and vendor dependencies across{' '}
+              <span className="text-primary">UK public-company</span>{' '}
+              <a
+                href="https://en.wikipedia.org/wiki/Annual_report"
+                className="underline decoration-border underline-offset-4 hover:text-primary transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                annual reports
+              </a>
+              {' '}to help monitor{' '}
+              <a
+                href="https://www.npsa.gov.uk/about-npsa/critical-national-infrastructure"
+                className="underline decoration-border underline-offset-4 hover:text-primary transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Critical National Infrastructure
+              </a>{' '}
+              sectors.
+            </p>
 
-              <div className="mt-12 border-t border-border pt-8">
-                <span className="aisi-tag mb-4">Coverage</span>
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="flex flex-col border-l-4 border-primary pl-4">
-                    <span className="text-3xl font-bold">{perReportSummary.totalCompanies}</span>
-                    <span className="aisi-metadata uppercase tracking-widest font-bold">Companies</span>
-                  </div>
-                  <div className="flex flex-col border-l-4 border-primary pl-4">
-                    <span className="text-3xl font-bold">{perReportSummary.totalReports}</span>
-                    <span className="aisi-metadata uppercase tracking-widest font-bold">Reports</span>
-                  </div>
-                  <div className="flex flex-col border-l-4 border-primary pl-4">
-                    <span className="text-3xl font-bold">{perChunkSummary.totalReports}</span>
-                    <span className="aisi-metadata uppercase tracking-widest font-bold">AI Mentioning Excerpts</span>
-                  </div>
-                  <div className="flex flex-col border-l-4 border-primary pl-4">
-                    <span className="text-3xl font-bold">{yearRange}</span>
-                    <span className="aisi-metadata uppercase tracking-widest font-bold">Scope</span>
-                  </div>
-                </div>
+            <div
+              id="coverage"
+              className="mt-8 grid gap-x-8 gap-y-4 border-t border-border/80 pt-5 sm:grid-cols-2 xl:grid-cols-4"
+            >
+              <div>
+                <div className="text-2xl font-bold leading-none text-primary">{perReportSummary.totalCompanies}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Companies</div>
               </div>
+              <div>
+                <div className="text-2xl font-bold leading-none text-primary">{perReportSummary.totalReports}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Reports</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold leading-none text-primary">{yearRange}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Scope</div>
+              </div>
+            </div>
 
-              <div className="mt-10 flex flex-wrap gap-4">
-                <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
-                  Full Report Coming Soon
-                </span>
-                <Link
-                  href="/data"
-                  className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
-                >
-                  Explore Data
-                </Link>
-              </div>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
+                Full Report Coming Soon
+              </span>
+              <Link
+                href="/data"
+                className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+              >
+                Explore Data
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
       {/* Sponsors & Partners Bar */}
-      <section className="border-b border-border bg-white py-8">
+      <section id="partners" className="border-b border-border bg-white py-8">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-0 md:grid-cols-2">
             <div className="flex justify-center py-4 md:border-r md:border-border md:px-8">
               <div className="group flex items-center gap-4 opacity-80 transition-opacity hover:opacity-100">
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Main Sponsor</span>
-                <a 
-                  href="https://www.aisi.gov.uk/" 
-                  target="_blank" 
+                <a
+                  href="https://www.aisi.gov.uk/"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center transition-colors group-hover:text-accent"
                 >
@@ -188,9 +190,9 @@ export default function HomePage() {
             <div className="flex justify-center py-4 md:px-8">
               <div className="group flex items-center gap-4 opacity-80 transition-opacity hover:opacity-100">
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Data Provider</span>
-                <a 
-                  href="https://financialreports.eu/" 
-                  target="_blank" 
+                <a
+                  href="https://financialreports.eu/"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center transition-colors"
                 >
@@ -208,13 +210,20 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Primary chart */}
+      <section className="border-b border-border bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-12">
+          <HeroRiskChart series={heroSeries} />
+        </div>
+      </section>
+
       {/* Description */}
-      <section className="border-b border-border bg-secondary">
+      <section id="mission" className="border-b border-border bg-secondary">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="max-w-3xl">
             <span className="aisi-tag">Mission</span>
             <p className="text-xl leading-relaxed text-muted">
-              This project uses an NLP pipeline to analyse the annual reports of UK Critical National Infrastructure companies for AI-related disclosures. Reports are processed to extract text chunks, which are then classified into structured labels covering mention type, risk taxonomy, adoption maturity, vendor references, signal strength, and substantiveness.
+              AI Risk Observatory is an attempt to better understand patterns in the UK economy, especially across Critical National Infrastructure sectors, by applying an NLP pipeline to public-company annual reports. The goal is to strengthen societal resilience by identifying where AI-related risk, adoption, vendor dependence, and disclosure gaps are emerging across sectors. The main limitation is that this signal is necessarily retrospective: annual reports are shaped by legal, regulatory, and reporting incentives, so using them as an information source yields a limited but high-signal view of underlying risk and potential systemic problems.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <a
@@ -236,50 +245,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trend chart */}
-      <section className="border-b border-border bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="aisi-tag">Signals</span>
-            <h2 className="text-3xl font-bold uppercase tracking-tight text-primary sm:text-4xl">
-              Disclosure Trends Over Time
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-muted">
-              The rotating chart tracks how AI risk mentions, LLM adoption, and cybersecurity disclosures shift across the reporting period.
-            </p>
-          </div>
-          <div className="mt-12 flex justify-center">
-            <div className="border-l-4 border-accent pl-6">
-              <HeroRiskChart series={heroSeries} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Navigation cards */}
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="grid gap-12 sm:grid-cols-2">
-          <div className="group border-t-4 border-primary pt-8">
-            <span className="aisi-tag">Explore</span>
-            <Link href="/data" className="block">
-              <h2 className="text-3xl font-bold uppercase tracking-tight group-hover:text-accent transition-colors">
-                Data Dashboard &rarr;
-              </h2>
+      {/* Open data CTA */}
+      <section id="explore" className="border-b border-border bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-16">
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
+            <p className="text-sm text-muted">Browse the full dataset.</p>
+            <Link
+              href="/data"
+              className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary transition-colors hover:bg-secondary"
+            >
+              Open Data Dashboard
+              <span aria-hidden="true">&rarr;</span>
             </Link>
-            <p className="mt-4 text-muted">
-              Interact with charts and heatmaps covering AI risk categories, adoption types, vendor references, and disclosure blind spots across sectors and years.
-            </p>
-          </div>
-          <div className="group border-t-4 border-primary pt-8">
-            <span className="aisi-tag">Process</span>
-            <Link href="/about" className="block">
-              <h2 className="text-3xl font-bold uppercase tracking-tight group-hover:text-accent transition-colors">
-                Methodology &rarr;
-              </h2>
-            </Link>
-            <p className="mt-4 text-muted">
-              Learn how the pipeline works — from keyword extraction and chunk classification to the taxonomies behind the data.
-            </p>
           </div>
         </div>
       </section>

@@ -99,13 +99,13 @@ export default function AboutPage() {
           This page describes the dataset and explains, in plain language, how we turn annual-report text into the dashboard metrics.
         </p>
         <div className="mt-8">
-          <span className="inline-flex items-center gap-2 border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
+          <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
             Download Coming Soon
           </span>
         </div>
 
         <div className="mt-20 space-y-24">
-          <section className="grid gap-12 lg:grid-cols-3">
+          <section id="dataset" className="grid gap-12 lg:grid-cols-3">
             <div className="lg:col-span-1">
               <span className="aisi-tag">01</span>
               <h2 className="aisi-h2 uppercase">Dataset</h2>
@@ -123,7 +123,7 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="border-y border-border bg-secondary -mx-6 px-6 py-20">
+          <section id="pipeline" className="border-y border-border bg-secondary -mx-6 px-6 py-20">
             <div className="mx-auto max-w-7xl">
               <div className="mb-12 max-w-3xl">
                 <span className="aisi-tag">Pipeline</span>
@@ -132,7 +132,7 @@ export default function AboutPage() {
                   This represents a complete view of our corpus and how each document moves through our classification pipeline.
                 </p>
               </div>
-              <div className="bg-white p-8">
+              <div className="rounded-lg bg-white p-8">
                 <ReportClassificationSankeyShell flow={data.reportClassificationFlow} />
               </div>
               <div className="mt-12">
@@ -148,12 +148,12 @@ export default function AboutPage() {
           </section>
 
           {data.exampleChunks.length > 0 && (
-            <div className="-mx-6">
+            <section id="examples" className="-mx-6">
               <ExampleBrowser exampleChunks={data.exampleChunks} />
-            </div>
+            </section>
           )}
 
-          <section className="grid gap-12 lg:grid-cols-3">
+          <section id="taxonomies" className="grid gap-12 lg:grid-cols-3">
             <div className="lg:col-span-1">
               <span className="aisi-tag">02</span>
               <h2 className="aisi-h2 uppercase">Taxonomies</h2>
@@ -163,7 +163,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Mention Types</h3>
                 <div className="grid gap-4">
                   {mentionTypeTaxonomy.map(item => (
-                    <div key={item.label} className="bg-secondary p-6">
+                    <div key={item.label} className="rounded bg-secondary p-6">
                       <span className="aisi-pill pill-slate mb-2">{item.label}</span>
                       <p className="text-muted text-sm">{item.definition}</p>
                     </div>
@@ -175,7 +175,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Adoption Taxonomy</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {adoptionTaxonomy.map(item => (
-                    <div key={item.label} className="bg-secondary p-6">
+                    <div key={item.label} className="rounded bg-secondary p-6">
                       <span className="aisi-pill pill-sky mb-2">{item.label}</span>
                       <p className="text-muted text-sm">{item.definition}</p>
                     </div>
@@ -187,7 +187,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Risk Taxonomy</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {riskTaxonomy.map(item => (
-                    <div key={item.label} className="border border-border p-6">
+                    <div key={item.label} className="rounded border border-border p-6">
                       <span className="aisi-pill pill-red mb-2">{item.label}</span>
                       <p className="text-muted text-[13px]">{item.definition}</p>
                     </div>
@@ -199,7 +199,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Vendor Taxonomy</h3>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {vendorTaxonomy.map(item => (
-                    <div key={item.label} className="border border-border p-4">
+                    <div key={item.label} className="rounded border border-border p-4">
                       <span className="aisi-pill pill-teal mb-2">{item.label}</span>
                       <p className="text-muted text-[12px]">{item.definition}</p>
                     </div>
@@ -211,7 +211,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-6">Substantiveness</h3>
                 <div className="grid gap-4 sm:grid-cols-3">
                   {substantivenessLevels.map(item => (
-                    <div key={item.label} className="border border-border p-4">
+                    <div key={item.label} className="rounded border border-border p-4">
                       <span className="aisi-pill pill-amber mb-2">{item.label}</span>
                       <p className="text-muted text-[13px]">{item.definition}</p>
                     </div>
@@ -221,7 +221,7 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="grid gap-12 lg:grid-cols-3">
+          <section id="quality-controls" className="grid gap-12 lg:grid-cols-3">
             <div className="lg:col-span-1">
               <span className="aisi-tag">03</span>
               <h2 className="aisi-h2 uppercase">Quality Controls</h2>
@@ -248,13 +248,13 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="border-t border-border pt-20">
+          <section id="baseline-analysis" className="border-t border-border pt-20">
             <div className="mb-12">
               <span className="aisi-tag">Summary</span>
               <h2 className="aisi-h2 uppercase">Baseline Analysis</h2>
             </div>
-            <div className="bg-secondary p-8">
-              <MentionTypesChart 
+            <div className="rounded-lg bg-secondary p-8">
+              <MentionTypesChart
                 data={data.datasets.perReport.mentionTrend}
                 stackKeys={data.labels.mentionTypes}
               />

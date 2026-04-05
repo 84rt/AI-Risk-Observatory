@@ -30,6 +30,7 @@ data/annotations/
 *.xhtml
 !data/golden_set/**/*.jsonl
 !dashboard/data/**/*.jsonl
+dashboard/data/annotations.jsonl
 
 # sensitive info
 /context
