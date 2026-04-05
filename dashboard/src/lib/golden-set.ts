@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { resolveIsicSectionFromCode } from '@/lib/isic';
+import { resolveIsicSectionFromCode } from './isic.ts';
 
 type GoldenAnnotation = {
   annotation_id: string;
@@ -157,10 +157,16 @@ export type ExampleChunk = {
   vendorTags: string[];
 };
 
-const ANNOTATIONS_PATH = path.join(
+export const ANNOTATIONS_PATH = path.join(
   process.cwd(),
   'data',
   'annotations.jsonl'
+);
+
+export const PRECOMPUTED_DASHBOARD_DATA_PATH = path.join(
+  process.cwd(),
+  'data',
+  'dashboard-data.json'
 );
 
 const COMPANIES_PATH = path.join(
@@ -174,6 +180,22 @@ const DOCUMENT_MONTHS_PATH = path.join(
   'data',
   'document_months.json'
 );
+
+let cachedDashboardData: GoldenDashboardData | null = null;
+
+const shouldPreferPrecomputedDashboardData = () => {
+  if (process.env.DASHBOARD_FORCE_RAW === '1') return false;
+  if (!fs.existsSync(PRECOMPUTED_DASHBOARD_DATA_PATH)) return false;
+  if (!fs.existsSync(ANNOTATIONS_PATH)) return true;
+  return process.env.NODE_ENV === 'production';
+};
+
+const loadPrecomputedDashboardData = (): GoldenDashboardData | null => {
+  if (!fs.existsSync(PRECOMPUTED_DASHBOARD_DATA_PATH)) return null;
+  const content = fs.readFileSync(PRECOMPUTED_DASHBOARD_DATA_PATH, 'utf8').trim();
+  if (!content) return null;
+  return JSON.parse(content) as GoldenDashboardData;
+};
 
 const loadDocumentMonths = (): Map<string, string> => {
   if (!fs.existsSync(DOCUMENT_MONTHS_PATH)) return new Map();
@@ -1551,7 +1573,7 @@ const buildDataset = (
   };
 };
 
-export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
+export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
   const {
     cniSectorMap,
     isicSectorMap,
@@ -1619,4 +1641,20 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
     exampleChunks,
     byMarketSegment,
   };
+};
+
+export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
+  if (cachedDashboardData) return cachedDashboardData;
+
+  if (shouldPreferPrecomputedDashboardData()) {
+    const precomputedData = loadPrecomputedDashboardData();
+    if (precomputedData) {
+      cachedDashboardData = precomputedData;
+      return precomputedData;
+    }
+  }
+
+  const rawData = buildGoldenSetDashboardDataFromRaw();
+  cachedDashboardData = rawData;
+  return rawData;
 };

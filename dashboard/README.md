@@ -1,4 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) dashboard for the AI Risk Observatory project.
+
+## Data workflow
+
+The deployed dashboard reads a precomputed artifact at `data/dashboard-data.json`.
+
+To refresh the local dashboard data from the raw annotation files and regenerate the deployable artifact:
+
+```bash
+npm run sync:data
+```
+
+If the raw files are already present in `data/`, you can regenerate only the deployable artifact with:
+
+```bash
+npm run build:data
+```
 
 ## Getting Started
 

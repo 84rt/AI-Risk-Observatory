@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:data": "./scripts/sync-dashboard-data.sh"
+    "sync:data": "./scripts/sync-dashboard-data.sh",
+    "build:data": "node ./scripts/build-dashboard-data.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

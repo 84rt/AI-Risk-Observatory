@@ -2212,7 +2212,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     content: (
       <div className="space-y-3 text-sm leading-relaxed text-slate-600">
         <p>
-          Export the current visualization as CSV, or download the full dashboard annotations dataset for offline use.
+          Export the current visualization as CSV, or download the data bundle used to render this deployment for offline use.
         </p>
         <div className="flex flex-wrap gap-3">
           <button
