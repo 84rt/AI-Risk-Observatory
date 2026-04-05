@@ -262,11 +262,21 @@ const parseCsvRow = (line: string): string[] => {
   return cells;
 };
 
-const parseCompanySectors = () => {
+const parseCompanySectors = (): {
+  cniSectorMap: Map<string, string>;
+  isicSectorMap: Map<string, string>;
+  isicSectorParentMap: Map<string, string>;
+  marketSegmentMap: Map<string, string>;
+  cniSectors: string[];
+  isicSectors: string[];
+  companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[];
+  reportUniverseRows: ReportUniverseRow[];
+} => {
   if (!fs.existsSync(COMPANIES_PATH)) {
     return {
       cniSectorMap: new Map<string, string>(),
       isicSectorMap: new Map<string, string>(),
+      isicSectorParentMap: new Map<string, string>(),
       marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],

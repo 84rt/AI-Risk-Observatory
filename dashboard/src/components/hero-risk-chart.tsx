@@ -225,13 +225,14 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
 
                     const endpointLabel = getEndpointLabel(item.label);
                     const isCyberLabel = endpointLabel === 'AI as a cybersecurity threat';
-                    const labelX = x + 6;
+                    const labelX = Number(x) + 6;
+                    const labelY = Number(y) + endpointLabelOffsets[index];
 
                     return (
                       <g>
                         <text
                           x={labelX}
-                          y={y + endpointLabelOffsets[index]}
+                          y={labelY}
                           fill={item.color}
                           fontSize={11}
                           fontWeight={700}
