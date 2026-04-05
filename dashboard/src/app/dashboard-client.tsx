@@ -460,6 +460,30 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
   const [shareButtonLabel, setShareButtonLabel] = useState('Share');
   const [copiedReferenceKey, setCopiedReferenceKey] = useState<string | null>(null);
+  const defaultYearRange = {
+    start: 0,
+    end: Math.max(data.years.length - 1, 0),
+  };
+
+  const resetDashboardSettings = () => {
+    setDatasetKey('perReport');
+    setTrendTimeAxis('year');
+    setRiskFilter('all');
+    setAdoptionFilter('all');
+    setRiskSectorView('cni');
+    setAdoptionSectorView('cni');
+    setVendorSectorView('cni');
+    setVendorFilter('all');
+    setSignalQualityMode('explicitness');
+    setExplicitnessSignalFilter('risk_signal');
+    setBlindSpotFilter('all');
+    setBlindSpotHeatmapSelection('no_ai_mention');
+    setMetricMode('pct_reports');
+    setMarketSegmentFilter('all');
+    setExpandedIsicGroups([]);
+    setChartDisplayType('bar');
+    setYearRangeIndices(defaultYearRange);
+  };
 
   useEffect(() => {
     const syncViewFromHash = () => {
@@ -499,6 +523,68 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const isReportShareMode = effectiveMetricMode === 'pct_reports';
   const availableYears = activeData.years;
   const maxYearIndex = Math.max(availableYears.length - 1, 0);
+  const fullDatasetYearSpan = data.years.length > 0
+    ? `${data.years[0]} to ${data.years[data.years.length - 1]}`
+    : 'the full available period';
+
+  const datasetSummaryByView = useMemo(() => {
+    const totalReports = data.datasets.perReport.blindSpotTrend.reduce(
+      (sum, row) => sum + (Number(row.total_reports) || 0),
+      0
+    );
+    const riskMentionReports = data.datasets.perReport.blindSpotTrend.reduce(
+      (sum, row) => sum + (Number(row.ai_risk_mention) || 0),
+      0
+    );
+    const excerptRiskMentions = data.datasets.perChunk.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.risk) || 0),
+      0
+    );
+    const adoptionMentionReports = data.datasets.perReport.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.adoption) || 0),
+      0
+    );
+    const excerptAdoptionMentions = data.datasets.perChunk.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.adoption) || 0),
+      0
+    );
+    const vendorMentionReports = data.datasets.perReport.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.vendor) || 0),
+      0
+    );
+    const excerptVendorMentions = data.datasets.perChunk.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.vendor) || 0),
+      0
+    );
+    const noAiMention = data.datasets.perReport.blindSpotTrend.reduce(
+      (sum, row) => sum + (Number(row.no_ai_mention) || 0),
+      0
+    );
+    const noAiRiskMention = data.datasets.perReport.blindSpotTrend.reduce(
+      (sum, row) => sum + (Number(row.no_ai_risk_mention) || 0),
+      0
+    );
+    const riskSignalTotal = data.datasets.perReport.riskSignalHeatmap.reduce(
+      (sum, row) => sum + (Number(row.value) || 0),
+      0
+    );
+    const adoptionSignalTotal = data.datasets.perReport.adoptionSignalHeatmap.reduce(
+      (sum, row) => sum + (Number(row.value) || 0),
+      0
+    );
+    const vendorSignalTotal = data.datasets.perReport.vendorSignalHeatmap.reduce(
+      (sum, row) => sum + (Number(row.value) || 0),
+      0
+    );
+
+    return {
+      1: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(riskMentionReports)} mention AI risk across ${formatNumber(excerptRiskMentions)} tagged passages.`,
+      2: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(adoptionMentionReports)} mention AI adoption across ${formatNumber(excerptAdoptionMentions)} tagged passages.`,
+      3: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(vendorMentionReports)} name AI vendors across ${formatNumber(excerptVendorMentions)} tagged passages.`,
+      4: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, the dataset records ${formatNumber(riskSignalTotal)} risk, ${formatNumber(adoptionSignalTotal)} adoption, and ${formatNumber(vendorSignalTotal)} vendor signal labels.`,
+      5: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(noAiMention)} contain no AI mention and ${formatNumber(noAiRiskMention)} contain no AI risk disclosure.`,
+    } as Record<number, string>;
+  }, [data, fullDatasetYearSpan]);
 
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const vendorStackKeys = useMemo(
@@ -1760,16 +1846,20 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </div>
   );
 
-  const metricModeToggle = canShowReportShare ? (
+  const metricModeToggle = (
     <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
-        onClick={() => setMetricMode('pct_reports')}
+        onClick={() => {
+          if (!canShowReportShare) return;
+          setMetricMode('pct_reports');
+        }}
+        disabled={!canShowReportShare}
         className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
           effectiveMetricMode === 'pct_reports'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
-        }`}
+        } ${!canShowReportShare ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
       >
         % of Reports
       </button>
@@ -1785,7 +1875,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         Count
       </button>
     </div>
-  ) : null;
+  );
 
   const showVisualizationToggle = activeView !== 4;
   const canUseLineChart = visualizationMode === 'chart' && activeView !== 4 && trendTimeAxis === 'year';
@@ -1843,44 +1933,77 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     </button>
   );
 
+  const renderSettingsSectionHeading = (
+    title: string,
+    tooltip?: ReactNode
+  ) => (
+    <div className="flex items-start gap-1.5">
+      <p className="text-sm font-semibold leading-tight text-primary">{title}</p>
+      {tooltip ? <InfoTooltip content={tooltip} /> : null}
+    </div>
+  );
+
   const renderSettingsPanel = () => (
-    <div className="overflow-hidden rounded border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
-        <button
-          type="button"
-          onClick={() => setIsSettingsOpen(false)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-muted-foreground transition hover:bg-secondary hover:text-primary"
-          aria-label="Collapse settings panel"
-          title="Collapse settings"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
-            <path
-              d="M7.5 6L12 10L7.5 14"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={resetDashboardSettings}
+            className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-muted-foreground transition hover:bg-secondary hover:text-primary"
+            aria-label="Reset settings"
+            title="Reset settings"
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+              <path
+                d="M16 10a6 6 0 1 1-1.76-4.24"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M16 4.5v3.5h-3.5"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(false)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-muted-foreground transition hover:bg-secondary hover:text-primary"
+            aria-label="Collapse settings panel"
+            title="Collapse settings"
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+              <path
+                d="M7.5 6L12 10L7.5 14"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div className="p-5 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-5">
-        {activeView !== 5 && activeView !== 4 && (
+      <div className="p-5 [&>*+*]:mt-6">
+        {visualizationMode === 'chart' && activeView !== 4 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Dataset</p>
-              <InfoTooltip content="Count by report (one annual filing = one data point) or by excerpt (each AI mention counts separately). Per Report is the default and avoids double-counting a single filing." />
-            </div>
-            {datasetToggle}
+            {renderSettingsSectionHeading(
+              'Chart Style',
+              'Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line requires Year axis and is disabled otherwise.'
+            )}
+            {chartTypeToggle}
           </div>
         )}
 
         <div className="space-y-3">
-          <div className="flex items-center gap-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Coverage</p>
-            <InfoTooltip content="Filter the company universe to a specific market segment or index. Changing this resets the date range to show all available years." />
-          </div>
+          {renderSettingsSectionHeading('Market Segment')}
           <select
             value={marketSegmentFilter}
             onChange={event => {
@@ -1899,65 +2022,65 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         {visualizationMode === 'chart' && activeView !== 4 && (
           <>
             <div className="space-y-3">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Metric</p>
-                <InfoTooltip content="% of Reports shows what share of annual filings contain this label each year. Count shows the raw number of matching reports." />
-              </div>
+              {renderSettingsSectionHeading(
+                'Show Values As',
+                '% of Reports shows what share of annual filings contain this label in each period. Count shows the raw number of matching reports or excerpts.'
+              )}
               {metricModeToggle}
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Time Axis</p>
-                <InfoTooltip content="Group data by filing year (default) or by calendar month for finer-grained trends. Line chart requires Year axis." />
-              </div>
-              {trendTimeToggle}
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Chart Type</p>
-                <InfoTooltip content="Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line requires Year axis and is disabled otherwise." />
-              </div>
-              {chartTypeToggle}
             </div>
           </>
         )}
 
+        {activeView !== 5 && activeView !== 4 && effectiveMetricMode === 'count' && (
+          <div className="space-y-3">
+            {renderSettingsSectionHeading(
+              'Aggregate Data By',
+              'Count by report (one annual filing = one data point) or by excerpt (each tagged passage counts separately). Per Report is the default and avoids double-counting a single filing.'
+            )}
+            {datasetToggle}
+          </div>
+        )}
+
+        {visualizationMode === 'chart' && activeView !== 4 && (
+          <div className="space-y-3">
+            {renderSettingsSectionHeading('Group The Data By')}
+            {trendTimeToggle}
+          </div>
+        )}
+
         {visualizationMode === 'heatmap' && activeView === 1 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
-              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
-            </div>
+            {renderSettingsSectionHeading(
+              'Sector Classification',
+              'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+            )}
             {makeSectorToggle(riskSectorView, setRiskSectorView)}
           </div>
         )}
 
         {visualizationMode === 'heatmap' && activeView === 2 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
-              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
-            </div>
+            {renderSettingsSectionHeading(
+              'Sector Classification',
+              'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+            )}
             {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
           </div>
         )}
 
         {visualizationMode === 'heatmap' && activeView === 3 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Sector Taxonomy</p>
-              <InfoTooltip content="CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison." />
-            </div>
+            {renderSettingsSectionHeading(
+              'Sector Classification',
+              'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+            )}
             {makeSectorToggle(vendorSectorView, setVendorSectorView)}
           </div>
         )}
 
         {activeView === 1 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Risk Filter</p>
-              <InfoTooltip content="Isolate a single risk category. When active, all other categories are hidden and the chart focuses on the selected type only." />
-            </div>
+            {renderSettingsSectionHeading('Focus On One Risk Type')}
             <select
               id="risk-filter"
               value={riskFilter}
@@ -1982,10 +2105,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 2 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Adoption Filter</p>
-              <InfoTooltip content="Isolate a single adoption type (LLM, Non-LLM, or Agentic). When active, all other categories are hidden." />
-            </div>
+            {renderSettingsSectionHeading('Focus On One Adoption Type')}
             <select
               id="adoption-filter"
               value={adoptionFilter}
@@ -2010,10 +2130,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 3 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Vendor Filter</p>
-              <InfoTooltip content="Isolate a single AI vendor or provider. When active, only mentions of the selected vendor are shown." />
-            </div>
+            {renderSettingsSectionHeading('Focus On One Vendor')}
             <select
               id="vendor-filter"
               value={effectiveVendorFilter}
@@ -2038,17 +2155,17 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 4 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Quality View</p>
-              <InfoTooltip content="Explicitness measures how detailed and specific the AI language is (boilerplate → substantive). Confidence shows how certain the classifier was about each label." />
-            </div>
+            {renderSettingsSectionHeading(
+              'Disclosure Quality Measure',
+              'Signal strength tracks how directly the report states the label. Substantiveness tracks whether the language is boilerplate, moderate, or genuinely detailed.'
+            )}
             {signalQualityModeToggle}
             {signalQualityMode === 'explicitness' && (
-              <div className="space-y-3 border-t border-border pt-5">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Signal Metric</p>
-                  <InfoTooltip content="Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels." />
-                </div>
+              <div className="mt-5 space-y-3">
+                {renderSettingsSectionHeading(
+                  'Explicitness Summary',
+                  'Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels.'
+                )}
                 <select
                   id="signal-quality-metric"
                   value={explicitnessSignalFilter}
@@ -2066,10 +2183,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 5 && visualizationMode === 'chart' && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Blind Spot Filter</p>
-              <InfoTooltip content="Show all companies, only those with no AI mention at all, or only those that mention AI but include no risk disclosure." />
-            </div>
+            {renderSettingsSectionHeading('Focus On One Blind-Spot Type')}
             <select
               id="blind-spot-filter"
               value={blindSpotFilter}
@@ -2093,10 +2207,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
         {activeView === 5 && visualizationMode === 'heatmap' && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Heatmap View</p>
-              <InfoTooltip content="Switch between companies with no AI mention at all, or those that mention AI but have no associated risk disclosure." />
-            </div>
+            {renderSettingsSectionHeading('Blind-Spot Heatmap Mode')}
             {blindSpotHeatmapToggle}
           </div>
         )}
@@ -2701,11 +2812,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <span className="mr-3 inline-block h-6 w-1.5 bg-accent align-middle" />
               {view.heading}
             </h2>
-            <p className={`mt-3 max-w-3xl text-sm leading-relaxed text-muted sm:text-base ${
-              activeView === 5 ? 'xl:whitespace-nowrap' : ''
-            }`}>
-              {view.description}
-            </p>
+            <div className="mt-3 max-w-full overflow-x-auto">
+              <p className="inline-block min-w-max whitespace-nowrap text-sm leading-relaxed text-muted sm:text-base">
+                {datasetSummaryByView[activeView] ?? view.description}
+              </p>
+            </div>
           </div>
 
           <div className="mt-8 flex items-start justify-between gap-3 overflow-x-auto">
@@ -2766,8 +2877,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         <div
           className={`mt-8 grid gap-8 xl:items-start ${
             isSettingsOpen
-              ? 'xl:grid-cols-[minmax(0,1fr)_280px]'
-              : 'xl:grid-cols-1'
+              ? 'min-[960px]:grid-cols-[minmax(0,1fr)_280px]'
+              : 'min-[960px]:grid-cols-1'
           }`}
         >
           <div className="min-w-0">
@@ -2862,7 +2973,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
-            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
               <p>
@@ -2987,7 +3098,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
-            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
@@ -3111,7 +3222,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
-            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
@@ -3172,7 +3283,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               {visualizationActions}
             </div>
 
-            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
@@ -3274,7 +3385,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               </div>
             )}
 
-            {isSettingsOpen && <div className="xl:hidden">{renderSettingsPanel()}</div>}
+            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
             <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
               <p>
@@ -3304,7 +3415,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         )}
           </div>
 
-          {isSettingsOpen && <aside className="hidden self-start xl:block">{renderSettingsPanel()}</aside>}
+          {isSettingsOpen && <aside className="hidden self-start min-[960px]:block">{renderSettingsPanel()}</aside>}
         </div>
       </main>
     </div>
