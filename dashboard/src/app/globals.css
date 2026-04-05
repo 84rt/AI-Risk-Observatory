@@ -64,6 +64,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
 /* Custom Utilities for AISI style */
 @layer utilities {
   .aisi-container {

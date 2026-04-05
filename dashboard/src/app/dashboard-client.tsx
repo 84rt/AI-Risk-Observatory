@@ -16,7 +16,7 @@ type View = {
   description: string;
 };
 
-type RiskInfoPanelKey = 'definitions' | 'method' | 'cite' | 'download';
+type RiskInfoPanelKey = 'definitions' | 'cite' | 'download';
 
 type RiskInfoPanelItem = {
   value: RiskInfoPanelKey;
@@ -442,11 +442,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>('cni');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
   const [infoPanelSelections, setInfoPanelSelections] = useState<Record<number, RiskInfoPanelKey>>({
-    1: 'definitions',
-    2: 'definitions',
-    3: 'definitions',
-    4: 'definitions',
-    5: 'definitions',
+    1: 'cite',
+    2: 'cite',
+    3: 'cite',
+    4: 'cite',
+    5: 'cite',
   });
   const [signalQualityMode, setSignalQualityMode] = useState<SignalQualityMode>('explicitness');
   const [explicitnessSignalFilter, setExplicitnessSignalFilter] = useState<ExplicitnessSignalFilter>('risk_signal');
@@ -1147,168 +1147,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     [reportBaselineData.years, selectedStartYear, selectedEndYear]
   );
 
-  const blindSpotTotalsInRange = useMemo(
-    () =>
-      blindSpotTrendInRange.reduce(
-        (acc, row) => {
-          acc.totalReports += Number(row.total_reports) || 0;
-          acc.noAiMention += Number(row.no_ai_mention) || 0;
-          acc.noAiRiskMention += Number(row.no_ai_risk_mention) || 0;
-          return acc;
-        },
-        { totalReports: 0, noAiMention: 0, noAiRiskMention: 0 }
-      ),
-    [blindSpotTrendInRange]
-  );
-
-  const blindSpotOverviewStats = useMemo(() => {
-    const { totalReports, noAiMention, noAiRiskMention } = blindSpotTotalsInRange;
-    const safePct = (value: number) =>
-      totalReports > 0 ? (value / totalReports) * 100 : 0;
-
-    return {
-      totalReports,
-      noAiMention,
-      noAiRiskMention,
-      noAiMentionPct: safePct(noAiMention),
-      noAiRiskMentionPct: safePct(noAiRiskMention),
-    };
-  }, [blindSpotTotalsInRange]);
-
-  const riskOverviewStats = useMemo(() => {
-    const reportTotals = blindSpotTrendInRange.reduce(
-      (acc, row) => {
-        acc.totalReports += Number(row.total_reports) || 0;
-        acc.riskMentionReports += Number(row.ai_risk_mention) || 0;
-        return acc;
-      },
-      { totalReports: 0, riskMentionReports: 0 }
-    );
-
-    const excerptRiskMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
-      const year = Number(row.year);
-      if (year < selectedStartYear || year > selectedEndYear) return sum;
-      return sum + (Number(row.risk) || 0);
-    }, 0);
-
-    return {
-      totalReports: reportTotals.totalReports,
-      riskMentionReports: reportTotals.riskMentionReports,
-      excerptRiskMentions,
-      selectedYearCount: filteredYears.length,
-    };
-  }, [
-    blindSpotTrendInRange,
-    resolvedDatasets.perChunk.mentionTrend,
-    selectedStartYear,
-    selectedEndYear,
-    filteredYears.length,
-  ]);
-
-  const adoptionOverviewStats = useMemo(() => {
-    const totalReports = blindSpotTrendInRange.reduce(
-      (sum, row) => sum + (Number(row.total_reports) || 0),
-      0
-    );
-
-    const adoptionMentionReports = reportBaselineData.mentionTrend.reduce((sum, row) => {
-      const year = Number(row.year);
-      if (year < selectedStartYear || year > selectedEndYear) return sum;
-      return sum + (Number(row.adoption) || 0);
-    }, 0);
-
-    const excerptAdoptionMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
-      const year = Number(row.year);
-      if (year < selectedStartYear || year > selectedEndYear) return sum;
-      return sum + (Number(row.adoption) || 0);
-    }, 0);
-
-    return {
-      totalReports,
-      adoptionMentionReports,
-      excerptAdoptionMentions,
-      selectedYearCount: filteredYears.length,
-    };
-  }, [
-    blindSpotTrendInRange,
-    reportBaselineData.mentionTrend,
-    resolvedDatasets.perChunk.mentionTrend,
-    selectedStartYear,
-    selectedEndYear,
-    filteredYears.length,
-  ]);
-
-  const vendorOverviewStats = useMemo(() => {
-    const totalReports = blindSpotTrendInRange.reduce(
-      (sum, row) => sum + (Number(row.total_reports) || 0),
-      0
-    );
-
-    const vendorMentionReports = reportBaselineData.mentionTrend.reduce((sum, row) => {
-      const year = Number(row.year);
-      if (year < selectedStartYear || year > selectedEndYear) return sum;
-      return sum + (Number(row.vendor) || 0);
-    }, 0);
-
-    const excerptVendorMentions = resolvedDatasets.perChunk.mentionTrend.reduce((sum, row) => {
-      const year = Number(row.year);
-      if (year < selectedStartYear || year > selectedEndYear) return sum;
-      return sum + (Number(row.vendor) || 0);
-    }, 0);
-
-    return {
-      totalReports,
-      vendorMentionReports,
-      excerptVendorMentions,
-      selectedYearCount: filteredYears.length,
-    };
-  }, [
-    blindSpotTrendInRange,
-    reportBaselineData.mentionTrend,
-    resolvedDatasets.perChunk.mentionTrend,
-    selectedStartYear,
-    selectedEndYear,
-    filteredYears.length,
-  ]);
-
-  const signalQualityOverviewStats = useMemo(() => {
-    const sumValues = (rows: { value: number }[]) =>
-      rows.reduce((sum, row) => sum + (Number(row.value) || 0), 0);
-
-    const totalReports = blindSpotTrendInRange.reduce(
-      (sum, row) => sum + (Number(row.total_reports) || 0),
-      0
-    );
-
-    const riskSignalTotal = sumValues(riskSignalHeatmapInRange);
-    const adoptionSignalTotal = sumValues(adoptionSignalHeatmapInRange);
-    const vendorSignalTotal = sumValues(vendorSignalHeatmapInRange);
-    const substantivenessTotal = sumValues(substantivenessHeatmapInRange);
-
-    const explicitRisk = riskSignalHeatmapInRange
-      .filter(row => row.y === '3-explicit')
-      .reduce((sum, row) => sum + (Number(row.value) || 0), 0);
-    const substantiveRisk = substantivenessHeatmapInRange
-      .filter(row => row.y === 'substantive')
-      .reduce((sum, row) => sum + (Number(row.value) || 0), 0);
-
-    return {
-      totalReports,
-      riskSignalTotal,
-      adoptionSignalTotal,
-      vendorSignalTotal,
-      substantivenessTotal,
-      explicitRisk,
-      substantiveRisk,
-    };
-  }, [
-    blindSpotTrendInRange,
-    riskSignalHeatmapInRange,
-    adoptionSignalHeatmapInRange,
-    vendorSignalHeatmapInRange,
-    substantivenessHeatmapInRange,
-  ]);
-
   const riskHeatmapYLabels = useMemo(
     () =>
       riskSectorView === 'cni'
@@ -1878,6 +1716,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const showVisualizationToggle = activeView !== 4;
+  const showSignalQualityToggle = activeView === 4;
   const canUseLineChart = visualizationMode === 'chart' && activeView !== 4 && trendTimeAxis === 'year';
   const activeChartDisplayType = canUseLineChart ? chartDisplayType : 'bar';
 
@@ -2153,31 +1992,22 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           </div>
         )}
 
-        {activeView === 4 && (
+        {activeView === 4 && signalQualityMode === 'explicitness' && (
           <div className="space-y-3">
             {renderSettingsSectionHeading(
-              'Disclosure Quality Measure',
-              'Signal strength tracks how directly the report states the label. Substantiveness tracks whether the language is boilerplate, moderate, or genuinely detailed.'
+              'Explicitness Summary',
+              'Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels.'
             )}
-            {signalQualityModeToggle}
-            {signalQualityMode === 'explicitness' && (
-              <div className="mt-5 space-y-3">
-                {renderSettingsSectionHeading(
-                  'Explicitness Summary',
-                  'Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels.'
-                )}
-                <select
-                  id="signal-quality-metric"
-                  value={explicitnessSignalFilter}
-                  onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
-                  className="w-full aisi-select"
-                >
-                  {explicitnessSignalOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <select
+              id="signal-quality-metric"
+              value={explicitnessSignalFilter}
+              onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
+              className="w-full aisi-select"
+            >
+              {explicitnessSignalOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -2352,6 +2182,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   };
 
   const riskInfoPanelItems: RiskInfoPanelItem[] = [
+    sharedCitationItem,
     {
       value: 'definitions',
       label: 'Definitions',
@@ -2372,28 +2203,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </>
       ),
     },
-    {
-      value: 'method',
-      label: 'Method',
-      title: 'How Risk Categories Are Assigned',
-      content: (
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            Risk categories are assigned by an LLM-assisted classifier using a structured AI-risk taxonomy. Labels are
-            applied at excerpt level and then rolled up into report-level and sector-level views.
-          </p>
-          <p>
-            Categories are not mutually exclusive. One disclosure can be counted in multiple risk categories if it
-            covers more than one mechanism of risk.
-          </p>
-        </div>
-      ),
-    },
-    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const adoptionInfoPanelItems: RiskInfoPanelItem[] = [
+    sharedCitationItem,
     {
       value: 'definitions',
       label: 'Definitions',
@@ -2413,28 +2227,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </>
       ),
     },
-    {
-      value: 'method',
-      label: 'Method',
-      title: 'How Adoption Mentions Are Classified',
-      content: (
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            The adoption view groups disclosures by implementation maturity: non-LLM AI, LLM-based use, and more
-            agentic systems. Classification is applied at excerpt level and can retain more than one adoption tag.
-          </p>
-          <p>
-            The chart view shows how often those adoption patterns appear over time; the heatmap shows where they are
-            concentrated across sectors.
-          </p>
-        </div>
-      ),
-    },
-    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const vendorInfoPanelItems: RiskInfoPanelItem[] = [
+    sharedCitationItem,
     {
       value: 'definitions',
       label: 'Definitions',
@@ -2454,28 +2251,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </>
       ),
     },
-    {
-      value: 'method',
-      label: 'Method',
-      title: 'How Vendor Mentions Are Tagged',
-      content: (
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            Vendor tags are assigned when a disclosure explicitly names a provider or clearly indicates in-house AI
-            development. A single excerpt can carry multiple vendor tags if more than one provider is referenced.
-          </p>
-          <p>
-            The trend view surfaces changes in provider mention frequency over time, while the heatmap shows which
-            sectors most often cite each provider.
-          </p>
-        </div>
-      ),
-    },
-    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const signalQualityInfoPanelItems: RiskInfoPanelItem[] = [
+    sharedCitationItem,
     {
       value: 'definitions',
       label: 'Definitions',
@@ -2495,28 +2275,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </>
       ),
     },
-    {
-      value: 'method',
-      label: 'Method',
-      title: 'How Quality Metrics Are Calculated',
-      content: (
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            Signal-strength views count label-level outcomes and keep the strongest available evidence tier for each
-            classified label. Substantiveness is a report-level quality assessment for AI-risk disclosure.
-          </p>
-          <p>
-            The settings panel lets you switch between risk, adoption, and vendor signal strength, or move to
-            substantiveness as a separate quality lens.
-          </p>
-        </div>
-      ),
-    },
-    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const blindSpotInfoPanelItems: RiskInfoPanelItem[] = [
+    sharedCitationItem,
     {
       value: 'definitions',
       label: 'Definitions',
@@ -2537,24 +2300,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </>
       ),
     },
-    {
-      value: 'method',
-      label: 'Method',
-      title: 'How Blind Spots Are Computed',
-      content: (
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            Blind spots are measured on a report-year basis. This makes it possible to distinguish complete AI silence
-            from cases where AI is discussed but AI risk is not.
-          </p>
-          <p>
-            In chart mode, the series show change over time. In heatmap mode, the same absence patterns are mapped
-            across sectors and years.
-          </p>
-        </div>
-      ),
-    },
-    sharedCitationItem,
     sharedDownloadItem,
   ];
 
@@ -2569,7 +2314,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ? signalQualityInfoPanelItems
             : blindSpotInfoPanelItems;
 
-  const selectedInfoPanelKey = infoPanelSelections[activeView] ?? 'definitions';
+  const selectedInfoPanelKey = infoPanelSelections[activeView] ?? 'cite';
   const selectedInfoPanel =
     activeInfoPanelItems.find(item => item.value === selectedInfoPanelKey) ?? activeInfoPanelItems[0];
 
@@ -2591,10 +2336,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     [activeView]: item.value,
                   }))
                 }
-                className={`flex items-center rounded border px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.14em] transition lg:w-full ${
+                className={`flex items-center rounded border px-3 py-2 text-left text-[10px] font-extrabold uppercase tracking-[0.14em] transition-colors lg:w-full ${
                   selectedInfoPanelKey === item.value
                     ? 'border-primary bg-primary text-white'
-                    : 'border-border bg-white text-muted-foreground hover:bg-secondary hover:text-primary'
+                    : 'border-border bg-secondary text-primary hover:bg-white'
                 }`}
               >
                 {item.label}
@@ -2778,17 +2523,76 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         <button
           type="button"
           onClick={handleDownloadVisualization}
-          className="inline-flex h-9 items-center justify-center rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
           title="Download current visualization data as CSV"
         >
+          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
+            <path
+              d="M10 3.5V11.5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M6.75 8.75L10 12L13.25 8.75"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M4 15.5H16"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
           Download
         </button>
         <button
           type="button"
           onClick={handleShareVisualization}
-          className="inline-flex h-9 items-center justify-center rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
           title="Share the current dashboard page"
         >
+          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
+            <path
+              d="M7 10L13 6.5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7 10L13 13.5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle
+              cx="5"
+              cy="10"
+              r="2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+            <circle
+              cx="15"
+              cy="5.5"
+              r="2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+            <circle
+              cx="15"
+              cy="14.5"
+              r="2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+          </svg>
           {shareButtonLabel}
         </button>
     </div>
@@ -2802,7 +2606,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             <div key={item.id} id={getViewHash(item.id)} />
           ))}
         </div>
-        <div className="border-b border-border pb-7">
+        <div className="pb-3">
           <div className="mb-5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             {dashboardUpdatedLabel}
           </div>
@@ -2830,10 +2634,10 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`rounded border px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    className={`rounded border px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest transition-colors ${
                       activeView === item.id
                         ? 'border-primary bg-primary text-white'
-                        : 'border-border bg-secondary text-muted-foreground hover:bg-white hover:text-primary'
+                        : 'border-border bg-secondary text-primary hover:bg-white'
                     }`}
                   >
                     {item.title}
@@ -2871,11 +2675,18 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                 </div>
               </div>
             )}
+
+            {showSignalQualityToggle && (
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden text-[9px] font-bold uppercase tracking-[0.2em] text-accent sm:block">Measure</span>
+                {signalQualityModeToggle}
+              </div>
+            )}
           </div>
         </div>
 
         <div
-          className={`mt-8 grid gap-8 xl:items-start ${
+          className={`mt-3 grid gap-8 xl:items-start ${
             isSettingsOpen
               ? 'min-[960px]:grid-cols-[minmax(0,1fr)_280px]'
               : 'min-[960px]:grid-cols-1'
@@ -2975,39 +2786,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
-            <div className="space-y-4 text-base leading-relaxed text-muted sm:text-lg font-medium">
-              <p>
-                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.riskMentionReports)}</span>{' '}
-                of the{' '}
-                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.totalReports)}</span>{' '}
-                annual reports examined between{' '}
-                <span className="font-bold text-primary">{riskSelectedYearSpan}</span>{' '}
-                include at least one AI risk disclosure, across{' '}
-                <span className="font-bold text-primary">{formatNumber(riskOverviewStats.excerptRiskMentions)}</span>{' '}
-                individual passages.
-              </p>
-              <p>
-                <span className="font-medium text-slate-800">Per Report</span> counts each company filing once —
-                useful for measuring how broadly a risk is disclosed across the market.{' '}
-                <span className="font-medium text-slate-800">Per Excerpt</span> counts every individual passage where
-                a risk from AI appears — useful for visualising the depth of emphasis companies place on that risk.
-              </p>
-              <div>
-                Use the date range slider below the visualization together with the settings panel to focus on a
-                specific time window, isolate a risk category, or switch the sector taxonomy between{' '}
-                <span className="font-medium text-slate-800">CNI</span> (Critical National Infrastructure) and{' '}
-                <span className="font-medium text-slate-800">ISIC</span> (international standard industry codes).
-                <InfoTooltip content="Sector classifications for companies that do not fall clearly within a CNI sector have been approximated using an LLM-assisted mapping process. Full details are available on the About page." />
-              </div>
-              <p>
-                The <span className="font-medium text-slate-800">risk trend chart</span> shows how often each risk
-                category has been mentioned, year by year. The <span className="font-medium text-slate-800">heatmap</span>{' '}
-                shows where those mentions concentrate across sectors. With all risk types selected, heatmap columns
-                represent risk categories; selecting a single category switches the columns to years, letting you track
-                how that risk has evolved within each sector over time.
-              </p>
-            </div>
-
             {infoPanelSection}
           </div>
         )}
@@ -3099,37 +2877,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             )}
 
             {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-              <p>
-                <span className="font-semibold text-slate-900">{formatNumber(adoptionOverviewStats.adoptionMentionReports)}</span>{' '}
-                of the{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(adoptionOverviewStats.totalReports)}</span>{' '}
-                annual reports examined between{' '}
-                <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>{' '}
-                include at least one AI adoption disclosure, across{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(adoptionOverviewStats.excerptAdoptionMentions)}</span>{' '}
-                individual passages.
-              </p>
-              <p>
-                <span className="font-medium text-slate-800">Per Report</span> counts whether each company-year filing
-                discloses AI adoption at least once.{' '}
-                <span className="font-medium text-slate-800">Per Excerpt</span> counts every individual passage classified
-                as adoption, giving a more granular view of how heavily companies discuss implementation.
-              </p>
-              <p>
-                Use the date range slider below the visualization and the settings panel to focus on a single adoption type (
-                <span className="font-medium text-slate-800">Non-LLM</span>,{' '}
-                <span className="font-medium text-slate-800">LLM</span>, or{' '}
-                <span className="font-medium text-slate-800">Agentic</span>). Selecting one type switches the heatmap
-                from a categorical view (adoption types) to a time view (years), so you can track how that adoption mode
-                evolves within each sector.
-              </p>
-              <p>
-                The trend chart highlights maturity shifts over time, while the heatmap shows where each adoption pattern
-                is concentrated across sectors.
-              </p>
-            </div>
 
             {infoPanelSection}
           </div>
@@ -3224,37 +2971,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
             {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
 
-            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-              <p>
-                Of the{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.totalReports)}</span>{' '}
-                annual reports examined across{' '}
-                <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>,{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.vendorMentionReports)}</span>{' '}
-                contain at least one AI vendor reference, spanning{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(vendorOverviewStats.excerptVendorMentions)}</span>{' '}
-                individual passages.
-              </p>
-              <p>
-                <span className="font-medium text-slate-800">Per Report</span> shows how many filings mention a given
-                vendor at least once; <span className="font-medium text-slate-800">Per Excerpt</span> shows the full
-                volume of vendor-tagged passages across all reports and therefore the depth of mention.
-              </p>
-              <p>
-                Use the settings panel to focus on one vendor tag (
-                <span className="font-medium text-slate-800">OpenAI</span>,{' '}
-                <span className="font-medium text-slate-800">Microsoft</span>,{' '}
-                <span className="font-medium text-slate-800">Google</span>,{' '}
-                <span className="font-medium text-slate-800">Internal</span>,{' '}
-                <span className="font-medium text-slate-800">Other</span>). Selecting one vendor switches the heatmap
-                from categorical columns (vendor tags) to yearly columns.
-              </p>
-              <p>
-                Read the trend chart for time patterns and the heatmap for sector concentration. Together they show both
-                which vendors are cited and where those dependencies appear most strongly.
-              </p>
-            </div>
-
             {infoPanelSection}
           </div>
         )}
@@ -3284,34 +3000,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             </div>
 
             {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-              <p>
-                This section evaluates disclosure quality, not just volume. Across{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.totalReports)}</span>{' '}
-                reports in <span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>, the dataset
-                contains <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.riskSignalTotal)}</span>{' '}
-                risk-signal labels, <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.adoptionSignalTotal)}</span>{' '}
-                adoption-signal labels, and <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.vendorSignalTotal)}</span>{' '}
-                vendor-signal labels.
-              </p>
-              <p>
-                Signal strength asks how explicitly a disclosure supports its classification: weak implicit, strong
-                implicit, or explicit. In the current window,{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.explicitRisk)}</span>{' '}
-                risk labels are scored as explicit.
-              </p>
-              <p>
-                Substantiveness is a separate quality lens for risk language, measuring whether disclosures are
-                boilerplate, moderate, or substantive. In this range,{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(signalQualityOverviewStats.substantiveRisk)}</span>{' '}
-                reports are classified as substantive.
-              </p>
-              <p>
-                Use the settings panel to switch between AI risk signal strength, AI adoption signal strength,
-                AI vendor signal strength, and risk substantiveness within the same view.
-              </p>
-            </div>
             {infoPanelSection}
           </div>
         )}
@@ -3386,29 +3074,6 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             )}
 
             {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            <div className="space-y-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-              <p>
-                In the selected period (<span className="font-semibold text-slate-900">{riskSelectedYearSpan}</span>),
-                the dataset includes <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.totalReports)}</span>{' '}
-                report-year filings. Of those,{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.noAiMention)}</span>{' '}
-                (<span className="font-semibold text-slate-900">{blindSpotOverviewStats.noAiMentionPct.toFixed(1)}%</span>)
-                contain no AI mention at all, and{' '}
-                <span className="font-semibold text-slate-900">{formatNumber(blindSpotOverviewStats.noAiRiskMention)}</span>{' '}
-                (<span className="font-semibold text-slate-900">{blindSpotOverviewStats.noAiRiskMentionPct.toFixed(1)}%</span>)
-                contain no AI risk mention.
-              </p>
-              <p>
-                This view helps distinguish two different gaps: complete AI silence vs. AI being discussed without any
-                associated risk disclosure.
-              </p>
-              <p>
-                Use the settings panel to focus the trend chart on one blind-spot type or switch the heatmap between
-                {' '}<span className="font-medium text-slate-800">No AI Mention</span> and{' '}
-                <span className="font-medium text-slate-800">No AI Risk Mention</span>.
-              </p>
-            </div>
 
             {infoPanelSection}
           </div>
