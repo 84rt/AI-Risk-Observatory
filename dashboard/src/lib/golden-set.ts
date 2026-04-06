@@ -226,7 +226,17 @@ const riskLabels = [
   'national_security',
 ];
 
-const vendorTags = ['openai', 'microsoft', 'google', 'internal', 'other', 'undisclosed'];
+const vendorTags = [
+  'openai',
+  'microsoft',
+  'google',
+  'amazon',
+  'meta',
+  'anthropic',
+  'internal',
+  'other',
+  'undisclosed',
+];
 
 const substantivenessBands = ['substantive', 'moderate', 'boilerplate'];
 const riskSignalLevels = ['3-explicit', '2-strong_implicit', '1-weak_implicit'];
@@ -1095,6 +1105,7 @@ const annotationsAsChunks = (
 };
 
 const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => {
+  const EXAMPLE_CHUNK_LIMIT = 3;
   const candidates = annotations.map(item => {
     const chunkId = item.chunk_id?.trim();
     if (!chunkId) return null;
@@ -1144,7 +1155,26 @@ const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => 
     return a.chunkId.localeCompare(b.chunkId, 'en');
   });
 
-  return sorted.slice(0, 5);
+  const selected: ExampleChunk[] = [];
+  const seenCompanies = new Set<string>();
+
+  sorted.forEach(chunk => {
+    if (selected.length >= EXAMPLE_CHUNK_LIMIT) return;
+    const companyKey = toKey(chunk.companyName);
+    if (seenCompanies.has(companyKey)) return;
+    selected.push(chunk);
+    seenCompanies.add(companyKey);
+  });
+
+  if (selected.length < EXAMPLE_CHUNK_LIMIT) {
+    sorted.forEach(chunk => {
+      if (selected.length >= EXAMPLE_CHUNK_LIMIT) return;
+      if (selected.some(selectedChunk => selectedChunk.chunkId === chunk.chunkId)) return;
+      selected.push(chunk);
+    });
+  }
+
+  return selected;
 };
 
 const initMonthSeries = (months: string[], keys: string[]) => {

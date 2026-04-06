@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 
 export function PageNav() {
   const pathname = usePathname();
+  const lastUpdated = '6 April 2026';
+  const version = 'v1.0.2';
 
   const links = [
     { href: '/', label: 'Home' },
@@ -46,13 +48,13 @@ export function PageNav() {
         </div>
         
         <div className="flex items-center">
-          <div className="inline-flex flex-col items-end rounded border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-accent shadow-sm">
-            <span className="text-accent">
-              Beta v1.0.0
-            </span>
-            <span className="text-[9px] tracking-[0.18em] text-accent/70">
-              Updated: 04.04.2026
-            </span>
+          <div className="text-right leading-tight">
+            <p className="text-[11px] text-muted-foreground">
+              Last updated on {lastUpdated}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {version}
+            </p>
           </div>
         </div>
       </div>

@@ -3,5 +3,5 @@ import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
 export default function DataPage() {
   const data = loadGoldenSetDashboardData();
-  return <DashboardClient data={data} />;
+  return <DashboardClient data={data} renderedAtIso={new Date().toISOString()} />;
 }

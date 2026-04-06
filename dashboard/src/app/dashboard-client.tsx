@@ -1,6 +1,7 @@
 'use client';
 
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { toPng } from 'html-to-image';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import { buildIsicSectorGroups, type HeatmapRowGroup } from '@/lib/isic';
 import type { GoldenDashboardData } from '@/lib/golden-set';
@@ -24,6 +25,9 @@ type RiskInfoPanelItem = {
   title: string;
   content: ReactNode;
 };
+
+const DEFAULT_VIEW_ID = 1;
+const DEFAULT_DASHBOARD_BASE_URL = 'https://www.riskobservatory.ai/data';
 
 const getViewHash = (viewId: number) => {
   switch (viewId) {
@@ -101,7 +105,10 @@ const adoptionColors: Record<string, string> = {
 const vendorColors: Record<string, string> = {
   openai: '#e63946',      // AISI red
   microsoft: '#3b82f6',   // blue-500
-  google: '#f59e0b',      // amber-500
+  google: '#16a34a',      // green-600
+  amazon: '#f59e0b',      // amber-500
+  meta: '#1e3a8a',        // blue-900
+  anthropic: '#d97706',   // amber-600
   internal: '#0b0c0c',    // near-black
   other: '#64748b',       // slate-500
   undisclosed: '#e2e8f0', // slate-200
@@ -191,8 +198,28 @@ const adoptionTypeDefinitions = [
 
 const vendorTagDefinitions = [
   {
-    label: 'OpenAI / Microsoft / Google',
-    definition: 'The provider is explicitly named in the source disclosure.',
+    label: 'OpenAI',
+    definition: 'OpenAI is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Microsoft',
+    definition: 'Microsoft is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Google',
+    definition: 'Google is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Amazon / AWS',
+    definition: 'Amazon or AWS is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Meta',
+    definition: 'Meta is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Anthropic',
+    definition: 'Anthropic is explicitly named in the source disclosure.',
   },
   {
     label: 'Internal',
@@ -225,6 +252,55 @@ const blindSpotDefinitions = [
     definition: 'AI may be mentioned, but no AI-risk disclosure is present.',
   },
 ];
+
+const formatAccessedOnLabel = (date: Date) =>
+  new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+
+const TrendChartIcon = ({ className = 'h-[18px] w-[18px]' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" className={className} fill="none" aria-hidden="true">
+    <path
+      d="M4.25 4.5V15.75H15.5"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 12.5L9 9.5L11.4 11L15 7.25"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="9" cy="9.5" r="1.1" fill="currentColor" />
+    <circle cx="11.4" cy="11" r="1.1" fill="currentColor" />
+    <circle cx="15" cy="7.25" r="1.1" fill="currentColor" />
+  </svg>
+);
+
+const SectorHeatmapIcon = ({ className = 'h-[18px] w-[18px]' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" className={className} fill="none" aria-hidden="true">
+    <rect x="4" y="4" width="5" height="5" rx="1" fill="currentColor" opacity="0.28" />
+    <rect x="11" y="4" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="4" y="11" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="11" y="11" width="5" height="5" rx="1" fill="currentColor" />
+  </svg>
+);
+
+const segmentedButtonClass = 'rounded-sm px-4 py-1.5 text-[11px] font-semibold tracking-normal normal-case transition';
+const segmentedButtonTallClass = 'rounded-sm px-4 py-2 text-[11px] font-semibold tracking-normal normal-case transition';
+const tabButtonClass = 'rounded border px-4 py-2 text-[11px] font-semibold tracking-normal normal-case transition-colors';
+const clearButtonClass = 'w-full rounded border border-border bg-white px-3 py-2 text-[11px] font-semibold tracking-normal text-muted-foreground transition hover:bg-secondary';
+const actionButtonClass = 'inline-flex h-9 items-center justify-center gap-2 rounded border border-border bg-white px-3 text-[11px] font-semibold tracking-normal text-primary transition hover:bg-secondary';
+const subtleActionButtonClass = 'inline-flex h-9 items-center justify-center gap-2 rounded bg-white px-3 text-[11px] font-semibold tracking-normal text-primary transition hover:bg-secondary';
+const infoTabButtonClass = 'flex items-center rounded border px-3 py-2 text-left text-[11px] font-semibold tracking-normal normal-case transition-colors lg:w-full';
+const inlinePanelButtonClass = 'inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-xs font-semibold tracking-normal text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50';
+const inlinePanelLinkClass = 'inline-flex items-center justify-center border border-transparent px-1 py-2 text-xs font-semibold tracking-normal text-accent underline underline-offset-4 transition-colors hover:text-primary';
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('en-GB').format(value);
@@ -427,12 +503,18 @@ const buildVisibleGroupedYLabels = (
   return [...groupedLabels, ...ungroupedLabels];
 };
 
-export default function DashboardClient({ data }: { data: GoldenDashboardData }) {
-  const initialView = typeof window === 'undefined' ? 1 : getViewIdFromHash(window.location.hash);
-  const [activeView, setActiveView] = useState(initialView);
-  const [visualizationMode, setVisualizationMode] = useState<'chart' | 'heatmap'>(
-    initialView === 4 ? 'heatmap' : 'chart'
-  );
+export default function DashboardClient({
+  data,
+  renderedAtIso,
+}: {
+  data: GoldenDashboardData;
+  renderedAtIso: string;
+}) {
+  const hasInitializedHashSync = useRef(false);
+  const hasSkippedInitialHashWrite = useRef(false);
+  const [activeView, setActiveView] = useState(DEFAULT_VIEW_ID);
+  const [visualizationMode, setVisualizationMode] = useState<'chart' | 'heatmap'>('chart');
+  const [dashboardBaseUrl, setDashboardBaseUrl] = useState(DEFAULT_DASHBOARD_BASE_URL);
   const [datasetKey, setDatasetKey] = useState<DatasetKey>('perReport');
   const [trendTimeAxis, setTrendTimeAxis] = useState<TrendTimeAxis>('year');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
@@ -458,8 +540,11 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
+  const [showChartLegend, setShowChartLegend] = useState(true);
   const [shareButtonLabel, setShareButtonLabel] = useState('Share');
   const [copiedReferenceKey, setCopiedReferenceKey] = useState<string | null>(null);
+  const [isExportingVisualization, setIsExportingVisualization] = useState(false);
+  const visualizationExportRef = useRef<HTMLDivElement | null>(null);
   const defaultYearRange = {
     start: 0,
     end: Math.max(data.years.length - 1, 0),
@@ -482,6 +567,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     setMarketSegmentFilter('all');
     setExpandedIsicGroups([]);
     setChartDisplayType('bar');
+    setShowChartLegend(true);
     setYearRangeIndices(defaultYearRange);
   };
 
@@ -492,23 +578,27 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       setVisualizationMode(nextView === 4 ? 'heatmap' : 'chart');
     };
 
+    setDashboardBaseUrl(`${window.location.origin}/data`);
+    syncViewFromHash();
+    hasInitializedHashSync.current = true;
     window.addEventListener('hashchange', syncViewFromHash);
     return () => window.removeEventListener('hashchange', syncViewFromHash);
   }, []);
 
   useEffect(() => {
+    if (!hasInitializedHashSync.current) return;
+    if (!hasSkippedInitialHashWrite.current) {
+      hasSkippedInitialHashWrite.current = true;
+      return;
+    }
+
     const nextHash = `#${getViewHash(activeView)}`;
-    if ((window.location.hash || activeView !== 1) && window.location.hash !== nextHash) {
+    if ((window.location.hash || activeView !== DEFAULT_VIEW_ID) && window.location.hash !== nextHash) {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
     }
   }, [activeView]);
 
-  const currentViewUrl =
-    typeof window === 'undefined'
-      ? 'https://www.riskobservatory.ai/'
-      : `${window.location.origin}${window.location.pathname}${window.location.search}${
-          activeView === 1 && !window.location.hash ? '' : `#${getViewHash(activeView)}`
-        }`;
+  const currentViewUrl = `${dashboardBaseUrl}${activeView === DEFAULT_VIEW_ID ? '' : `#${getViewHash(activeView)}`}`;
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const resolvedDatasets =
@@ -1587,6 +1677,45 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     URL.revokeObjectURL(url);
   };
 
+  const exportWatermark = (
+    <div className="flex flex-col items-end gap-1 text-right">
+      <p className="text-sm font-semibold tracking-tight text-slate-800">
+        {currentVisualizationExport.title}
+      </p>
+      <div className="flex items-center gap-2 text-[11px] leading-relaxed text-slate-500">
+        <span className="font-semibold tracking-[0.08em] text-slate-600">AI Risk Observatory</span>
+        <span className="h-1 w-1 rounded-full bg-slate-300" aria-hidden="true" />
+        <span>{currentViewUrl}</span>
+      </div>
+    </div>
+  );
+
+  const handleDownloadVisualizationImage = async () => {
+    if (!visualizationExportRef.current) return;
+
+    setIsExportingVisualization(true);
+
+    try {
+      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+
+      const dataUrl = await toPng(visualizationExportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${currentVisualizationExport.fileBase}-${selectedStartYear}-${selectedEndYear}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setIsExportingVisualization(false);
+    }
+  };
+
   const handleShareVisualization = async () => {
     const shareUrl = currentViewUrl;
     const shareText = `${currentVisualizationExport.title} (${riskSelectedYearSpan})`;
@@ -1635,7 +1764,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('cni')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           current === 'cni'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1646,7 +1775,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setter('isic')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           current === 'isic'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1662,7 +1791,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('year')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           trendTimeAxis === 'year'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1673,7 +1802,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setTrendTimeAxis('month')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           trendTimeAxis === 'month'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1693,7 +1822,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setMetricMode('pct_reports');
         }}
         disabled={!canShowReportShare}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           effectiveMetricMode === 'pct_reports'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1704,7 +1833,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setMetricMode('count')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           effectiveMetricMode === 'count'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1725,7 +1854,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setChartDisplayType('bar')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           activeChartDisplayType === 'bar'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1740,7 +1869,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setChartDisplayType('line');
         }}
         disabled={!canUseLineChart}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           activeChartDisplayType === 'line'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -1749,6 +1878,30 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         Line
       </button>
     </div>
+  );
+
+  const legendVisibilityToggle = (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={showChartLegend}
+      onClick={() => setShowChartLegend(prev => !prev)}
+      className="inline-flex items-center rounded-full transition"
+      title={showChartLegend ? 'Hide legend' : 'Show legend'}
+    >
+      <span
+        className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+          showChartLegend ? 'bg-primary' : 'bg-slate-300'
+        }`}
+        aria-hidden="true"
+      >
+        <span
+          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+            showChartLegend ? 'translate-x-3.5' : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+    </button>
   );
 
   const settingsPanelToggle = (
@@ -1774,11 +1927,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const renderSettingsSectionHeading = (
     title: string,
-    tooltip?: ReactNode
+    tooltip?: ReactNode,
+    action?: ReactNode
   ) => (
-    <div className="flex items-start gap-1.5">
-      <p className="text-sm font-semibold leading-tight text-primary">{title}</p>
-      {tooltip ? <InfoTooltip content={tooltip} /> : null}
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start gap-1.5">
+        <p className="text-sm font-semibold leading-tight text-primary">{title}</p>
+        {tooltip ? <InfoTooltip content={tooltip} /> : null}
+      </div>
+      {action ? <div className="ml-auto shrink-0">{action}</div> : null}
     </div>
   );
 
@@ -1831,6 +1988,15 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </div>
       </div>
       <div className="p-5 [&>*+*]:mt-6">
+        {visualizationMode === 'chart' && activeView !== 4 && (
+          <div>
+            <div className="flex items-center gap-2">
+              {legendVisibilityToggle}
+              <p className="text-sm font-semibold leading-tight text-primary">Show Legend</p>
+            </div>
+          </div>
+        )}
+
         {visualizationMode === 'chart' && activeView !== 4 && (
           <div className="space-y-3">
             {renderSettingsSectionHeading(
@@ -1934,7 +2100,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {riskFilter !== 'all' && (
               <button
                 onClick={() => setRiskFilter('all')}
-                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                className={clearButtonClass}
               >
                 Clear
               </button>
@@ -1959,7 +2125,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {adoptionFilter !== 'all' && (
               <button
                 onClick={() => setAdoptionFilter('all')}
-                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                className={clearButtonClass}
               >
                 Clear
               </button>
@@ -1984,7 +2150,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {effectiveVendorFilter !== 'all' && (
               <button
                 onClick={() => setVendorFilter('all')}
-                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                className={clearButtonClass}
               >
                 Clear
               </button>
@@ -2027,7 +2193,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             {blindSpotFilter !== 'all' && (
               <button
                 onClick={() => setBlindSpotFilter('all')}
-                className="w-full rounded border border-border bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition hover:bg-secondary"
+                className={clearButtonClass}
               >
                 Clear
               </button>
@@ -2050,7 +2216,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setSignalQualityMode('explicitness')}
-        className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonTallClass} ${
           signalQualityMode === 'explicitness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2061,7 +2227,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setSignalQualityMode('substantiveness')}
-        className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonTallClass} ${
           signalQualityMode === 'substantiveness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2073,13 +2239,8 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
   );
 
   const accessedOnLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }).format(new Date()),
-    []
+    () => formatAccessedOnLabel(new Date(renderedAtIso)),
+    [renderedAtIso]
   );
   const citationTargetUrl = currentViewUrl;
   const plainCitation = `AI Risk Observatory. "${currentVisualizationExport.title}" dashboard view, UK annual-report AI disclosure dataset. Accessed ${accessedOnLabel}. ${citationTargetUrl}`;
@@ -2153,26 +2314,26 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
     content: (
       <div className="space-y-3 text-sm leading-relaxed text-slate-600">
         <p>
-          Export the current visualization as CSV, or download the data bundle used to render this deployment for offline use.
+          Download the plotted data as CSV, or download the full data bundle used to render this deployment for offline use.
         </p>
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handleDownloadVisualization}
-            className="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+            className={inlinePanelButtonClass}
           >
-            Download This View
+            Download CSV
           </button>
           <a
             href="/api/download-data"
             download
-            className="inline-flex items-center justify-center rounded border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-900 transition-colors hover:border-slate-900 hover:bg-slate-50"
+            className={inlinePanelButtonClass}
           >
             Download Dataset
           </a>
           <a
             href="/about"
-            className="inline-flex items-center justify-center border border-transparent px-1 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent underline underline-offset-4 transition-colors hover:text-primary"
+            className={inlinePanelLinkClass}
           >
             Read Methodology
           </a>
@@ -2336,7 +2497,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                     [activeView]: item.value,
                   }))
                 }
-                className={`flex items-center rounded border px-3 py-2 text-left text-[10px] font-extrabold uppercase tracking-[0.14em] transition-colors lg:w-full ${
+                className={`${infoTabButtonClass} ${
                   selectedInfoPanelKey === item.value
                     ? 'border-primary bg-primary text-white'
                     : 'border-border bg-secondary text-primary hover:bg-white'
@@ -2367,7 +2528,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setDatasetKey('perReport');
           setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
         }}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           datasetKey === 'perReport'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2382,7 +2543,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           setDatasetKey('perChunk');
           setYearRangeIndices({ start: 0, end: Math.max(nextYears.length - 1, 0) });
         }}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           datasetKey === 'perChunk'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2398,7 +2559,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setBlindSpotHeatmapSelection('no_ai_mention')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           blindSpotHeatmapSelection === 'no_ai_mention'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2409,7 +2570,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
       <button
         type="button"
         onClick={() => setBlindSpotHeatmapSelection('no_ai_risk_mention')}
-        className={`rounded-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+        className={`${segmentedButtonClass} ${
           blindSpotHeatmapSelection === 'no_ai_risk_mention'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
@@ -2520,81 +2681,81 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
 
   const visualizationActions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleDownloadVisualization}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
-          title="Download current visualization data as CSV"
-        >
-          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
-            <path
-              d="M10 3.5V11.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M6.75 8.75L10 12L13.25 8.75"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M4 15.5H16"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-          Download
-        </button>
-        <button
-          type="button"
-          onClick={handleShareVisualization}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded border border-border bg-white px-3 text-[10px] font-bold uppercase tracking-widest text-primary transition hover:bg-secondary"
-          title="Share the current dashboard page"
-        >
-          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
-            <path
-              d="M7 10L13 6.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7 10L13 13.5"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle
-              cx="5"
-              cy="10"
-              r="2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-            <circle
-              cx="15"
-              cy="5.5"
-              r="2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-            <circle
-              cx="15"
-              cy="14.5"
-              r="2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-          </svg>
-          {shareButtonLabel}
-        </button>
+      <button
+        type="button"
+        onClick={handleShareVisualization}
+        className={subtleActionButtonClass}
+        title="Share the current dashboard page"
+      >
+        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
+          <path
+            d="M7 10L13 6.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M7 10L13 13.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle
+            cx="5"
+            cy="10"
+            r="2"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <circle
+            cx="15"
+            cy="5.5"
+            r="2"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <circle
+            cx="15"
+            cy="14.5"
+            r="2"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+        </svg>
+        {shareButtonLabel}
+      </button>
+      <button
+        type="button"
+        onClick={handleDownloadVisualizationImage}
+        className={actionButtonClass}
+        title="Download current visualization as PNG"
+      >
+        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
+          <path
+            d="M10 3.5V11.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M6.75 8.75L10 12L13.25 8.75"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M4 15.5H16"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+        Download Image
+      </button>
     </div>
   );
 
@@ -2634,7 +2795,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                       setVisualizationMode(item.id === 4 ? 'heatmap' : 'chart');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`rounded border px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest transition-colors ${
+                    className={`${tabButtonClass} ${
                       activeView === item.id
                         ? 'border-primary bg-primary text-white'
                         : 'border-border bg-secondary text-primary hover:bg-white'
@@ -2653,23 +2814,25 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   <button
                     type="button"
                     onClick={() => setVisualizationMode('chart')}
-                    className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                    className={`inline-flex items-center gap-2 ${segmentedButtonTallClass} ${
                       visualizationMode === 'chart'
                         ? 'bg-primary text-white'
                         : 'text-muted-foreground hover:bg-secondary'
                     }`}
                   >
+                    <TrendChartIcon />
                     Trend Chart
                   </button>
                   <button
                     type="button"
                     onClick={() => setVisualizationMode('heatmap')}
-                    className={`rounded-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                    className={`inline-flex items-center gap-2 ${segmentedButtonTallClass} ${
                       visualizationMode === 'heatmap'
                         ? 'bg-primary text-white'
                         : 'text-muted-foreground hover:bg-secondary'
                     }`}
                   >
+                    <SectorHeatmapIcon />
                     Sector Heatmap
                   </button>
                 </div>
@@ -2686,7 +2849,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
         </div>
 
         <div
-          className={`mt-3 grid gap-8 xl:items-start ${
+          className={`mt-3 grid gap-5 xl:items-start ${
             isSettingsOpen
               ? 'min-[960px]:grid-cols-[minmax(0,1fr)_280px]'
               : 'min-[960px]:grid-cols-1'
@@ -2700,6 +2863,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="space-y-4">
                 <StackedBarChart
                   key={`risk-trend-${trendTimeAxis}`}
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={displayRiskTrend}
                   xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
                   stackKeys={riskFilter === 'all' ? riskStackKeys : [riskFilter]}
@@ -2711,6 +2877,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
                   onChartTypeChange={setChartDisplayType}
+                  showLegend={showChartLegend}
                   legendPosition="right"
                   headerExtra={settingsPanelToggle}
                   legendKeys={[...riskStackKeys].reverse()}
@@ -2740,6 +2907,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ) : (
               <div className="space-y-4">
                 <GenericHeatmap
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={visibleRiskHeatmapData}
                   xLabels={riskHeatmapXLabels}
                   yLabels={riskHeatmapYLabels}
@@ -2796,6 +2966,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="space-y-4">
                 <StackedBarChart
                   key={`adoption-trend-${trendTimeAxis}`}
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={displayAdoptionTrend}
                   xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
                   stackKeys={adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter]}
@@ -2807,6 +2980,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
                   onChartTypeChange={setChartDisplayType}
+                  showLegend={showChartLegend}
                   legendPosition="right"
                   headerExtra={settingsPanelToggle}
                   legendKeys={adoptionStackKeys}
@@ -2832,6 +3006,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ) : (
               <div className="space-y-4">
                 <GenericHeatmap
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={visibleAdoptionHeatmapData}
                   xLabels={adoptionHeatmapXLabels}
                   yLabels={adoptionHeatmapYLabels}
@@ -2888,6 +3065,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="space-y-4">
                 <StackedBarChart
                   key={`vendor-trend-${trendTimeAxis}`}
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={displayVendorTrend}
                   xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
                   stackKeys={effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter]}
@@ -2899,6 +3079,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
                   onChartTypeChange={setChartDisplayType}
+                  showLegend={showChartLegend}
                   legendPosition="right"
                   headerExtra={settingsPanelToggle}
                   legendKeys={vendorStackKeys}
@@ -2913,7 +3094,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   }
                   tooltip={
                     <>
-                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Internal, Other).'}</p>
+                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Amazon / AWS, Meta, Anthropic, Internal, Other).'}</p>
                       <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'passage'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
                       <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
                       <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
@@ -2925,6 +3106,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ) : (
               <div className="space-y-4">
                 <GenericHeatmap
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={visibleVendorHeatmapData}
                   xLabels={vendorHeatmapXLabels}
                   yLabels={vendorHeatmapYLabels}
@@ -2979,6 +3163,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
           <div className="space-y-8">
             <div className="space-y-4">
               <GenericHeatmap
+                exportRef={visualizationExportRef}
+                exportMode={isExportingVisualization}
+                exportWatermark={exportWatermark}
                 data={selectedSignalQualityHeatmap.data}
                 xLabels={filteredYears}
                 yLabels={selectedSignalQualityHeatmap.yLabels}
@@ -3010,6 +3197,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
               <div className="space-y-4">
                 <StackedBarChart
                   key={`blind-spot-trend-${trendTimeAxis}`}
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={displayBlindSpotTrend}
                   xAxisKey={trendTimeAxis === 'month' ? 'month' : 'year'}
                   stackKeys={blindSpotFilter === 'all' ? ['no_ai_mention', 'no_ai_risk_mention'] : [blindSpotFilter]}
@@ -3021,6 +3211,7 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
                   onChartTypeChange={setChartDisplayType}
+                  showLegend={showChartLegend}
                   legendPosition="right"
                   headerExtra={settingsPanelToggle}
                   legendKeys={['no_ai_mention', 'no_ai_risk_mention']}
@@ -3052,6 +3243,9 @@ export default function DashboardClient({ data }: { data: GoldenDashboardData })
             ) : (
               <div className="space-y-4">
                 <GenericHeatmap
+                  exportRef={visualizationExportRef}
+                  exportMode={isExportingVisualization}
+                  exportWatermark={exportWatermark}
                   data={displayBlindSpotHeatmapData}
                   xLabels={blindSpotYearsInRange}
                   yLabels={data.sectors}

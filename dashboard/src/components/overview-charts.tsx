@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { type ReactNode, type RefObject, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -97,6 +97,10 @@ interface StackedBarChartProps {
   footerExtra?: React.ReactNode;
   chartType?: 'bar' | 'line';
   onChartTypeChange?: (type: 'bar' | 'line') => void;
+  showLegend?: boolean;
+  exportRef?: RefObject<HTMLDivElement | null>;
+  exportWatermark?: ReactNode;
+  exportMode?: boolean;
 }
 
 type ChartTooltipEntry = {
@@ -127,6 +131,10 @@ export function StackedBarChart({
   footerExtra,
   chartType,
   onChartTypeChange,
+  showLegend = true,
+  exportRef,
+  exportWatermark,
+  exportMode = false,
 }: StackedBarChartProps) {
   const [internalChartType, setInternalChartType] = useState<'bar' | 'line'>('bar');
   const resolvedChartType = chartType ?? internalChartType;
@@ -139,9 +147,9 @@ export function StackedBarChart({
   };
   const activeChartType = allowLineChart ? resolvedChartType : 'bar';
   const showChartModeToggle = showChartTypeToggle ?? allowLineChart;
-  const showLeftLegend = legendPosition === 'left';
-  const showSideLegend = legendPosition === 'right';
-  const showFloatingLegend = legendPosition === 'floating-top-left';
+  const showLeftLegend = showLegend && legendPosition === 'left';
+  const showSideLegend = showLegend && legendPosition === 'right';
+  const showFloatingLegend = showLegend && legendPosition === 'floating-top-left';
   const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])];
   const renderLegendItems = () =>
     visibleLegendKeys.map((key) => {
@@ -261,7 +269,7 @@ export function StackedBarChart({
   };
 
   return (
-    <div className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
+    <div ref={exportRef} className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {title && (
         <h3 className="mb-2 flex items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
           <span className="w-1.5 h-1.5 bg-accent" />
@@ -269,7 +277,7 @@ export function StackedBarChart({
           {tooltip && <InfoTooltip content={tooltip} />}
         </h3>
       )}
-      {(showChartModeToggle || headerExtra) && (
+      {!exportMode && (showChartModeToggle || headerExtra) && (
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-5 sm:top-5">
           {headerExtra}
           {showChartModeToggle && (
@@ -313,7 +321,7 @@ export function StackedBarChart({
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
                 <Tooltip {...tooltipProps} />
-                {!showSideLegend && !showFloatingLegend && (
+                {showLegend && !showSideLegend && !showFloatingLegend && (
                   <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
                 )}
                 {stackKeys.map((key) => (
@@ -334,7 +342,7 @@ export function StackedBarChart({
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
                 <Tooltip {...tooltipProps} />
-                {!showSideLegend && !showFloatingLegend && (
+                {showLegend && !showSideLegend && !showFloatingLegend && (
                   <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
                 )}
                 {stackKeys.map((key) => (
@@ -356,10 +364,15 @@ export function StackedBarChart({
           </div>
         )}
       </div>
-      {footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
+      {!exportMode && footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
         <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-relaxed text-slate-500">{subtitle}</p>
       )}
+      {exportMode && exportWatermark ? (
+        <div className="pointer-events-none mt-4 border-t border-slate-100 pt-4">
+          {exportWatermark}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -400,6 +413,9 @@ interface GenericHeatmapProps {
   expandedRowGroups?: string[];
   onToggleRowGroup?: (groupLabel: string) => void;
   footerExtra?: React.ReactNode;
+  exportRef?: RefObject<HTMLDivElement | null>;
+  exportWatermark?: ReactNode;
+  exportMode?: boolean;
 }
 
 export function GenericHeatmap({
@@ -429,6 +445,9 @@ export function GenericHeatmap({
   expandedRowGroups = [],
   onToggleRowGroup,
   footerExtra,
+  exportRef,
+  exportWatermark,
+  exportMode = false,
 }: GenericHeatmapProps) {
   const rowGroupsByLabel = new Map(
     (rowGroups ?? []).map(group => [String(group.label), group])
@@ -527,7 +546,7 @@ export function GenericHeatmap({
       : grandTotal;
 
   return (
-    <div className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
+    <div ref={exportRef} className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
       {(title || headerExtra) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           {title ? (
@@ -537,7 +556,7 @@ export function GenericHeatmap({
               {tooltip && <InfoTooltip content={tooltip} />}
             </h3>
           ) : <div />}
-          {headerExtra && <div className="shrink-0">{headerExtra}</div>}
+          {!exportMode && headerExtra && <div className="shrink-0">{headerExtra}</div>}
         </div>
       )}
       <div
@@ -766,10 +785,15 @@ export function GenericHeatmap({
           <span>No reports containing specified mention</span>
         </div>
       )}
-      {footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
+      {!exportMode && footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
         <p className="mt-4 border-t border-border pt-4 text-sm leading-relaxed text-muted">{subtitle}</p>
       )}
+      {exportMode && exportWatermark ? (
+        <div className="pointer-events-none mt-4 border-t border-border pt-4">
+          {exportWatermark}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -122,7 +122,14 @@ body {
   }
 
   .aisi-select {
-    @apply h-10 border border-border bg-white px-3 pr-10 rounded text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
+    @apply h-10 border border-border bg-white px-3 pr-12 rounded text-sm font-medium tracking-normal normal-case text-primary focus:outline-none focus:ring-1 focus:ring-accent;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M3 5.25L7 9.25L11 5.25' stroke='%23292724' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 1rem center;
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
     font-family: var(--font-sans);
   }
 

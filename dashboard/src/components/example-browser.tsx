@@ -14,6 +14,13 @@ type ExampleChunkView = {
   vendorTags: string[];
 };
 
+type Phase2Group = {
+  id: 'risk' | 'adoption' | 'vendor';
+  label: string;
+  items: string[];
+  className: string;
+};
+
 const formatTag = (value: string) => value
   .split('_')
   .filter(Boolean)
@@ -27,11 +34,17 @@ const tagStyles = {
 };
 
 export default function ExampleBrowser({ exampleChunks }: { exampleChunks: ExampleChunkView[] }) {
-  const normalizedList = useMemo(() => exampleChunks.slice(0, 5), [exampleChunks]);
+  const normalizedList = useMemo(() => exampleChunks.slice(0, 3), [exampleChunks]);
   const [activeChunkId, setActiveChunkId] = useState(normalizedList[0]?.chunkId || '');
   const activeChunk = normalizedList.find(chunk => chunk.chunkId === activeChunkId) ?? normalizedList[0];
 
   if (!activeChunk) return null;
+
+  const phase2Groups: Phase2Group[] = [
+    { id: 'risk', label: 'Risk', items: activeChunk.riskLabels, className: tagStyles.risk },
+    { id: 'adoption', label: 'Adoption', items: activeChunk.adoptionTypes, className: tagStyles.adoption },
+    { id: 'vendor', label: 'Vendor', items: activeChunk.vendorTags, className: tagStyles.vendor },
+  ].filter(group => group.items.length > 0);
 
   return (
     <section className="border-b border-border bg-white">
@@ -40,84 +53,81 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           <span className="aisi-tag">Annotation</span>
           <h2 className="aisi-h2 uppercase">Labeled Examples</h2>
           <p className="mt-4 text-lg text-muted">
-            Browse a handful of annotated chunks. Click a tab to load that chunk&apos;s Phase 1 mention type and Phase 2 taxonomy tags.
+            Browse a handful of annotated chunks. Pick an example to inspect the excerpt, its per-chunk metadata, and the Phase 2 taxonomy labels attached to it.
           </p>
         </div>
-        
+
         <div className="border border-border bg-white">
-          <div className="flex flex-wrap border-b border-border bg-secondary p-1">
+          <div className="grid gap-px border-b border-border bg-border lg:grid-cols-3">
             {normalizedList.map(chunk => {
               const isActive = chunk.chunkId === activeChunkId;
+              const chunkPhase2Count = chunk.riskLabels.length + chunk.adoptionTypes.length + chunk.vendorTags.length;
+
               return (
                 <button
                   key={`tab-${chunk.chunkId}`}
                   type="button"
                   onClick={() => setActiveChunkId(chunk.chunkId)}
-                  className={`px-6 py-3 text-[10px] font-bold uppercase tracking-widest transition ${
+                  className={`flex min-h-[92px] flex-col gap-4 border-b-2 px-5 py-4 text-left transition ${
                     isActive
-                      ? 'bg-white text-primary'
-                      : 'text-muted-foreground hover:bg-white/50 hover:text-primary'
+                      ? 'border-b-primary bg-secondary text-primary'
+                      : 'border-b-transparent bg-white text-muted hover:bg-secondary/60 hover:text-primary'
                   }`}
                 >
-                  {chunk.companyName} · {chunk.reportYear}
+                  <p className="text-[15px] font-bold leading-tight text-primary">
+                    {chunk.companyName}
+                  </p>
+
+                  <div className="mt-auto flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      {chunk.reportYear}
+                    </p>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
+                      isActive
+                        ? 'border-primary bg-white text-primary'
+                        : 'border-border bg-white text-muted-foreground'
+                    }`}>
+                      {chunkPhase2Count} tag{chunkPhase2Count === 1 ? '' : 's'}
+                    </span>
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="p-8 flex flex-col gap-8">
-            <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              <span>Phase 1</span>
-              <div className="flex flex-wrap gap-2">
-                {(activeChunk.mentionTypes.length ? activeChunk.mentionTypes : ['none']).map(type => (
-                  <span key={`phase1-${type}`} className="aisi-pill pill-slate">
-                    {formatTag(type)}
-                  </span>
-                ))}
+          <div className="space-y-6 p-8">
+            {phase2Groups.length > 0 && (
+              <div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {phase2Groups.map(group => (
+                    <div key={group.id} className="space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        {group.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {group.items.map(item => (
+                          <span key={`${group.id}-${item}`} className={group.className}>
+                            {formatTag(item)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="border-l-4 border-accent bg-secondary p-8 text-lg leading-relaxed text-muted font-medium italic">
-              &ldquo;{activeChunk.chunkText}&rdquo;
-            </div>
-
-            <div className="grid gap-8 sm:grid-cols-3 text-xs">
-              {activeChunk.riskLabels.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Phase 2 — Risk</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {activeChunk.riskLabels.map(label => (
-                      <span key={`risk-${label}`} className={tagStyles.risk}>
-                        {formatTag(label)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {activeChunk.adoptionTypes.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Phase 2 — Adoption</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {activeChunk.adoptionTypes.map(type => (
-                      <span key={`adoption-${type}`} className={tagStyles.adoption}>
-                        {formatTag(type)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {activeChunk.vendorTags.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Phase 2 — Vendor</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {activeChunk.vendorTags.map(tag => (
-                      <span key={`vendor-${tag}`} className={tagStyles.vendor}>
-                        {formatTag(tag)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="overflow-hidden border border-border bg-secondary/60">
+              <div className="border-b border-border px-6 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Full Excerpt Text
+                </p>
+              </div>
+              <div className="max-h-[32rem] overflow-y-auto px-7 py-6">
+                <p className="whitespace-pre-line text-[1.05rem] leading-8 text-primary/75">
+                  &ldquo;{activeChunk.chunkText}&rdquo;
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -125,4 +135,3 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
     </section>
   );
 }
-
