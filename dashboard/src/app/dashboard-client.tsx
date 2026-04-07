@@ -2263,7 +2263,7 @@ export default function DashboardClient({
         <button
           type="button"
           onClick={() => handleCopyReferenceText(key, value)}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-primary"
+          className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-primary"
           aria-label={copiedReferenceKey === key ? `${heading} copied` : `Copy ${heading}`}
           title={copiedReferenceKey === key ? 'Copied' : `Copy ${heading}`}
         >
@@ -2284,7 +2284,7 @@ export default function DashboardClient({
             </svg>
           )}
         </button>
-        <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-14 font-mono text-xs leading-relaxed text-slate-700">
+        <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-11 font-mono text-xs leading-relaxed text-slate-700">
         {value}
         </pre>
       </div>

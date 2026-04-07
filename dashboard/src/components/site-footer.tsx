@@ -83,6 +83,8 @@ function FooterLinkList({
 
 export function SiteFooter() {
   const pathname = usePathname();
+  const lastUpdated = '6 April 2026';
+  const version = 'v1.0.2';
 
   const pageSectionLinks = pathname === '/about'
     ? aboutSectionLinks
@@ -107,6 +109,10 @@ export function SiteFooter() {
           <p className="mt-6 text-[10px] uppercase tracking-widest text-muted-foreground">
             &copy; {new Date().getFullYear()} AI Risk Observatory
           </p>
+          <div className="mt-6 space-y-1 text-[11px] leading-tight text-muted-foreground">
+            <p>Last updated on {lastUpdated}</p>
+            <p>{version}</p>
+          </div>
         </div>
 
         <FooterLinkList title="Pages" links={primaryLinks} />

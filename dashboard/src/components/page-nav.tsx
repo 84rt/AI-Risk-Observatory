@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation';
 
 export function PageNav() {
   const pathname = usePathname();
-  const lastUpdated = '6 April 2026';
-  const version = 'v1.0.2';
 
   const links = [
     { href: '/', label: 'Home' },
@@ -16,7 +14,7 @@ export function PageNav() {
 
   return (
     <nav className="border-b border-border bg-white">
-      <div className="mx-auto max-w-7xl px-6 flex items-center justify-between">
+      <div className="mx-auto flex max-w-7xl items-center px-6">
         <div className="flex items-center gap-10">
           <Link href="/" className="py-5 text-lg font-bold tracking-tight text-primary">
             AI Risk Observatory
@@ -44,17 +42,6 @@ export function PageNav() {
                 </Link>
               );
             })}
-          </div>
-        </div>
-        
-        <div className="flex items-center">
-          <div className="text-right leading-tight">
-            <p className="text-[11px] text-muted-foreground">
-              Last updated on {lastUpdated}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {version}
-            </p>
           </div>
         </div>
       </div>

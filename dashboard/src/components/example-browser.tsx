@@ -27,7 +27,7 @@ const formatTag = (value: string) => value
   .map(token => `${token.charAt(0).toUpperCase()}${token.slice(1)}`)
   .join(' ');
 
-const tagStyles = {
+const tagStyles: Record<Phase2Group['id'], string> = {
   risk: 'aisi-pill pill-red',
   adoption: 'aisi-pill pill-sky',
   vendor: 'aisi-pill pill-teal',
@@ -40,11 +40,11 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
 
   if (!activeChunk) return null;
 
-  const phase2Groups: Phase2Group[] = [
+  const phase2Groups = ([
     { id: 'risk', label: 'Risk', items: activeChunk.riskLabels, className: tagStyles.risk },
     { id: 'adoption', label: 'Adoption', items: activeChunk.adoptionTypes, className: tagStyles.adoption },
     { id: 'vendor', label: 'Vendor', items: activeChunk.vendorTags, className: tagStyles.vendor },
-  ].filter(group => group.items.length > 0);
+  ] satisfies Phase2Group[]).filter(group => group.items.length > 0);
 
   return (
     <section className="border-b border-border bg-white">
