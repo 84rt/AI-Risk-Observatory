@@ -35,7 +35,7 @@ export default function HomePage() {
     {
       label: 'LLM adoption mentions',
       subtitle: 'Share of UK public-company annual reports mentioning LLM adoption',
-      color: '#0b0c0c',
+      color: '#f59e0b',
       data: data.datasets.perReport.adoptionTrend.map(row => {
         const year = Number(row.year);
         const total = reportTotalsByYear.get(year) || 0;
@@ -73,7 +73,8 @@ export default function HomePage() {
               AI Risk <br />Observatory
             </h1>
             <p className="mt-8 text-xl font-medium leading-relaxed text-muted">
-              Tracking AI-related risks, adoption, and vendor dependencies across{' '}
+              Built for policymakers and resilience researchers, the Observatory tracks
+              AI-related risk, adoption, and third-party AI exposure across{' '}
               <span className="text-primary">UK public-company</span>{' '}
               <a
                 href="https://en.wikipedia.org/wiki/Annual_report"
@@ -83,7 +84,7 @@ export default function HomePage() {
               >
                 annual reports
               </a>
-              {' '}to help monitor{' '}
+              {' '}— with a focus on{' '}
               <a
                 href="https://www.npsa.gov.uk/about-npsa/critical-national-infrastructure"
                 className="underline decoration-border underline-offset-4 hover:text-primary transition-colors"
@@ -109,7 +110,7 @@ export default function HomePage() {
               </div>
               <div>
                 <div className="text-2xl font-bold leading-none text-primary">{yearRange}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Scope</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Years covered</div>
               </div>
             </div>
 
@@ -127,6 +128,13 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Primary chart */}
+      <section className="border-b border-border bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-12">
+          <HeroRiskChart series={heroSeries} />
+        </div>
+      </section>
 
       {/* Sponsors & Partners Bar */}
       <section id="partners" className="border-b border-border bg-white py-8">
@@ -210,20 +218,35 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Primary chart */}
-      <section className="border-b border-border bg-white">
-        <div className="mx-auto max-w-5xl px-6 py-12">
-          <HeroRiskChart series={heroSeries} />
-        </div>
-      </section>
-
       {/* Description */}
       <section id="mission" className="border-b border-border bg-secondary">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="max-w-3xl">
             <span className="aisi-tag">Mission</span>
             <p className="text-xl leading-relaxed text-muted">
-              AI Risk Observatory is an attempt to better understand patterns in the UK economy, especially across Critical National Infrastructure sectors, by applying an NLP pipeline to public-company annual reports. The goal is to strengthen societal resilience by identifying where AI-related risk, adoption, vendor dependence, and disclosure gaps are emerging across sectors. The main limitation is that this signal is necessarily retrospective: annual reports are shaped by legal, regulatory, and reporting incentives, so using them as an information source yields a limited but high-signal view of underlying risk and potential systemic problems.
+              The Observatory gives policymakers and resilience researchers a clearer picture
+              of how AI-related risk and adoption are distributed across the UK economy —
+              and where meaningful disclosure is notably absent, particularly across{' '}
+              <a
+                href="https://www.npsa.gov.uk/about-npsa/critical-national-infrastructure"
+                className="underline decoration-border underline-offset-4 hover:text-primary transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Critical National Infrastructure
+              </a>{' '}
+              sectors.
+            </p>
+            <p className="mt-5 text-xl leading-relaxed text-muted">
+              We use annual reports as our primary source because they are audited, legally
+              mandated, and published on a consistent schedule — making them a reliable
+              baseline for tracking real corporate AI exposure at scale.
+            </p>
+            <p className="mt-5 text-xl leading-relaxed text-muted">
+              The main caveat is that annual reports are inherently backward-looking, and
+              their regulated format means some statements are formulaic rather than
+              informative. To address this, every mention is scored for substantiveness —
+              so you can focus on disclosures that contain real detail.
             </p>
             <div className="mt-10">
               <Link
@@ -245,7 +268,7 @@ export default function HomePage() {
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-primary">Methodology</p>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
-                Read a brief explanation of the data scope, extraction pipeline, and classification approach.
+                Read how we collect, process, and classify the data — including the decisions and trade-offs behind the pipeline.
               </p>
               <div className="mt-4">
                 <Link
@@ -259,7 +282,7 @@ export default function HomePage() {
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-primary">Repository</p>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
-                Inspect the codebase, data pipeline, and project structure behind the observatory.
+                Browse the source code, data pipeline, and full project structure on GitHub.
               </p>
               <div className="mt-4">
                 <a
@@ -275,7 +298,7 @@ export default function HomePage() {
                   >
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58 0-.28-.01-1.04-.02-2.04-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.72.08-.72 1.2.09 1.84 1.24 1.84 1.24 1.08 1.84 2.82 1.31 3.5 1 .1-.78.42-1.31.76-1.62-2.67-.3-5.47-1.34-5.47-5.94 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.64-5.48 5.94.43.37.82 1.1.82 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.21.69.83.57A12 12 0 0 0 24 12c0-6.63-5.37-12-12-12Z" />
                   </svg>
-                  View the Source Code on GitHub
+                  View Source on GitHub
                 </a>
               </div>
             </div>
