@@ -40,6 +40,11 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
 
   if (!activeChunk) return null;
 
+  const phase1Groups = [
+    { id: 'section', label: 'Report section', items: activeChunk.reportSections, className: 'aisi-pill pill-amber' },
+    { id: 'mention', label: 'Mention type', items: activeChunk.mentionTypes, className: 'aisi-pill pill-amber' },
+  ].filter(group => group.items.length > 0);
+
   const phase2Groups = ([
     { id: 'risk', label: 'Risk', items: activeChunk.riskLabels, className: tagStyles.risk },
     { id: 'adoption', label: 'Adoption', items: activeChunk.adoptionTypes, className: tagStyles.adoption },
@@ -53,7 +58,7 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           <span className="aisi-tag">Annotation</span>
           <h2 className="aisi-h2 uppercase">Labeled Examples</h2>
           <p className="mt-4 text-lg text-muted">
-            Browse a handful of annotated chunks. Pick an example to inspect the excerpt, its per-chunk metadata, and the Phase 2 taxonomy labels attached to it.
+            Browse a sample of annotated text chunks. Select one to view the excerpt, its metadata, and the taxonomy labels applied by both phases of the classifier.
           </p>
         </div>
 
@@ -61,7 +66,6 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           <div className="grid gap-px border-b border-border bg-border lg:grid-cols-3">
             {normalizedList.map(chunk => {
               const isActive = chunk.chunkId === activeChunkId;
-              const chunkPhase2Count = chunk.riskLabels.length + chunk.adoptionTypes.length + chunk.vendorTags.length;
 
               return (
                 <button
@@ -78,17 +82,10 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
                     {chunk.companyName}
                   </p>
 
-                  <div className="mt-auto flex items-center justify-between gap-3">
+                  <div className="mt-auto">
                     <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                      {chunk.reportYear}
+                      Report year: {chunk.reportYear}
                     </p>
-                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
-                      isActive
-                        ? 'border-primary bg-white text-primary'
-                        : 'border-border bg-white text-muted-foreground'
-                    }`}>
-                      {chunkPhase2Count} tag{chunkPhase2Count === 1 ? '' : 's'}
-                    </span>
                   </div>
                 </button>
               );
@@ -96,12 +93,39 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           </div>
 
           <div className="space-y-6 p-8">
+            {phase1Groups.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  Phase 1
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {phase1Groups.map(group => (
+                    <div key={group.id} className="space-y-2">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+                        {group.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {group.items.map(item => (
+                          <span key={`${group.id}-${item}`} className={group.className}>
+                            {formatTag(item)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {phase2Groups.length > 0 && (
-              <div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  Phase 2
+                </p>
                 <div className="grid gap-3 md:grid-cols-3">
                   {phase2Groups.map(group => (
                     <div key={group.id} className="space-y-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
                         {group.label}
                       </p>
                       <div className="flex flex-wrap gap-2">

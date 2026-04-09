@@ -239,10 +239,10 @@ export default function AboutPage() {
           <span className="aisi-tag">Methodology</span>
           <h1 className="aisi-h1">About the<br />Observatory</h1>
           <p className="mt-8 text-xl leading-relaxed text-muted">
-            This page explains how we turn annual reports from UK public companies into the data
-            on the dashboard, and the reasoning behind the choices we made throughout the pipeline.
-            For more detail, read our full report available{' '}
-            <a href="about:blank" className="underline underline-offset-2 hover:text-primary transition-colors">here</a>.
+            This page explains how we turn annual reports from UK-listed companies into the data
+            powering the dashboard, and the decisions behind each step in the pipeline.
+            For a deeper dive,{' '}
+            <a href="about:blank" className="underline underline-offset-2 hover:text-primary transition-colors">read our full technical report</a>.
           </p>
         </div>
 
@@ -256,33 +256,31 @@ export default function AboutPage() {
             <section id="overview" className="scroll-mt-20 space-y-6">
               <h2 className="aisi-h2 uppercase">Overview</h2>
               <p>
-                The AI Risk Observatory processes UK public-company annual reports through a
-                two-phase LLM autograder pipeline. The dataset spans all annual reports published
-                between {data.years[0]} and {data.years[data.years.length - 1]} by{' '}
+                The AI Risk Observatory processes annual reports from UK-listed companies through
+                a two-stage AI classification pipeline. The dataset spans all annual reports
+                published between {data.years[0]} and {data.years[data.years.length - 1]} by{' '}
                 {summary.totalCompanies.toLocaleString()} companies, totalling{' '}
                 {flow.totalReports.toLocaleString()} filings. Of these,{' '}
                 {flow.extractedAiReports.toLocaleString()} filings contain at least one
                 AI-relevant mention, and after quality filters{' '}
-                {flow.phase1SignalReports.toLocaleString()} carry a real AI signal relevant to
-                our processing. Because reports are long and not all context is necessary for
-                analysis, we extract only excerpts with surrounding context from each report,
-                giving us {totalChunks.toLocaleString()} annotated text chunks containing AI
-                mentions in total.
+                {flow.phase1SignalReports.toLocaleString()} carry meaningful AI signal. Because
+                annual reports can run to hundreds of pages, we extract only the relevant
+                passages — giving us {totalChunks.toLocaleString()} annotated text chunks in
+                total.
               </p>
-              <p>The classification process breaks down into three distinct stages:</p>
+              <p>The pipeline follows three stages:</p>
               <ol className="list-decimal list-inside space-y-1 pl-2">
-                <li>Extract all relevant AI mentions from all reports.</li>
-                <li>Broadly classify the type of AI mentioned into six categories: Adoption, Risk, Harm, Vendor, General/Vague, or False Positive.</li>
-                <li>For each Adoption, Risk, and Vendor mention, classify it into a specified taxonomy.</li>
+                <li>Extract all relevant AI mentions from each filing.</li>
+                <li>Broadly classify the type of AI mentioned into six categories: Adoption, Risk, Harm, Vendor, General or ambiguous, or False Positive.</li>
+                <li>For each Adoption, Risk, and Vendor mention, classify it into a detailed sub-taxonomy.</li>
               </ol>
               <p>
-                As an additional step we also run a Quality Assurance (QA) classifier to measure the
-                substantiveness of each mention, rating them on a scale from boilerplate to substantive.
+                We also run a substantiveness classifier to measure the depth of each mention,
+                rating it on a scale from boilerplate to substantive.
               </p>
               <p>
-                The high-level visualisation of the pipeline can be seen below. The signal-bearing
-                Phase 1 labels are not mutually exclusive, so those counts sum to more than the
-                number of extracted reports.
+                The pipeline is illustrated below. Phase 1 labels are not mutually exclusive,
+                so those counts sum to more than the number of extracted reports.
               </p>
 
               {/* Pipeline flowchart */}
@@ -333,10 +331,10 @@ export default function AboutPage() {
                 {/* Stage 3: Phase 1 classification */}
                 <StageFrame className="mx-auto max-w-6xl">
                   <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-2 text-center">
-                    Phase: Classify the type of AI mention
+                    Phase 1: Classify the Type of AI Mention
                   </p>
                   <p className="mb-5 text-center text-sm text-muted">
-                    The AI mentioning excerpts are classified into six high-level categories.
+                    Excerpts that mention AI are classified into six categories.
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {phase1Cards.map(card => {
@@ -370,7 +368,7 @@ export default function AboutPage() {
                     Phase 2: Detailed Taxonomies
                   </p>
                   <p className="mb-4 text-center text-sm text-muted">
-                    From Phase 1 only Adoption, Risk and Vendor are processed further into the following subcategories.
+                    From Phase 1, only Adoption, Risk, and Vendor are processed further into the following subcategories.
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     {phase2Cards.map(card => {
@@ -407,11 +405,6 @@ export default function AboutPage() {
                   </div>
                 </StageFrame>
               </div>
-              <p className="text-sm text-muted">
-                Keep in mind that the labels assigned to each AI mention in steps 1 and 2 are not
-                mutually exclusive, so the total label counts exceed the initial number of AI
-                excerpts.
-              </p>
             </section>
 
             {/* ── Data ─────────────────────────────────────────── */}
@@ -423,10 +416,10 @@ export default function AboutPage() {
                 <p>
                   To measure AI risk, adoption, and vendor dependence across the UK economy, we
                   process all annual reports published by all public companies in the UK. There are
-                  1,660 public companies on UK markets (LSE Main Market, AIM Market, and AQSE).
+                  1,660 public companies listed on UK markets (LSE Main Market, AIM Market, and AQSE).
                   After excluding companies not registered in the UK (e.g. Irish or Canadian
                   companies listed on these exchanges) and firms without filings available via
-                  Companies House, we are left with approximately 1,362 companies. Each company
+                  Companies House, our working universe is approximately 1,362 companies. Each company
                   files, on average, one annual report per year.<sup className="text-xs align-super"><a href="#fn-1" className="hover:text-primary">1</a></sup>
                 </p>
               </div>
@@ -438,7 +431,7 @@ export default function AboutPage() {
                     <strong className="text-primary">Why annual reports?</strong>{' '}
                     Unlike earnings calls, press releases, or public media, annual reports are
                     audited, structured, and published on a consistent cadence — making them a
-                    high-trust and reliable source of information.
+                    reliable, high-signal source of information.
                   </p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded border border-border bg-secondary px-4 py-3">
@@ -451,8 +444,8 @@ export default function AboutPage() {
                     </div>
                   </div>
                   <p>
-                    This makes annual reports well suited for robust longitudinal analysis of the
-                    UK economy without the noise present in other information sources. There are two
+                    This makes annual reports well suited to tracking trends across the UK economy
+                    over time. There are two
                     primary limitations: (1) they are inherently backward-looking, often with a
                     significant delay; and (2) their highly regulated nature means many statements
                     are boilerplate and contain little real information.<sup className="text-xs align-super"><a href="#fn-2" className="hover:text-primary">2</a></sup>
@@ -460,19 +453,18 @@ export default function AboutPage() {
                 </div>
                 <p>
                   <strong className="text-primary">Why 2020–2026?</strong>{' '}
-                  We chose this window as the minimum period needed to establish a baseline in
-                  the measured variables before the ChatGPT inflection (late 2022) and the
-                  subsequent rapid adoption cycle.
+                  We chose this window to capture a pre-ChatGPT baseline (before the late-2022
+                  inflection) and the rapid adoption cycle that followed.
                 </p>
                 <div className="space-y-3">
                   <p>
-                    <strong className="text-primary">How are we mapping to CNI?</strong>{' '}
+                    <strong className="text-primary">How do we map to CNI?</strong>{' '}
                     The Critical National Infrastructure in the{' '}
                     <a href="https://www.npsa.gov.uk/about-npsa/critical-national-infrastructure" className="underline underline-offset-2 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">UK has 13 distinct sectors</a>.
                     Each company in our database has an{' '}
                     <a href="https://en.wikipedia.org/wiki/International_Standard_Industrial_Classification" className="underline underline-offset-2 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">ISIC sector code</a>{' '}
                     that only partially maps to CNI sectors. We take a conservative approach,
-                    using a designated LLM classifier to assign CNI sectors to companies that
+                    using an LLM classifier to assign CNI sectors to companies that
                     do not map directly from ISIC; when no assignment can be made, we use an
                     &ldquo;Other&rdquo; CNI category.<sup className="text-xs align-super"><a href="#fn-3" className="hover:text-primary">3</a></sup>{' '}
                     A major limitation of CNI analysis via annual reports is that some sectors —
@@ -485,12 +477,11 @@ export default function AboutPage() {
               <div id="data-acknowledgements" className="scroll-mt-20 space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Data Provider Acknowledgment</h3>
                 <p>
-                  Processing PDFs is cumbersome, and converting them to structured plaintext
-                  reliably is highly difficult. Processing over 9,000 filings would also have
-                  exceeded our compute budget. We partnered with{' '}
+                  Converting PDFs to clean, structured text is technically demanding, and doing
+                  so at that scale would have exceeded our compute budget. We partnered with{' '}
                   <a href="https://financialreports.eu" className="underline underline-offset-2 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">FinancialReports.eu</a>,
-                  a third-party financial data provider, to access all required annual reports in
-                  Markdown format. Their filings API and generous support made this project
+                  a third-party financial data provider, to obtain all annual reports in our scope
+                  in Markdown format. Their filings API and generous support made this project
                   possible.
                 </p>
               </div>
@@ -504,9 +495,8 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Chunking Approach</h3>
                 <p>
                   Once each annual report is in structured Markdown text, we split it into
-                  passages (chunks) using a sliding-window approach, with generous padding
-                  before and after each AI mention, that respects paragraph and section
-                  boundaries. An AI keyword filter isolates sections that explicitly mention AI
+                  passages (chunks) using a sliding-window approach that respects paragraph and
+                  section boundaries, with generous padding around each AI mention. An AI keyword filter isolates sections that explicitly mention AI
                   or closely related techniques; only those sections are retained for further
                   annotation. Each chunk carries metadata: company identifier, reporting year,
                   release month, report section (e.g. <em>Risk Factors</em>,{' '}
@@ -573,11 +563,11 @@ export default function AboutPage() {
                 <p>
                   First, each chunk is passed to an LLM classifier that decides whether the
                   passage contains a genuine AI mention and, if so, assigns one or more
-                  mention-type labels. Chunks labelled exclusively as <em>none</em> are
+                  mention-type labels. Chunks assigned only the <em>None</em> label are
                   filtered out as false positives before Phase 2.
                 </p>
 
-                <p>The taxonomy used by the Phase 1 classifier:</p>
+                <p>The Phase 1 classifier uses the following taxonomy:</p>
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="border-b border-border text-left">
@@ -595,14 +585,18 @@ export default function AboutPage() {
                   </tbody>
                 </table>
 
-                <div className="p-6">
+                <div className="space-y-2 pt-2">
+                  <p className="text-sm font-bold uppercase tracking-widest text-primary">Phase 1 Label Distribution Over Time</p>
+                  <p className="text-sm text-muted">
+                    Distribution of Phase 1 mention-type labels across all AI-mentioning filings, by year. Labels are not mutually exclusive, so a single filing can contribute to multiple categories.
+                  </p>
                   <MentionTypesChart
                     data={data.datasets.perReport.mentionTrend}
                     stackKeys={[...data.labels.mentionTypes, 'none'].filter((v, i, a) => a.indexOf(v) === i)}
                   />
                 </div>
 
-                <CollapsibleSection title="Prompt used in the Phase 1 classification">
+                <CollapsibleSection title="Phase 1 classifier prompt">
                   <div className="space-y-4">
                     <p className="text-sm text-muted leading-relaxed">
                       All prompts and structured output schemas used in Phase 1 are visible in the{' '}
@@ -661,11 +655,11 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
               <div id="phase-2" className="scroll-mt-20 space-y-6">
                 <h3 className="text-lg font-bold text-primary">Phase 2: Deep-Taxonomy Classification</h3>
                 <p>
-                  Chunks that passed Phase 1 are processed through specialised sub-classifiers
+                  Chunks that passed Phase 1 are processed by dedicated classifiers
                   depending on their mention types. We process three of the Phase 1 mention
-                  types — adoption, risk, and vendor — each through its own designated LLM
-                  classifier. Risk-mentioning chunks are additionally processed for a
-                  substantiveness score. The taxonomies used are as follows:
+                  types — adoption, risk, and vendor — each through its own LLM classifier.
+                  Chunks tagged as Risk are also scored for substantiveness. The taxonomies
+                  used are as follows:
                 </p>
 
                 {/* Adoption */}
@@ -678,8 +672,8 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                     </tr>
                   </thead>
                   <tbody className="text-muted">
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Traditional AI / ML</td><td className="py-2">Traditional AI/ML — predictive models, computer vision, detection/classification systems.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">LLM / GenAI</td><td className="py-2">Large language model / GenAI use (GPT, Gemini, Claude, Copilot-style deployments).</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Traditional AI/ML</td><td className="py-2">Traditional AI/ML — predictive models, computer vision, detection/classification systems.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">LLM/GenAI</td><td className="py-2">Large language model/GenAI use (GPT, Gemini, Claude, Copilot-style deployments).</td></tr>
                     <tr><td className="py-2 pr-4 font-bold text-primary">Agentic systems</td><td className="py-2">Autonomous or agent-based workflows with limited human intervention.</td></tr>
                   </tbody>
                 </table>
@@ -711,9 +705,10 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                 {/* Vendor */}
                 <h4 className="text-sm font-bold uppercase tracking-widest text-primary pt-4">Vendor Taxonomy</h4>
                 <p>
-                  Amazon, Google, Microsoft, OpenAI, Anthropic, Meta, internal (in-house),
-                  undisclosed (implied but unnamed), and other (named provider outside the
-                  predefined list, captured as free text).
+                  Vendors are tagged against a predefined list: Amazon, Google, Microsoft,
+                  OpenAI, Anthropic, Meta, internal (in-house), undisclosed (implied but
+                  unnamed), and other (named provider outside the predefined list, captured
+                  as free text).
                 </p>
 
                 {/* Substantiveness */}
@@ -727,15 +722,28 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                   </thead>
                   <tbody className="text-muted">
                     <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Boilerplate</td><td className="py-2">Generic AI language; could appear in many reports unchanged.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Moderate</td><td className="py-2">Specific area identified but limited mechanism, metrics, or mitigation detail.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Moderate</td><td className="py-2">A specific area is identified, but without concrete mechanisms, metrics, or mitigation steps.</td></tr>
                     <tr><td className="py-2 pr-4 font-bold text-primary">Substantive</td><td className="py-2">Concrete mechanism, tangible action, commitment, metric, or timeline.</td></tr>
                   </tbody>
                 </table>
 
-                <p className="text-sm text-muted">
-                  The exact prompts used by the Phase 2 classifiers can be found in the repository
-                  at <a href="https://github.com/84rt/ai-risk-observatory/blob/main/pipeline/prompts/classifiers.yaml" target="_blank" rel="noopener noreferrer" className="inline-block underline underline-offset-2 hover:text-primary transition-colors"><code className="font-mono text-xs bg-secondary px-1 py-0.5 rounded">/pipeline/prompts/classifiers.yaml</code></a>.
-                </p>
+                <CollapsibleSection title="Phase 2 classifier prompts">
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted leading-relaxed">
+                      The Phase 2 classifier prompts, as well as all other prompts used in the pipeline, are available in the repository at{' '}
+                      <a
+                        href="https://github.com/84rt/ai-risk-observatory/blob/main/pipeline/prompts/classifiers.yaml"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block underline underline-offset-2 hover:text-primary transition-colors"
+                      >
+                        <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
+                          /pipeline/prompts/classifiers.yaml
+                        </code>
+                      </a>.
+                    </p>
+                  </div>
+                </CollapsibleSection>
               </div>
             </section>
 
@@ -744,24 +752,24 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
               <h2 className="aisi-h2 uppercase">4. Quality Assurance</h2>
 
               <p>
-                We use schema-constrained outputs and explicit validation to reduce noise and
-                improve reproducibility. The checks applied to the current dataset:
+                We enforce structured outputs and explicit validation rules to reduce noise and
+                improve reproducibility. We apply the following checks:
               </p>
 
               <ul className="space-y-4">
-                <li><strong className="text-primary">Structured outputs</strong> — classifiers write to strict JSON response schemas; malformed or out-of-vocabulary labels are retried or flagged.</li>
+                <li><strong className="text-primary">Structured outputs</strong> — classifiers write to strict JSON response schemas; malformed or labels outside the permitted set are retried or flagged.</li>
                 <li><strong className="text-primary">Conservative prompting</strong> — prompts require explicit AI attribution and discourage over-labelling; the default outcome is <em>none</em> or <em>general_ambiguous</em>.</li>
-                <li><strong className="text-primary">Temperature zero</strong> — all calls use deterministic settings for reproducibility.</li>
+                <li><strong className="text-primary">Temperature zero</strong> — all classifier calls use temperature zero for deterministic, reproducible outputs.</li>
                 <li><strong className="text-primary">Chunk-level traceability</strong> — every annotation maps back to a company, year, and report section via a stable chunk ID.</li>
                 <li>
-                  <strong className="text-primary">QA scripts</strong> — we applied QA tests across each pipeline stage, checking primarily for anomalies and out-of-distribution outputs:
+                  <strong className="text-primary">QA scripts</strong> — we run QA tests across each pipeline stage, checking primarily for anomalies and out-of-distribution outputs:
                   <ul className="mt-2 space-y-1 pl-4 list-disc text-muted">
                     <li>Document size, length, duplication, fiscal-year-match, and text anomalies (non-Markdown formatting, unexpected characters).</li>
                     <li>Outlier analysis on the distribution of Phase 1 and Phase 2 labels per company, report, and year; excerpts extracted per report; and chunk creation keywords.</li>
                   </ul>
-                  <p className="mt-2">All data flagged by these checks was manually reviewed.</p>
+                  <p className="mt-2">All flagged outputs were manually reviewed.</p>
                 </li>
-                <li><strong className="text-primary">Human review</strong> — the dataset is vast, and while we have made every effort to audit anomalies arising from data processing, some errors and misclassifications may remain. Our data is openly available for download and processing, and if any issues are found please don&apos;t hesitate to flag them by creating an issue on the repository.</li>
+                <li><strong className="text-primary">Human review</strong> — the dataset is vast, and while we have made every effort to audit anomalies arising from data processing, some errors and misclassifications may remain. Our data is available for download. If you spot an issue, please file it on the repository.</li>
               </ul>
 
               <div className="flex flex-wrap gap-4">
@@ -792,11 +800,11 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                 </li>
                 <li id="fn-2">
                   To address the boilerplate problem we apply a substantiveness classifier (see
-                  Section 3, Phase 2) that rates each mention on a scale from boilerplate to
+                  Phase 2 above) that rates each mention on a scale from boilerplate to
                   substantive, allowing users to filter to high-signal disclosures.
                 </li>
                 <li id="fn-3">
-                  The ISIC-to-CNI mapping is done in two steps: direct lookup for ISIC codes that
+                  The ISIC-to-CNI mapping follows two steps: a direct lookup for ISIC codes that
                   clearly correspond to a CNI sector, followed by an LLM classifier for ambiguous
                   cases. Companies that cannot be assigned to any CNI sector are labelled
                   &ldquo;Other&rdquo;.

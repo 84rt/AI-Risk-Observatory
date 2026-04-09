@@ -1106,6 +1106,11 @@ const annotationsAsChunks = (
 
 const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => {
   const EXAMPLE_CHUNK_LIMIT = 3;
+  const preferredExampleChunkIds = [
+    'chunk-84448f2526b3', // 2020 adoption-only example
+    'chunk-021a67554069', // 2021 risk-only example
+    'chunk-e5280877b947', // 2024 mixed example
+  ];
   const candidates = annotations.map(item => {
     const chunkId = item.chunk_id?.trim();
     if (!chunkId) return null;
@@ -1138,6 +1143,15 @@ const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => 
     return hasText && (hasPhase1 || hasPhase2);
   });
 
+  const chunkById = new Map(filtered.map(chunk => [chunk.chunkId, chunk]));
+  const preferred = preferredExampleChunkIds
+    .map(chunkId => chunkById.get(chunkId))
+    .filter((chunk): chunk is ExampleChunk => Boolean(chunk));
+
+  if (preferred.length >= EXAMPLE_CHUNK_LIMIT) {
+    return preferred.slice(0, EXAMPLE_CHUNK_LIMIT);
+  }
+
   const sorted = filtered.sort((a, b) => {
     // Prioritize chunks that have a mix of different classification types
     const aDiversity = (a.riskLabels.length > 0 ? 1 : 0) + (a.adoptionTypes.length > 0 ? 1 : 0) + (a.vendorTags.length > 0 ? 1 : 0);
@@ -1157,6 +1171,14 @@ const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => 
 
   const selected: ExampleChunk[] = [];
   const seenCompanies = new Set<string>();
+
+  preferred.forEach(chunk => {
+    if (selected.length >= EXAMPLE_CHUNK_LIMIT) return;
+    const companyKey = toKey(chunk.companyName);
+    if (seenCompanies.has(companyKey)) return;
+    selected.push(chunk);
+    seenCompanies.add(companyKey);
+  });
 
   sorted.forEach(chunk => {
     if (selected.length >= EXAMPLE_CHUNK_LIMIT) return;
