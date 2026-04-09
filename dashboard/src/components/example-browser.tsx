@@ -47,7 +47,7 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
   ] satisfies Phase2Group[]).filter(group => group.items.length > 0);
 
   return (
-    <section className="border-b border-border bg-white">
+    <section className="bg-white">
       <div className="mx-auto max-w-7xl px-6 py-20">
         <div className="mb-12 max-w-3xl">
           <span className="aisi-tag">Annotation</span>
@@ -57,7 +57,7 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
           </p>
         </div>
 
-        <div className="border border-border bg-white">
+        <div className="overflow-hidden rounded-lg border border-border bg-white">
           <div className="grid gap-px border-b border-border bg-border lg:grid-cols-3">
             {normalizedList.map(chunk => {
               const isActive = chunk.chunkId === activeChunkId;
@@ -117,7 +117,7 @@ export default function ExampleBrowser({ exampleChunks }: { exampleChunks: Examp
               </div>
             )}
 
-            <div className="overflow-hidden border border-border bg-secondary/60">
+            <div className="overflow-hidden rounded-lg border border-border bg-secondary/60">
               <div className="border-b border-border px-6 py-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                   Full Excerpt Text

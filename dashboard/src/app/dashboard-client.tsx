@@ -1940,7 +1940,7 @@ export default function DashboardClient({
   );
 
   const renderSettingsPanel = () => (
-    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+    <div className="overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)] min-[960px]:flex min-[960px]:h-full min-[960px]:flex-col">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Settings</h3>
         <div className="flex items-center gap-2">
@@ -1987,7 +1987,7 @@ export default function DashboardClient({
           </button>
         </div>
       </div>
-      <div className="p-5 [&>*+*]:mt-6">
+      <div className="p-5 min-[960px]:flex-1 [&>*+*]:mt-6">
         {visualizationMode === 'chart' && activeView !== 4 && (
           <div>
             <div className="flex items-center gap-2">
@@ -2480,7 +2480,7 @@ export default function DashboardClient({
     activeInfoPanelItems.find(item => item.value === selectedInfoPanelKey) ?? activeInfoPanelItems[0];
 
   const infoPanelSection = (
-    <section className="border-t border-border pt-8">
+    <section>
       <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-8">
         <div className="lg:pr-2">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
@@ -2759,6 +2759,26 @@ export default function DashboardClient({
     </div>
   );
 
+  const renderVisualizationArea = (visualization: ReactNode) => (
+    <>
+      <div className={isSettingsOpen ? 'grid gap-5 min-[960px]:grid-cols-[minmax(0,1fr)_280px]' : ''}>
+        <div className="min-w-0">
+          {visualization}
+        </div>
+        {isSettingsOpen && (
+          <aside className="hidden min-[960px]:block min-[960px]:h-full">
+            {renderSettingsPanel()}
+          </aside>
+        )}
+      </div>
+      {visualizationActions}
+      {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
+      <div className="border-t border-border pt-8">
+        {infoPanelSection}
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-white text-primary">
       <main className="mx-auto max-w-[1320px] px-6 py-10 sm:py-14">
@@ -2848,19 +2868,12 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div
-          className={`mt-3 grid gap-5 xl:items-start ${
-            isSettingsOpen
-              ? 'min-[960px]:grid-cols-[minmax(0,1fr)_280px]'
-              : 'min-[960px]:grid-cols-1'
-          }`}
-        >
-          <div className="min-w-0">
+        <div className="mt-3">
 
         {activeView === 1 && (
           <div className="space-y-8">
             {visualizationMode === 'chart' ? (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <StackedBarChart
                   key={`risk-trend-${trendTimeAxis}`}
                   exportRef={visualizationExportRef}
@@ -2902,10 +2915,9 @@ export default function DashboardClient({
                     </>
                   }
                 />
-                {visualizationActions}
-              </div>
+              )
             ) : (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <GenericHeatmap
                   exportRef={visualizationExportRef}
                   exportMode={isExportingVisualization}
@@ -2950,20 +2962,15 @@ export default function DashboardClient({
                   headerExtra={settingsPanelToggle}
                   footerExtra={visualizationFooter}
                 />
-                {visualizationActions}
-              </div>
+              )
             )}
-
-            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            {infoPanelSection}
           </div>
         )}
 
         {activeView === 2 && (
           <div className="space-y-8">
             {visualizationMode === 'chart' ? (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <StackedBarChart
                   key={`adoption-trend-${trendTimeAxis}`}
                   exportRef={visualizationExportRef}
@@ -3001,10 +3008,9 @@ export default function DashboardClient({
                     </>
                   }
                 />
-                {visualizationActions}
-              </div>
+              )
             ) : (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <GenericHeatmap
                   exportRef={visualizationExportRef}
                   exportMode={isExportingVisualization}
@@ -3049,20 +3055,15 @@ export default function DashboardClient({
                   headerExtra={settingsPanelToggle}
                   footerExtra={visualizationFooter}
                 />
-                {visualizationActions}
-              </div>
+              )
             )}
-
-            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            {infoPanelSection}
           </div>
         )}
 
         {activeView === 3 && (
           <div className="space-y-8">
             {visualizationMode === 'chart' ? (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <StackedBarChart
                   key={`vendor-trend-${trendTimeAxis}`}
                   exportRef={visualizationExportRef}
@@ -3101,10 +3102,9 @@ export default function DashboardClient({
                     </>
                   }
                 />
-                {visualizationActions}
-              </div>
+              )
             ) : (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <GenericHeatmap
                   exportRef={visualizationExportRef}
                   exportMode={isExportingVisualization}
@@ -3149,19 +3149,14 @@ export default function DashboardClient({
                   headerExtra={settingsPanelToggle}
                   footerExtra={visualizationFooter}
                 />
-                {visualizationActions}
-              </div>
+              )
             )}
-
-            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            {infoPanelSection}
           </div>
         )}
 
         {activeView === 4 && (
           <div className="space-y-8">
-            <div className="space-y-4">
+            {renderVisualizationArea(
               <GenericHeatmap
                 exportRef={visualizationExportRef}
                 exportMode={isExportingVisualization}
@@ -3183,18 +3178,14 @@ export default function DashboardClient({
                 headerExtra={settingsPanelToggle}
                 footerExtra={visualizationFooter}
               />
-              {visualizationActions}
-            </div>
-
-            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-            {infoPanelSection}
+            )}
           </div>
         )}
 
         {activeView === 5 && (
           <div className="space-y-8">
             {visualizationMode === 'chart' ? (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <StackedBarChart
                   key={`blind-spot-trend-${trendTimeAxis}`}
                   exportRef={visualizationExportRef}
@@ -3238,10 +3229,9 @@ export default function DashboardClient({
                       : `${formatLabel(blindSpotFilter)} is currently isolated. Clear the filter to compare both blind-spot types together.`
                   }
                 />
-                {visualizationActions}
-              </div>
+              )
             ) : (
-              <div className="space-y-4">
+              renderVisualizationArea(
                 <GenericHeatmap
                   exportRef={visualizationExportRef}
                   exportMode={isExportingVisualization}
@@ -3263,18 +3253,10 @@ export default function DashboardClient({
                   headerExtra={settingsPanelToggle}
                   footerExtra={visualizationFooter}
                 />
-                {visualizationActions}
-              </div>
+              )
             )}
-
-            {isSettingsOpen && <div className="min-[960px]:hidden">{renderSettingsPanel()}</div>}
-
-            {infoPanelSection}
           </div>
         )}
-          </div>
-
-          {isSettingsOpen && <aside className="hidden self-start min-[960px]:block">{renderSettingsPanel()}</aside>}
         </div>
       </main>
     </div>

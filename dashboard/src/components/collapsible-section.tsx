@@ -12,7 +12,7 @@ export function CollapsibleSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border border-border">
+    <div className="overflow-hidden rounded-lg border border-border">
       <button
         type="button"
         onClick={() => setOpen(prev => !prev)}

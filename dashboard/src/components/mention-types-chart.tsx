@@ -8,6 +8,7 @@ const mentionColors: Record<string, string> = {
   vendor: '#14b8a6',
   general_ambiguous: '#64748b',
   harm: '#ef4444',
+  none: '#d1d5db',
 };
 
 export function MentionTypesChart({
@@ -26,7 +27,7 @@ export function MentionTypesChart({
       allowLineChart
       legendPosition="right"
       title="AI Mention Types Over Time"
-      subtitle="Each bar shows how many reports per year were tagged with each mention type (confidence ≥ 0.2)."
+      subtitle="Each bar shows how many reports per year were tagged with each mention type (threshold: at least one mention in the report with a confidence score ≥ 0.2)."
     />
   );
 }

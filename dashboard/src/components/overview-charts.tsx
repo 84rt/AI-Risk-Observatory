@@ -22,7 +22,7 @@ const formatLabel = (val: string) => {
     information_integrity: 'Information Integrity',
     no_ai_mention: 'No AI Mention',
     no_ai_risk_mention: 'No AI Risk Mention',
-    none: 'Unspecified',
+    none: 'None / False Positive',
     openai: 'OpenAI',
   };
   if (overrides[val]) return overrides[val];
