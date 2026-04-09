@@ -83,8 +83,8 @@ function FooterLinkList({
 
 export function SiteFooter() {
   const pathname = usePathname();
-  const lastUpdated = '6 April 2026';
-  const version = 'v1.0.2';
+  const lastUpdated = '9 April 2026';
+  const version = 'v1.0.3';
 
   const pageSectionLinks = pathname === '/about'
     ? aboutSectionLinks

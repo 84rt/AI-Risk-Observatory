@@ -431,18 +431,12 @@ export default function AboutPage() {
                     <strong className="text-primary">Why annual reports?</strong>{' '}
                     Unlike earnings calls, press releases, or public media, annual reports are
                     audited, structured, and published on a consistent cadence — making them a
-                    reliable, high-signal source of information.
+                    reliable, high-signal source of information. UK public companies must
+                    publish annual accounts, a strategic report, a directors&apos; report, and an
+                    auditor&apos;s report under the Companies Act 2006. All listed companies share
+                    that statutory core, but Main Market issuers face tighter deadlines and more
+                    detailed disclosure rules than AIM and AQSE companies.<sup className="text-xs align-super"><a href="#fn-5" className="hover:text-primary">5</a></sup>
                   </p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded border border-border bg-secondary px-4 py-3">
-                      <p className="font-bold text-primary uppercase tracking-widest text-xs mb-1">Strict legal requirements</p>
-                      <p className="text-muted">Mandated disclosure format with auditor sign-off.</p>
-                    </div>
-                    <div className="rounded border border-border bg-secondary px-4 py-3">
-                      <p className="font-bold text-primary uppercase tracking-widest text-xs mb-1">Different per market segment</p>
-                      <p className="text-muted">Reporting standards vary by listing venue (Main Market, AIM, AQSE).</p>
-                    </div>
-                  </div>
                   <p>
                     This makes annual reports well suited to tracking trends across the UK economy
                     over time. There are two
@@ -815,6 +809,12 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                   (18), Defence (20), Government (20), Data Infrastructure (22), Communications
                   (28), Chemicals (34). Conclusions drawn about these sectors should be treated
                   with caution.
+                </li>
+                <li id="fn-5">
+                  Main Market issuers are generally subject to FCA disclosure and listing rules,
+                  including a four-month reporting deadline, while AIM and AQSE companies
+                  typically have up to six months. The auditor&apos;s formal opinion covers the
+                  financial statements, not the annual report narrative as a whole.
                 </li>
               </ol>
             </section>

@@ -100,7 +100,9 @@ export type GoldenDashboardData = {
     perReport: GoldenDataset;
     perChunk: GoldenDataset;
   };
+  byCompanyScope: Record<'all' | 'cniOnly', { perReport: GoldenDataset; perChunk: GoldenDataset }>;
   byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }>;
+  byMarketSegmentAndCompanyScope: Record<string, Record<'all' | 'cniOnly', { perReport: GoldenDataset; perChunk: GoldenDataset }>>;
 };
 
 export type GoldenDataset = {
@@ -143,6 +145,11 @@ export type GoldenDataset = {
   noAiRiskBySectorYear: { x: number; y: string; value: number }[];
   reportCountBySectorYear: { x: number; y: string; value: number }[];
   reportCountByIsicSectorYear: { x: number; y: string; value: number }[];
+};
+
+type GoldenDatasetCollection = {
+  perReport: GoldenDataset;
+  perChunk: GoldenDataset;
 };
 
 export type ExampleChunk = {
@@ -1625,6 +1632,22 @@ const buildDataset = (
   };
 };
 
+const buildDatasetCollection = (
+  reportRows: ReportData[],
+  chunkRows: ReportData[],
+  years: number[],
+  sectors: string[],
+  isicSectors: string[]
+): GoldenDatasetCollection => ({
+  perReport: buildDataset(reportRows, years, sectors, isicSectors),
+  perChunk: buildDataset(chunkRows, years, sectors, isicSectors),
+});
+
+const isCniMappedSector = (sector: string): boolean => {
+  const normalized = sector.trim();
+  return normalized !== '' && normalized !== 'Unknown' && normalized !== 'Other';
+};
+
 export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
   const {
     cniSectorMap,
@@ -1659,14 +1682,43 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
   );
   const perChunkData = annotationsAsChunks(annotations, cniSectorMap, isicSectorMap, marketSegmentMap, documentMonths);
   const exampleChunks = buildExampleChunks(annotations);
+  const datasets = buildDatasetCollection(
+    perReportData,
+    perChunkData,
+    years,
+    resolvedCniSectors,
+    resolvedIsicSectors
+  );
+  const cniOnlyDatasets = buildDatasetCollection(
+    perReportData.filter(report => isCniMappedSector(report.sector)),
+    perChunkData.filter(report => isCniMappedSector(report.sector)),
+    years,
+    resolvedCniSectors,
+    resolvedIsicSectors
+  );
 
   const byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }> = {};
+  const byMarketSegmentAndCompanyScope: Record<string, Record<'all' | 'cniOnly', GoldenDatasetCollection>> = {};
   resolvedMarketSegments.forEach(segment => {
     const segReportData = perReportData.filter(r => r.marketSegment === segment);
     const segChunkData = perChunkData.filter(r => r.marketSegment === segment);
-    byMarketSegment[segment] = {
-      perReport: buildDataset(segReportData, years, resolvedCniSectors, resolvedIsicSectors),
-      perChunk: buildDataset(segChunkData, years, resolvedCniSectors, resolvedIsicSectors),
+    const segmentDatasets = buildDatasetCollection(
+      segReportData,
+      segChunkData,
+      years,
+      resolvedCniSectors,
+      resolvedIsicSectors
+    );
+    byMarketSegment[segment] = segmentDatasets;
+    byMarketSegmentAndCompanyScope[segment] = {
+      all: segmentDatasets,
+      cniOnly: buildDatasetCollection(
+        segReportData.filter(report => isCniMappedSector(report.sector)),
+        segChunkData.filter(report => isCniMappedSector(report.sector)),
+        years,
+        resolvedCniSectors,
+        resolvedIsicSectors
+      ),
     };
   });
 
@@ -1686,12 +1738,14 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
       substantivenessBands,
       riskSignalLevels,
     },
-    datasets: {
-      perReport: buildDataset(perReportData, years, resolvedCniSectors, resolvedIsicSectors),
-      perChunk: buildDataset(perChunkData, years, resolvedCniSectors, resolvedIsicSectors),
+    datasets,
+    byCompanyScope: {
+      all: datasets,
+      cniOnly: cniOnlyDatasets,
     },
     exampleChunks,
     byMarketSegment,
+    byMarketSegmentAndCompanyScope,
   };
 };
 
@@ -1701,6 +1755,11 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   if (shouldPreferPrecomputedDashboardData()) {
     const precomputedData = loadPrecomputedDashboardData();
     if (precomputedData) {
+      if (!precomputedData.byCompanyScope || !precomputedData.byMarketSegmentAndCompanyScope) {
+        const rawData = buildGoldenSetDashboardDataFromRaw();
+        cachedDashboardData = rawData;
+        return rawData;
+      }
       cachedDashboardData = precomputedData;
       return precomputedData;
     }

@@ -79,19 +79,19 @@ const VIEWS: View[] = [
   {
     id: 3,
     title: 'Vendors',
-    heading: 'Mentions of AI Vendors in Annual Reports',
+    heading: 'AI Vendor References',
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
   {
     id: 5,
     title: 'Blind Spots',
-    heading: 'Reports that did not mention AI',
+    heading: 'Reports with Missing AI Disclosure',
     description: 'Where disclosures are absent: reports that do not mention AI at all, and reports that do not mention AI risk.',
   },
   {
     id: 4,
     title: 'Signal Quality',
-    heading: 'Metrics of findings quality and strength',
+    heading: 'AI Disclosure Quality',
     description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
   },
 ];
@@ -131,12 +131,6 @@ const blindSpotColors: Record<string, string> = {
   no_ai_mention:      '#b91c1c', // deep red
   no_ai_risk_mention: '#e63946', // AISI red
 };
-
-const explicitnessSignalOptions = [
-  { value: 'risk_signal', label: 'AI Risk Signal Strength' },
-  { value: 'adoption_signal', label: 'AI Adoption Signal Strength' },
-  { value: 'vendor_signal', label: 'AI Vendor Signal Strength' },
-] as const;
 
 const riskCategoryDefinitions = [
   {
@@ -234,7 +228,7 @@ const vendorTagDefinitions = [
 const signalQualityDefinitions = [
   {
     label: 'Signal Strength',
-    definition: 'How directly the text supports a classification: explicit, strong implicit, or weak implicit.',
+    definition: 'How clearly AI is mentioned in the disclosure text — ranging from explicit statements to weak or indirect references.',
   },
   {
     label: 'Substantiveness',
@@ -524,11 +518,11 @@ export default function DashboardClient({
   const [vendorSectorView, setVendorSectorView] = useState<RiskSectorView>('cni');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
   const [infoPanelSelections, setInfoPanelSelections] = useState<Record<number, RiskInfoPanelKey>>({
-    1: 'cite',
-    2: 'cite',
-    3: 'cite',
-    4: 'cite',
-    5: 'cite',
+    1: 'definitions',
+    2: 'definitions',
+    3: 'definitions',
+    4: 'definitions',
+    5: 'definitions',
   });
   const [signalQualityMode, setSignalQualityMode] = useState<SignalQualityMode>('explicitness');
   const [explicitnessSignalFilter, setExplicitnessSignalFilter] = useState<ExplicitnessSignalFilter>('risk_signal');
@@ -537,6 +531,7 @@ export default function DashboardClient({
     useState<BlindSpotHeatmapSelection>('no_ai_mention');
   const [metricMode, setMetricMode] = useState<MetricMode>('pct_reports');
   const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
+  const [showCniCompaniesOnly, setShowCniCompaniesOnly] = useState(true);
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
@@ -565,6 +560,7 @@ export default function DashboardClient({
     setBlindSpotHeatmapSelection('no_ai_mention');
     setMetricMode('pct_reports');
     setMarketSegmentFilter('all');
+    setShowCniCompaniesOnly(true);
     setExpandedIsicGroups([]);
     setChartDisplayType('bar');
     setShowChartLegend(true);
@@ -601,10 +597,24 @@ export default function DashboardClient({
   const currentViewUrl = `${dashboardBaseUrl}${activeView === DEFAULT_VIEW_ID ? '' : `#${getViewHash(activeView)}`}`;
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
+  const isTrendChartView = visualizationMode === 'chart' && activeView !== 4;
+  const effectiveCompanyScope = isTrendChartView && showCniCompaniesOnly ? 'cniOnly' : 'all';
   const resolvedDatasets =
-    marketSegmentFilter === 'all'
-      ? data.datasets
-      : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets);
+    effectiveCompanyScope === 'cniOnly'
+      ? (
+          marketSegmentFilter === 'all'
+            ? (data.byCompanyScope?.cniOnly ?? data.datasets)
+            : (
+                data.byMarketSegmentAndCompanyScope?.[marketSegmentFilter]?.cniOnly
+                ?? data.byMarketSegment[marketSegmentFilter]
+                ?? data.datasets
+              )
+        )
+      : (
+          marketSegmentFilter === 'all'
+            ? data.datasets
+            : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets)
+        );
   const activeData = resolvedDatasets[datasetKey];
   const reportBaselineData = resolvedDatasets.perReport;
   const canShowReportShare =
@@ -613,68 +623,76 @@ export default function DashboardClient({
   const isReportShareMode = effectiveMetricMode === 'pct_reports';
   const availableYears = activeData.years;
   const maxYearIndex = Math.max(availableYears.length - 1, 0);
-  const fullDatasetYearSpan = data.years.length > 0
-    ? `${data.years[0]} to ${data.years[data.years.length - 1]}`
+  const fullDatasetYearSpan = reportBaselineData.years.length > 0
+    ? `${reportBaselineData.years[0]} to ${reportBaselineData.years[reportBaselineData.years.length - 1]}`
     : 'the full available period';
+  const datasetScopeLabel = marketSegmentFilter !== 'all' && effectiveCompanyScope === 'cniOnly'
+    ? `for CNI-mapped companies in ${marketSegmentFilter}`
+    : marketSegmentFilter !== 'all'
+      ? `for ${marketSegmentFilter} companies`
+      : effectiveCompanyScope === 'cniOnly'
+        ? 'for CNI-mapped companies'
+        : '';
+  const datasetScopeFragment = datasetScopeLabel ? ` ${datasetScopeLabel}` : '';
 
   const datasetSummaryByView = useMemo(() => {
-    const totalReports = data.datasets.perReport.blindSpotTrend.reduce(
+    const totalReports = reportBaselineData.blindSpotTrend.reduce(
       (sum, row) => sum + (Number(row.total_reports) || 0),
       0
     );
-    const riskMentionReports = data.datasets.perReport.blindSpotTrend.reduce(
+    const riskMentionReports = reportBaselineData.blindSpotTrend.reduce(
       (sum, row) => sum + (Number(row.ai_risk_mention) || 0),
       0
     );
-    const excerptRiskMentions = data.datasets.perChunk.mentionTrend.reduce(
+    const excerptRiskMentions = resolvedDatasets.perChunk.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.risk) || 0),
       0
     );
-    const adoptionMentionReports = data.datasets.perReport.mentionTrend.reduce(
+    const adoptionMentionReports = reportBaselineData.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.adoption) || 0),
       0
     );
-    const excerptAdoptionMentions = data.datasets.perChunk.mentionTrend.reduce(
+    const excerptAdoptionMentions = resolvedDatasets.perChunk.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.adoption) || 0),
       0
     );
-    const vendorMentionReports = data.datasets.perReport.mentionTrend.reduce(
+    const vendorMentionReports = reportBaselineData.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.vendor) || 0),
       0
     );
-    const excerptVendorMentions = data.datasets.perChunk.mentionTrend.reduce(
+    const excerptVendorMentions = resolvedDatasets.perChunk.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.vendor) || 0),
       0
     );
-    const noAiMention = data.datasets.perReport.blindSpotTrend.reduce(
+    const noAiMention = reportBaselineData.blindSpotTrend.reduce(
       (sum, row) => sum + (Number(row.no_ai_mention) || 0),
       0
     );
-    const noAiRiskMention = data.datasets.perReport.blindSpotTrend.reduce(
+    const noAiRiskMention = reportBaselineData.blindSpotTrend.reduce(
       (sum, row) => sum + (Number(row.no_ai_risk_mention) || 0),
       0
     );
-    const riskSignalTotal = data.datasets.perReport.riskSignalHeatmap.reduce(
+    const riskSignalTotal = reportBaselineData.riskSignalHeatmap.reduce(
       (sum, row) => sum + (Number(row.value) || 0),
       0
     );
-    const adoptionSignalTotal = data.datasets.perReport.adoptionSignalHeatmap.reduce(
+    const adoptionSignalTotal = reportBaselineData.adoptionSignalHeatmap.reduce(
       (sum, row) => sum + (Number(row.value) || 0),
       0
     );
-    const vendorSignalTotal = data.datasets.perReport.vendorSignalHeatmap.reduce(
+    const vendorSignalTotal = reportBaselineData.vendorSignalHeatmap.reduce(
       (sum, row) => sum + (Number(row.value) || 0),
       0
     );
 
     return {
-      1: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(riskMentionReports)} mention AI risk across ${formatNumber(excerptRiskMentions)} tagged passages.`,
-      2: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(adoptionMentionReports)} mention AI adoption across ${formatNumber(excerptAdoptionMentions)} tagged passages.`,
-      3: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(vendorMentionReports)} name AI vendors across ${formatNumber(excerptVendorMentions)} tagged passages.`,
-      4: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, the dataset records ${formatNumber(riskSignalTotal)} risk, ${formatNumber(adoptionSignalTotal)} adoption, and ${formatNumber(vendorSignalTotal)} vendor signal labels.`,
-      5: `Across ${formatNumber(totalReports)} annual reports from ${fullDatasetYearSpan}, ${formatNumber(noAiMention)} contain no AI mention and ${formatNumber(noAiRiskMention)} contain no AI risk disclosure.`,
+      1: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, ${formatNumber(riskMentionReports)} mention AI risk across ${formatNumber(excerptRiskMentions)} tagged passages.`,
+      2: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, ${formatNumber(adoptionMentionReports)} mention AI adoption across ${formatNumber(excerptAdoptionMentions)} tagged passages.`,
+      3: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, ${formatNumber(vendorMentionReports)} name AI vendors across ${formatNumber(excerptVendorMentions)} tagged passages.`,
+      4: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, the dataset includes ${formatNumber(riskSignalTotal)} risk, ${formatNumber(adoptionSignalTotal)} adoption, and ${formatNumber(vendorSignalTotal)} vendor quality assessments.`,
+      5: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, ${formatNumber(noAiMention)} contain no AI mention and ${formatNumber(noAiRiskMention)} contain no AI risk disclosure.`,
     } as Record<number, string>;
-  }, [data, fullDatasetYearSpan]);
+  }, [reportBaselineData, resolvedDatasets.perChunk, fullDatasetYearSpan, datasetScopeFragment]);
 
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const vendorStackKeys = useMemo(
@@ -1571,7 +1589,7 @@ export default function DashboardClient({
     isReportShareMode ? formatPercent(value) : formatNumber(value);
   const riskHeatmapValueFormatter = (value: number) => formatPercent(value);
   const blindSpotHeatmapValueFormatter = (value: number) => formatPercent(value);
-  const dashboardUpdatedLabel = 'Dataset updated 03.04.2026';
+  const dashboardUpdatedLabel = 'Dataset updated 3 Apr 2026';
   const currentVisualizationExport = useMemo<VisualizationExport>(() => {
     if (activeView === 1) {
       if (visualizationMode === 'chart') {
@@ -1844,6 +1862,44 @@ export default function DashboardClient({
     </div>
   );
 
+  const explicitnessSummaryToggle = (
+    <div className="inline-flex w-full items-center overflow-hidden rounded border border-border bg-white p-1">
+      <button
+        type="button"
+        onClick={() => setExplicitnessSignalFilter('risk_signal')}
+        className={`flex-1 ${segmentedButtonClass} ${
+          explicitnessSignalFilter === 'risk_signal'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Risk
+      </button>
+      <button
+        type="button"
+        onClick={() => setExplicitnessSignalFilter('adoption_signal')}
+        className={`flex-1 ${segmentedButtonClass} ${
+          explicitnessSignalFilter === 'adoption_signal'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Adoption
+      </button>
+      <button
+        type="button"
+        onClick={() => setExplicitnessSignalFilter('vendor_signal')}
+        className={`flex-1 ${segmentedButtonClass} ${
+          explicitnessSignalFilter === 'vendor_signal'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        }`}
+      >
+        Vendor
+      </button>
+    </div>
+  );
+
   const showVisualizationToggle = activeView !== 4;
   const showSignalQualityToggle = activeView === 4;
   const canUseLineChart = visualizationMode === 'chart' && activeView !== 4 && trendTimeAxis === 'year';
@@ -1898,6 +1954,30 @@ export default function DashboardClient({
         <span
           className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
             showChartLegend ? 'translate-x-3.5' : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  );
+
+  const cniCompaniesOnlyToggle = (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={showCniCompaniesOnly}
+      onClick={() => setShowCniCompaniesOnly(prev => !prev)}
+      className="inline-flex items-center rounded-full transition"
+      title={showCniCompaniesOnly ? 'Show all companies' : 'Show only CNI-mapped companies'}
+    >
+      <span
+        className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+          showCniCompaniesOnly ? 'bg-primary' : 'bg-slate-300'
+        }`}
+        aria-hidden="true"
+      >
+        <span
+          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+            showCniCompaniesOnly ? 'translate-x-3.5' : 'translate-x-0.5'
           }`}
         />
       </span>
@@ -1988,7 +2068,7 @@ export default function DashboardClient({
         </div>
       </div>
       <div className="p-5 min-[960px]:flex-1 [&>*+*]:mt-6">
-        {visualizationMode === 'chart' && activeView !== 4 && (
+        {isTrendChartView && (
           <div>
             <div className="flex items-center gap-2">
               {legendVisibilityToggle}
@@ -1997,13 +2077,26 @@ export default function DashboardClient({
           </div>
         )}
 
-        {visualizationMode === 'chart' && activeView !== 4 && (
+        {isTrendChartView && (
           <div className="space-y-3">
             {renderSettingsSectionHeading(
               'Chart Style',
-              'Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line requires Year axis and is disabled otherwise.'
+              'Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line charts are only available in the yearly view.'
             )}
             {chartTypeToggle}
+          </div>
+        )}
+
+        {isTrendChartView && (
+          <div className="space-y-3">
+            {renderSettingsSectionHeading(
+              'Company Scope',
+              'Restrict the trend chart to companies mapped to a named UK Critical National Infrastructure sector. This excludes firms currently grouped under Other.'
+            )}
+            <div className="flex items-center gap-2">
+              {cniCompaniesOnlyToggle}
+              <p className="text-sm font-semibold leading-tight text-primary">Only CNI Companies</p>
+            </div>
           </div>
         )}
 
@@ -2024,7 +2117,7 @@ export default function DashboardClient({
           </select>
         </div>
 
-        {visualizationMode === 'chart' && activeView !== 4 && (
+        {isTrendChartView && (
           <>
             <div className="space-y-3">
               {renderSettingsSectionHeading(
@@ -2046,9 +2139,9 @@ export default function DashboardClient({
           </div>
         )}
 
-        {visualizationMode === 'chart' && activeView !== 4 && (
+        {isTrendChartView && (
           <div className="space-y-3">
-            {renderSettingsSectionHeading('Group The Data By')}
+            {renderSettingsSectionHeading('Group by')}
             {trendTimeToggle}
           </div>
         )}
@@ -2162,18 +2255,9 @@ export default function DashboardClient({
           <div className="space-y-3">
             {renderSettingsSectionHeading(
               'Explicitness Summary',
-              'Choose which aspect of explicitness to measure: the share of substantive mentions, the share of boilerplate, or the average score across all levels.'
+              'Switch between risk, adoption, and vendor explicitness breakdowns.'
             )}
-            <select
-              id="signal-quality-metric"
-              value={explicitnessSignalFilter}
-              onChange={e => setExplicitnessSignalFilter(e.target.value as ExplicitnessSignalFilter)}
-              className="w-full aisi-select"
-            >
-              {explicitnessSignalOptions.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            {explicitnessSummaryToggle}
           </div>
         )}
 
@@ -2243,7 +2327,7 @@ export default function DashboardClient({
     [renderedAtIso]
   );
   const citationTargetUrl = currentViewUrl;
-  const plainCitation = `AI Risk Observatory. "${currentVisualizationExport.title}" dashboard view, UK annual-report AI disclosure dataset. Accessed ${accessedOnLabel}. ${citationTargetUrl}`;
+  const plainCitation = `AI Risk Observatory. "${currentVisualizationExport.title}" dashboard view, UK public-company annual report dataset. Accessed ${accessedOnLabel}. ${citationTargetUrl}`;
   const bibtexCitation = `@misc{AIRiskObservatory${slugify(currentVisualizationExport.title).replace(/-/g, '')},
   title = {${currentVisualizationExport.title}},
   author = {{AI Risk Observatory}},
@@ -2293,8 +2377,8 @@ export default function DashboardClient({
 
   const sharedCitationItem: RiskInfoPanelItem = {
     value: 'cite',
-    label: 'Cite',
-    title: `How To Cite The ${view.title} View`,
+    label: 'Citations',
+    title: '',
     content: (
       <div className="space-y-5 text-sm leading-relaxed text-slate-600">
         <p>
@@ -2310,11 +2394,11 @@ export default function DashboardClient({
   const sharedDownloadItem: RiskInfoPanelItem = {
     value: 'download',
     label: 'Download',
-    title: 'Download And Reuse',
+    title: 'Download and Reuse',
     content: (
       <div className="space-y-3 text-sm leading-relaxed text-slate-600">
         <p>
-          Download the plotted data as CSV, or download the full data bundle used to render this deployment for offline use.
+          Download the plotted data as CSV, or download the complete underlying dataset for offline analysis.
         </p>
         <div className="flex flex-wrap gap-3">
           <button
@@ -2343,11 +2427,10 @@ export default function DashboardClient({
   };
 
   const riskInfoPanelItems: RiskInfoPanelItem[] = [
-    sharedCitationItem,
     {
       value: 'definitions',
-      label: 'Definitions',
-      title: 'Risk Category Definitions',
+      label: 'Categories',
+      title: 'Risk Categories',
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
@@ -2364,15 +2447,15 @@ export default function DashboardClient({
         </>
       ),
     },
+    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const adoptionInfoPanelItems: RiskInfoPanelItem[] = [
-    sharedCitationItem,
     {
       value: 'definitions',
-      label: 'Definitions',
-      title: 'Adoption Type Definitions',
+      label: 'Categories',
+      title: 'Adoption Types',
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
@@ -2388,19 +2471,19 @@ export default function DashboardClient({
         </>
       ),
     },
+    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const vendorInfoPanelItems: RiskInfoPanelItem[] = [
-    sharedCitationItem,
     {
       value: 'definitions',
-      label: 'Definitions',
-      title: 'Vendor Tag Definitions',
+      label: 'Categories',
+      title: 'Vendor Tags',
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
-            Vendor tags indicate which provider is named or implied in the disclosure text.
+            Vendor tags identify which AI provider is named in the disclosure. &ldquo;Internal&rdquo; indicates in-house AI development with no third-party vendor named.
           </p>
           <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
             {vendorTagDefinitions.map(item => (
@@ -2412,15 +2495,15 @@ export default function DashboardClient({
         </>
       ),
     },
+    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const signalQualityInfoPanelItems: RiskInfoPanelItem[] = [
-    sharedCitationItem,
     {
       value: 'definitions',
-      label: 'Definitions',
-      title: 'Quality Metric Definitions',
+      label: 'Categories',
+      title: 'Quality Metrics',
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
@@ -2436,20 +2519,19 @@ export default function DashboardClient({
         </>
       ),
     },
+    sharedCitationItem,
     sharedDownloadItem,
   ];
 
   const blindSpotInfoPanelItems: RiskInfoPanelItem[] = [
-    sharedCitationItem,
     {
       value: 'definitions',
-      label: 'Definitions',
-      title: 'Blind Spot Definitions',
+      label: 'Categories',
+      title: 'Blind Spots',
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
-            Blind spot metrics are calculated from report-level coverage, including reports with zero extracted AI
-            passages.
+            Blind spot metrics are calculated from report-level coverage, including reports where no AI content was detected.
           </p>
           <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
             {blindSpotDefinitions.map(item => (
@@ -2461,6 +2543,7 @@ export default function DashboardClient({
         </>
       ),
     },
+    sharedCitationItem,
     sharedDownloadItem,
   ];
 
@@ -2483,10 +2566,7 @@ export default function DashboardClient({
     <section>
       <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-8">
         <div className="lg:pr-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            Reference
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 lg:flex-col lg:gap-1.5">
+          <div className="flex flex-wrap gap-2 lg:flex-col lg:gap-1.5">
             {activeInfoPanelItems.map(item => (
               <button
                 key={item.value}
@@ -2511,7 +2591,9 @@ export default function DashboardClient({
         <div className="lg:border-l lg:border-border lg:pl-8">
           <div className="h-[540px] overflow-y-auto pr-1 sm:h-[600px]">
             <span className="aisi-tag">{view.title}</span>
-            <h3 className="mt-3 text-base font-semibold text-primary">{selectedInfoPanel.title}</h3>
+            {selectedInfoPanel.title && (
+              <h3 className="mt-3 text-base font-semibold text-primary">{selectedInfoPanel.title}</h3>
+            )}
             <div className="mt-4 text-sm leading-relaxed text-muted">{selectedInfoPanel.content}</div>
           </div>
         </div>

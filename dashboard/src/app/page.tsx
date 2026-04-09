@@ -242,12 +242,6 @@ export default function HomePage() {
               mandated, and published on a consistent schedule — making them a reliable
               baseline for tracking real corporate AI exposure at scale.
             </p>
-            <p className="mt-5 text-xl leading-relaxed text-muted">
-              The main caveat is that annual reports are inherently backward-looking, and
-              their regulated format means some statements are formulaic rather than
-              informative. To address this, every mention is scored for substantiveness —
-              so you can focus on disclosures that contain real detail.
-            </p>
             <div className="mt-10">
               <Link
                 href="/data"

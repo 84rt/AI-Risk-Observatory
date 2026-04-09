@@ -13,14 +13,15 @@ const TOC_ITEMS: TocItem[] = [
   { id: 'data', label: '1. Data', level: 1 },
   { id: 'data-scope', label: 'Scope', level: 2 },
   { id: 'data-decisions', label: 'Decisions & Rationale', level: 2 },
-  { id: 'data-acknowledgements', label: 'Acknowledgements', level: 2 },
+  { id: 'data-acknowledgements', label: 'Data Provider Acknowledgment', level: 2 },
   { id: 'preprocessing', label: '2. Pre-processing', level: 1 },
-  { id: 'preprocessing-approach', label: 'Approach', level: 2 },
-  { id: 'preprocessing-results', label: 'Results', level: 2 },
+  { id: 'preprocessing-approach', label: 'Chunking Approach', level: 2 },
+  { id: 'preprocessing-results', label: 'Chunking Results', level: 2 },
   { id: 'processing', label: '3. Processing', level: 1 },
-  { id: 'phase-1', label: 'Phase 1: Classification', level: 2 },
-  { id: 'phase-2', label: 'Phase 2: Classification', level: 2 },
+  { id: 'phase-1', label: 'Phase 1: Mention-Type Classification', level: 2 },
+  { id: 'phase-2', label: 'Phase 2: Deep-Taxonomy Classification', level: 2 },
   { id: 'quality-assurance', label: '4. Quality Assurance', level: 1 },
+  { id: 'footnotes', label: 'Footnotes', level: 1 },
 ];
 
 export function MethodologyToc() {
