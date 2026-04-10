@@ -58,7 +58,7 @@ Classification proceeds in two phases. Phase 1 labels are not mutually exclusive
 
 Applied to all chunks classified as Adoption in Phase 1:
 
-- Non-LLM AI
+- Traditional AI (non-LLM)
 - LLM adoption
 - Agentic AI
 

@@ -91,6 +91,21 @@ export function PageNav() {
               );
             })}
           </div>
+          <div className="ml-auto flex items-center pb-2 sm:pb-0">
+            <div className="flex items-center overflow-hidden rounded border border-amber-200 text-xs font-semibold">
+              <span className="bg-amber-100 px-3 py-1.5 text-[10px] uppercase tracking-widest text-amber-700">
+                Beta
+              </span>
+              <a
+                href="https://forms.gle/qgwZSUPrMhxeTxcEA"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border-l border-amber-200 px-3 py-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700"
+              >
+                Feedback
+              </a>
+            </div>
+          </div>
         </div>
       </nav>
     </>

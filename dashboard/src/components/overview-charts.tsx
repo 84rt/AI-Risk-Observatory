@@ -14,7 +14,7 @@ export const COLORS: Record<string, string> = {
 const formatLabel = (val: string) => {
   const overrides: Record<string, string> = {
     llm: 'LLM',
-    non_llm: 'Non-LLM',
+    non_llm: 'Traditional AI (non-LLM)',
     general_ambiguous: 'General / Ambiguous',
     third_party_supply_chain: 'Third-Party Supply Chain',
     operational_technical: 'Operational / Technical',
@@ -268,38 +268,44 @@ export function StackedBarChart({
     },
   };
 
+  const chartHeaderControls = !exportMode && (showChartModeToggle || headerExtra) ? (
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      {headerExtra}
+      {showChartModeToggle && (
+        <div className="flex h-9 overflow-hidden rounded border border-border bg-white p-0.5">
+          <button
+            onClick={() => setResolvedChartType('bar')}
+            className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+            title="Bar chart"
+          >
+            Bar
+          </button>
+          {allowLineChart && (
+            <button
+              onClick={() => setResolvedChartType('line')}
+              className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+              title="Line chart"
+            >
+              Line
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div ref={exportRef} className="relative w-full rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-6">
-      {title && (
-        <h3 className="mb-2 flex items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
-          <span className="w-1.5 h-1.5 bg-accent" />
-          {title}
-          {tooltip && <InfoTooltip content={tooltip} />}
-        </h3>
-      )}
-      {!exportMode && (showChartModeToggle || headerExtra) && (
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-5 sm:top-5">
-          {headerExtra}
-          {showChartModeToggle && (
-            <div className="flex h-9 overflow-hidden rounded border border-border bg-white p-0.5">
-              <button
-                onClick={() => setResolvedChartType('bar')}
-                className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
-                title="Bar chart"
-              >
-                Bar
-              </button>
-              {allowLineChart && (
-                <button
-                  onClick={() => setResolvedChartType('line')}
-                  className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'line' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
-                  title="Line chart"
-                >
-                  Line
-                </button>
-              )}
-            </div>
-          )}
+      {(title || chartHeaderControls) && (
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          {title ? (
+            <h3 className="flex min-w-0 items-center gap-2 text-base font-semibold tracking-tight text-primary sm:text-lg">
+              <span className="w-1.5 h-1.5 bg-accent" />
+              {title}
+              {tooltip && <InfoTooltip content={tooltip} />}
+            </h3>
+          ) : null}
+          {chartHeaderControls}
         </div>
       )}
       {showFloatingLegend && (
@@ -359,7 +365,7 @@ export function StackedBarChart({
           </ResponsiveContainer>
         </div>
         {showSideLegend && (
-          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:mt-12 lg:w-56">
+          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:w-56">
             <div className="space-y-1">{renderLegendItems()}</div>
           </div>
         )}

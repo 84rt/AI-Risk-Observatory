@@ -28,7 +28,6 @@ const dashboardSectionLinks: FooterLink[] = [
   { href: '/data#risk', label: 'Risk' },
   { href: '/data#adoption', label: 'Adoption' },
   { href: '/data#vendors', label: 'Vendors' },
-  { href: '/data#blind-spots', label: 'Blind Spots' },
   { href: '/data#signal-quality', label: 'Signal Quality' },
 ];
 
@@ -83,8 +82,6 @@ function FooterLinkList({
 
 export function SiteFooter() {
   const pathname = usePathname();
-  const lastUpdated = '9 April 2026';
-  const version = 'v1.0.3';
 
   const pageSectionLinks = pathname === '/about'
     ? aboutSectionLinks
@@ -110,8 +107,18 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} AI Risk Observatory
           </p>
           <div className="mt-6 space-y-1 text-[11px] leading-tight text-muted-foreground">
-            <p>Last updated on {lastUpdated}</p>
-            <p>{version}</p>
+            <p>Last updated 10 April 2026</p>
+            <p>
+              Currently in public beta.{' '}
+              <a
+                href="https://forms.gle/qgwZSUPrMhxeTxcEA"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-primary transition-colors"
+              >
+                Share your feedback.
+              </a>
+            </p>
           </div>
         </div>
 

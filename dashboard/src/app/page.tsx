@@ -239,8 +239,8 @@ export default function HomePage() {
             </p>
             <p className="mt-5 text-xl leading-relaxed text-muted">
               We use annual reports as our primary source because they are audited, legally
-              mandated, and published on a consistent schedule — making them a reliable
-              baseline for tracking real corporate AI exposure at scale.
+              mandated, making them a consistent baseline for
+              tracking corporate perspectives on AI risk exposures.
             </p>
             <div className="mt-10">
               <Link

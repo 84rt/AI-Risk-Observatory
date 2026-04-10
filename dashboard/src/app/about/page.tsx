@@ -2,6 +2,7 @@ import { MentionTypesChart } from '@/components/mention-types-chart';
 import ExampleBrowser from '@/components/example-browser';
 import { MethodologyToc } from '@/components/methodology-toc';
 import { CollapsibleSection } from '@/components/collapsible-section';
+import { InfoTooltip } from '@/components/overview-charts';
 import { loadGoldenSetDashboardData } from '@/lib/golden-set';
 
 const sumSeriesKey = (
@@ -155,7 +156,7 @@ export default function AboutPage() {
   };
   const phase2LabelMap: Record<string, string> = {
     // Adoption
-    non_llm: 'Non-LLM',
+    non_llm: 'Traditional AI (non-LLM)',
     llm: 'LLM',
     agentic: 'Agentic AI',
     agentic_ai: 'Agentic AI',
@@ -186,7 +187,7 @@ export default function AboutPage() {
       return [
         {
           id: 'none',
-          label: 'None or false positive',
+          label: 'None (including false positive)',
           count: flow.phase1NoneOnlyReports,
           pctOfParent: flow.extractedAiReports > 0 ? (flow.phase1NoneOnlyReports / flow.extractedAiReports) * 100 : 0,
           ...phaseCardStyles.none,
@@ -347,6 +348,9 @@ export default function AboutPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${card.dotClass}`} />
                             <span className="text-base font-bold text-primary">{card.label}</span>
+                            {card.id === 'none' ? (
+                              <InfoTooltip content="This is the only mutually exclusive Phase 1 tag. It is used as a quality filter when an initially extracted AI mention does not actually discuss AI, including false positives." />
+                            ) : null}
                           </div>
                           <p className="text-sm text-muted">{card.count.toLocaleString()} reports</p>
                           <div className="mt-2 h-1.5 w-full rounded-full bg-secondary">
