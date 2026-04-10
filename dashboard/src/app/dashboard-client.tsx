@@ -2398,19 +2398,11 @@ export default function DashboardClient({
     content: (
       <div className="space-y-3 text-sm leading-relaxed text-slate-600">
         <p>
-          Download the plotted data as CSV, or download the complete underlying dataset for offline analysis.
+          Download the complete underlying dataset for offline analysis, or read more about how the dashboard was built.
         </p>
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleDownloadVisualization}
-            className={inlinePanelButtonClass}
-          >
-            Download CSV
-          </button>
           <a
-            href="/api/download-data"
-            download
+            href="https://github.com/84rt/AI-Risk-Observatory/releases/download/dataset-v1.0/airo-dataset-v1.0.zip"
             className={inlinePanelButtonClass}
           >
             Download Dataset

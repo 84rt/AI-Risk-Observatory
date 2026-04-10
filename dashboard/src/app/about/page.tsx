@@ -767,10 +767,13 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
               </ul>
 
               <div className="flex flex-wrap gap-4">
-                <span className="inline-flex items-center rounded border border-border bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
-                  Download Dataset — Coming Soon
-                </span>
-                <a href="https://github.com/84rt/ai-risk-observatory" target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded border border-border bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary transition-colors">
+                <a
+                  href="https://github.com/84rt/AI-Risk-Observatory/releases/download/dataset-v1.0/airo-dataset-v1.0.zip"
+                  className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+                >
+                  Download Dataset
+                </a>
+                <a href="https://github.com/84rt/ai-risk-observatory" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors">
                   GitHub Repository
                 </a>
               </div>
