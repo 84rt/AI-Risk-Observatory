@@ -11,7 +11,7 @@ export function CollapsibleSection({
 }: {
   title: string;
   children: ReactNode;
-  variant?: 'default' | 'faq';
+  variant?: 'default' | 'faq' | 'settings';
   open?: boolean;
   onToggle?: () => void;
 }) {
@@ -19,6 +19,42 @@ export function CollapsibleSection({
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const toggle = isControlled ? onToggle! : () => setInternalOpen(prev => !prev);
+
+  if (variant === 'settings') {
+    return (
+      <div className="border-b border-border last:border-b-0">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex w-full items-center justify-between px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground hover:text-primary transition-colors"
+          aria-expanded={open}
+        >
+          <span>{title}</span>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            className={`shrink-0 ml-3 transition-transform ${open ? 'rotate-180' : ''}`}
+          >
+            <path
+              d="M3 6L8 11L13 6"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        {open && (
+          <div className="px-5 pb-5">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (variant === 'faq') {
     return (

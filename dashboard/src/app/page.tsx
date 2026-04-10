@@ -24,6 +24,7 @@ export default function HomePage() {
       label: 'AI risk mentions',
       subtitle: 'Share of UK public-company annual reports mentioning AI as a corporate risk',
       color: '#e63946', // AISI Signal Red
+      linkHref: '/data?preset=ai-risk-line#risk',
       data: data.datasets.perReport.blindSpotTrend.map(row => {
         const total = Number(row.total_reports) || 0;
         return {
@@ -36,6 +37,7 @@ export default function HomePage() {
       label: 'LLM adoption mentions',
       subtitle: 'Share of UK public-company annual reports mentioning LLM adoption',
       color: '#f59e0b',
+      linkHref: '/data?preset=llm-adoption-line#adoption',
       data: data.datasets.perReport.adoptionTrend.map(row => {
         const year = Number(row.year);
         const total = reportTotalsByYear.get(year) || 0;
@@ -49,6 +51,7 @@ export default function HomePage() {
       label: 'AI as a cybersecurity threat mentions',
       subtitle: 'Share of UK public-company annual reports mentioning AI as a cybersecurity threat to the business',
       color: '#0ea5e9',
+      linkHref: '/data?preset=cyber-risk-line#risk',
       data: data.datasets.perReport.riskTrend.map(row => {
         const year = Number(row.year);
         const total = reportTotalsByYear.get(year) || 0;

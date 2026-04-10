@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface ChartSeries {
@@ -7,6 +8,7 @@ interface ChartSeries {
   subtitle: string;
   data: { year: number; value: number }[];
   color: string;
+  linkHref?: string;
 }
 
 interface HeroRiskChartProps {
@@ -60,9 +62,18 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
                 style={{ backgroundColor: item.color }}
               />
               <span className="text-sm font-semibold text-slate-800">{item.label}</span>
-              <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                {latestValue}% in {latestYear}
-              </span>
+              {item.linkHref ? (
+                <Link
+                  href={item.linkHref}
+                  className="text-xs font-bold tracking-[0.08em] text-primary underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+                >
+                  see full data
+                </Link>
+              ) : (
+                <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                  {latestValue}% in {latestYear}
+                </span>
+              )}
             </div>
           );
         })}
@@ -262,7 +273,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
         </div>
 
         <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
-          Values show the proportion of UK public-company annual reports that mention each disclosure type in a given filing year.
+          Values show the proportion of UK public-company annual reports that mention each disclosure type in a given year.
         </p>
       </div>
     </div>

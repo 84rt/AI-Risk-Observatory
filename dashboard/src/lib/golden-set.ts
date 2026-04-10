@@ -117,6 +117,7 @@ export type GoldenDataset = {
     vendorReports: number;
   };
   mentionTrend: Record<string, number>[];
+  mentionTrendMonthly: Record<string, string | number>[];
   adoptionTrend: Record<string, number>[];
   riskTrend: Record<string, number>[];
   vendorTrend: Record<string, number>[];
@@ -136,6 +137,8 @@ export type GoldenDataset = {
   vendorBySectorYear: { year: number; x: string; y: string; value: number }[];
   vendorByIsicSector: { x: string; y: string; value: number }[];
   vendorByIsicSectorYear: { year: number; x: string; y: string; value: number }[];
+  riskMentionBySectorYear: { x: number; y: string; value: number }[];
+  riskMentionByIsicSectorYear: { x: number; y: string; value: number }[];
   riskSignalHeatmap: { x: number; y: string; value: number }[];
   adoptionSignalHeatmap: { x: number; y: string; value: number }[];
   vendorSignalHeatmap: { x: number; y: string; value: number }[];
@@ -1244,6 +1247,7 @@ const buildDataset = (
   const riskTrend = initYearSeries(years, riskLabels);
   const vendorTrend = initYearSeries(years, vendorTags);
 
+  const mentionTrendMonthly = initMonthSeries(months, mentionTypes);
   const riskTrendMonthly = initMonthSeries(months, riskLabels);
   const adoptionTrendMonthly = initMonthSeries(months, adoptionTypes);
   const vendorTrendMonthly = initMonthSeries(months, vendorTags);
@@ -1260,6 +1264,8 @@ const buildDataset = (
   const vendorBySectorYearCounts = new Map<string, number>();
   const vendorByIsicSectorCounts = new Map<string, number>();
   const vendorByIsicSectorYearCounts = new Map<string, number>();
+  const riskMentionBySectorYearCounts = new Map<string, number>();
+  const riskMentionByIsicSectorYearCounts = new Map<string, number>();
   const adoptionSignalCounts = new Map<string, number>();
   const riskSignalCounts = new Map<string, number>();
   const vendorSignalCounts = new Map<string, number>();
@@ -1306,6 +1312,16 @@ const buildDataset = (
       isicSectorYearKey,
       (reportCountByIsicSectorYearCounts.get(isicSectorYearKey) || 0) + 1
     );
+    if (report.mentionTypes.has('risk')) {
+      riskMentionBySectorYearCounts.set(
+        sectorYearKey,
+        (riskMentionBySectorYearCounts.get(sectorYearKey) || 0) + 1
+      );
+      riskMentionByIsicSectorYearCounts.set(
+        isicSectorYearKey,
+        (riskMentionByIsicSectorYearCounts.get(isicSectorYearKey) || 0) + 1
+      );
+    }
     if (!hasSignal) {
       noAiBySectorYearCounts.set(sectorYearKey, (noAiBySectorYearCounts.get(sectorYearKey) || 0) + 1);
     }
@@ -1320,6 +1336,7 @@ const buildDataset = (
 
     // Monthly trends
     if (report.release_month) {
+      report.mentionTypes.forEach(type => addMonthCount(mentionTrendMonthly, report.release_month, type));
       report.riskLabels.forEach(label => addMonthCount(riskTrendMonthly, report.release_month, label));
       report.adoptionTypes.forEach(type => addMonthCount(adoptionTrendMonthly, report.release_month, type));
       report.vendorTags.forEach(tag => addMonthCount(vendorTrendMonthly, report.release_month, tag));
@@ -1560,9 +1577,16 @@ const buildDataset = (
   const noAiRiskBySectorYear: { x: number; y: string; value: number }[] = [];
   const reportCountBySectorYear: { x: number; y: string; value: number }[] = [];
   const reportCountByIsicSectorYear: { x: number; y: string; value: number }[] = [];
+  const riskMentionBySectorYear: { x: number; y: string; value: number }[] = [];
+  const riskMentionByIsicSectorYear: { x: number; y: string; value: number }[] = [];
   years.forEach(year => {
     sectors.forEach(sector => {
       const key = `${year}|||${sector}`;
+      riskMentionBySectorYear.push({
+        x: year,
+        y: sector,
+        value: riskMentionBySectorYearCounts.get(key) || 0,
+      });
       noAiBySectorYear.push({
         x: year,
         y: sector,
@@ -1581,6 +1605,11 @@ const buildDataset = (
     });
     isicSectors.forEach(sector => {
       const key = `${year}|||${sector}`;
+      riskMentionByIsicSectorYear.push({
+        x: year,
+        y: sector,
+        value: riskMentionByIsicSectorYearCounts.get(key) || 0,
+      });
       reportCountByIsicSectorYear.push({
         x: year,
         y: sector,
@@ -1601,6 +1630,7 @@ const buildDataset = (
       vendorReports,
     },
     mentionTrend,
+    mentionTrendMonthly,
     adoptionTrend,
     riskTrend,
     vendorTrend,
@@ -1620,6 +1650,8 @@ const buildDataset = (
     vendorBySectorYear,
     vendorByIsicSector,
     vendorByIsicSectorYear,
+    riskMentionBySectorYear,
+    riskMentionByIsicSectorYear,
     riskSignalHeatmap,
     adoptionSignalHeatmap,
     vendorSignalHeatmap,

@@ -15,6 +15,7 @@ const formatLabel = (val: string) => {
   const overrides: Record<string, string> = {
     llm: 'LLM',
     non_llm: 'Traditional AI (non-LLM)',
+    risk: 'AI Risk Mentioned',
     general_ambiguous: 'General / Ambiguous',
     third_party_supply_chain: 'Third-Party Supply Chain',
     operational_technical: 'Operational / Technical',
