@@ -45,6 +45,13 @@ dashboard/data/annotations.jsonl
 # production
 /build
 
+# IDE / editor config
+.vscode/
+.cursor/
+.codex/
+.cursorrules
+*.cursorrules
+
 # misc
 .DS_Store
 *.pem
