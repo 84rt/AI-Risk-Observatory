@@ -1,64 +1,73 @@
-## 1. Project Overview
-AI Risk Observatory surfaces AI risk signals in UK annual reports to support policy and oversight. It targets UK AI safety and policy teams, producing two outputs: a traceable dataset and a dashboard that summarizes risk posture.
+# AI Risk Observatory
 
-## 2. High-Level Architecture
-- Data pipeline: ingest, clean, classify filings.
-- Data storage: append-only, versioned `/data` tree.
-- Visualization dashboard: Next.js app for exploration.
+The Observatory tracks AI-related risk, adoption, and third-party AI exposure across UK public-company annual reports — with a focus on Critical National Infrastructure sectors. Built for policymakers and resilience researchers, sponsored by the [AI Security Institute (AISI)](https://www.aisi.gov.uk/).
 
-Diagram:
-```
-Data Sources -> Pipeline -> /data (raw/processed/results) -> Dashboard
-```
-
-## 3. Repository Structure
-- `/dashboard` — Next.js app for risk visualization.
-- `/pipeline` — end-to-end data processing and classification.
-- `/data` — central store for raw, processed, results, logs.
-- `/context` — scope, specs, taxonomy, LLM guidance.
-
-Pipeline and dashboard live together so the dashboard can track model changes quickly. Data is colocated and versioned to preserve lineage, enable iteration, and support audits.
-
-## 4. Data & Storage Model
-`/data` holds raw inputs (iXBRL, PDFs), processed text, annotations (human + model), logs, and outputs. Everything is append-only and versioned; records remain traceable from raw source to final result.
-
-## 5. Pipeline Stages
-Execution order:
-1) Ingestion — download filings (inputs: company list; outputs: iXBRL/PDF in `/data/raw`).
-2) Preprocessing — OCR/clean/normalize (inputs: raw; outputs: markdown in `/data/processed`).
-3) Processing — chunk AI mentions (inputs: processed; outputs: chunks in `/data/processed/chunks`).
-4) Post-processing — LLM classification, enrichment, QA (inputs: chunks; outputs: DB + JSON in `/data/results`).
-5) Aggregation & export — rollups and dashboard extracts (inputs: results; outputs: dashboard-ready views).
-
-## 6. Classification Blueprint
-Core dimensions: AI harms, AI adaptation, AI risk disclosures. Additional layers: severity and mitigation (“cowboy risk”), vendor extraction, workforce impact. Taxonomy lives in `/context`.
-
-## 7. Evaluation & Quality Control
-- Human-annotated golden set; accuracy target ~90%.
-- Anti-error: multi-run consistency checks, multi-model agreement, confidence thresholds.
-- Human review triggers on low-confidence or disagreement cases.
-
-## 8. Versioning & Iteration Model
-Classifiers are versioned independently. Each run logs classifier version, model used, and timestamp. Data is never deleted—new versions are added to allow comparison, rollback, and audits.
-
-## 9. Logs & Auditability
-Run-level logs plus per-record model I/O, confidence, and reasoning are stored for transparency, debugging, and policy trust.
-
-## 10. Adding New Data or Years
-Add new filings, years, or classifiers; rerun ingestion → preprocessing → processing → post-processing → exports. Prior runs stay preserved for comparison.
-- Manual fallback: filings.xbrl.org is a reliable source to download individual iXBRL filings by LEI/company when automated downloads fail.
-
-## 11. Running the Project
-- Pipeline: `cd pipeline && python run_pipeline.py --companies ../data/reference/companies_template.csv`
-- Dashboard: `cd dashboard && npm install && npm run dev`
-See `/pipeline/QUICKSTART.md` for details.
-
-## 12. Further Documentation
-See `/context` for taxonomy, specs, experimental notes, and design decisions.
-
+**Current coverage: 1,362 companies · 9,821 reports · 2020–2026**
 
 ---
-Run the human annotation script:
-```bash
-  python3 pipeline/scripts/annotate_golden_set.py --chunks data/processed/gs-phase1-20260117-152257/chunks/chunks.jsonl
+
+## Why annual reports?
+
+Annual reports are audited, legally mandated, and published on a consistent schedule — making them a reliable baseline for tracking real corporate AI exposure at scale. Unlike surveys or voluntary disclosures, they reflect what companies are prepared to stand behind in a regulated context.
+
+## What we measure
+
+Each report is processed end-to-end: iXBRL source files are downloaded, converted to structured text, and AI-related passages are extracted and classified across three core dimensions:
+
+- **AI risk disclosure** — is AI named as a material risk to the business?
+- **LLM adoption** — is the company reporting active use of large language models?
+- **AI as a cybersecurity threat** — is AI-enabled threat specifically called out?
+
+Additional signals captured include vendor exposure, workforce impact, and substantiveness of disclosure (distinguishing boilerplate from meaningful reporting).
+
+## Repository structure
+
 ```
+/dashboard   — Next.js visualization app
+/pipeline    — end-to-end data processing and classification pipeline
+/scripts     — batch orchestration and data-build scripts
+/data        — raw inputs, processed outputs, and results (gitignored except reference files)
+```
+
+Pipeline and dashboard live together so the dashboard can track model and methodology changes quickly. Data is colocated and append-only to preserve full lineage from raw filing to final result.
+
+## Quick start
+
+**Run the dashboard locally**
+```bash
+cd dashboard
+npm install
+npm run dev
+# open http://localhost:3000
+```
+
+**Run the pipeline**
+```bash
+cd pipeline
+source venv/bin/activate        # Fish shell: source venv/bin/activate.fish
+pip install -r requirements.txt
+python run_pipeline.py --companies ../data/reference/companies_template.csv
+```
+
+See `pipeline/README.md` for the full operational guide.
+
+## How the pipeline works
+
+1. **Ingestion** — downloads iXBRL filings via [financialreports.eu](https://financialreports.eu/) and Companies House, organized by company and fiscal year
+2. **Preprocessing** — converts iXBRL to clean markdown; produces per-document metadata sidecars
+3. **Chunking** — extracts AI-mention passages with surrounding context windows and deduplicates overlapping spans
+4. **Classification** — LLM classifiers label each chunk across risk type, adoption signals, vendor exposure, and substantiveness
+5. **Aggregation** — results are rolled up and exported to `dashboard/data/dashboard-data.json`
+
+Classifier prompts and the full taxonomy live in `pipeline/prompts/`. Human-annotated evaluation data lives in `data/golden_set/`.
+
+## Data & quality
+
+All pipeline outputs are append-only and versioned. Every record is traceable from raw source filing to final classification — including the model used, classifier version, confidence score, and full prompt/response logs.
+
+Accuracy is evaluated against a human-annotated golden set with a target of ~90% agreement. Low-confidence or multi-model disagreement cases are flagged for human review.
+
+## Sponsorship & data
+
+- **Main sponsor:** [AI Security Institute (AISI)](https://www.aisi.gov.uk/)
+- **Data provider:** [financialreports.eu](https://financialreports.eu/)

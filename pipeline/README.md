@@ -1,6 +1,6 @@
 # Pipeline
 
-This directory houses the pipeline source, scripts, and tests. Full docs live in `context/pipeline_docs/` (architecture, guides, and status notes).
+This directory houses the pipeline source, scripts, and tests.
 
 ## Layout
 - `src/` — core pipeline code
@@ -137,7 +137,7 @@ Outputs:
 
 The script prints the `run_id` it used; reuse it for chunking and QA.
 
-### Phase 3: Chunking (In Progress)
+### Phase 3: Chunking (Complete)
 Extracts AI-mention chunks with context window (2 paragraphs before/after by default). Deduplicates overlapping windows.
 
 ```bash
@@ -147,7 +147,7 @@ python scripts/chunk_markdown.py --run-id <run_id>
 Outputs:
 - `data/processed/<run_id>/chunks/chunks.jsonl` — one chunk per line
 
-### Phase 4: Human Annotation (Next)
+### Phase 4: Human Annotation (Complete)
 After chunking, chunks are ready for human annotation. See annotation guidelines in `context/golden_set_implementation_plan.md`.
 
 ### QA Checks
