@@ -1,0 +1,119 @@
+# AI Risk Observatory
+
+> Tracks AI-related risk disclosure, LLM adoption, and third-party AI exposure across UK public-company annual reports — with a focus on Critical National Infrastructure sectors. Built for policymakers and resilience researchers, sponsored by the AI Security Institute (AISI).
+
+## Overview
+
+The AI Risk Observatory gives policymakers and resilience researchers a clearer picture of how AI-related risk and adoption are distributed across the UK economy — and where meaningful disclosure is notably absent, particularly across Critical National Infrastructure sectors.
+
+Annual reports are used as the primary source because they are audited, legally mandated, and published on a consistent schedule — making them a reliable baseline for tracking real corporate AI exposure at scale. Unlike surveys or voluntary disclosures, they reflect what companies are prepared to stand behind in a regulated context.
+
+**Current coverage:** 1,362 companies · 9,821 reports · 2020–2026
+
+**Sponsor:** AI Security Institute (AISI) — https://www.aisi.gov.uk/
+**Data provider:** financialreports.eu — https://financialreports.eu/
+
+---
+
+## What We Measure
+
+Each annual report is processed end-to-end and classified across three core dimensions:
+
+- **AI risk disclosure** — is AI named as a material risk to the business?
+- **LLM adoption** — is the company reporting active use of large language models?
+- **AI as a cybersecurity threat** — is AI-enabled threat specifically called out?
+
+Additional signals captured include vendor exposure, workforce impact, and substantiveness of disclosure (distinguishing boilerplate from meaningful reporting).
+
+---
+
+## Data Pipeline
+
+The pipeline follows five stages:
+
+1. **Ingestion** — iXBRL filings are downloaded via financialreports.eu and Companies House, organised by company and fiscal year.
+2. **Preprocessing** — iXBRL is converted to clean structured text; per-document metadata sidecars are produced.
+3. **Chunking** — AI-mention passages are extracted with surrounding context windows; overlapping spans are deduplicated.
+4. **Classification** — LLM classifiers label each chunk across a two-phase taxonomy (see below).
+5. **Aggregation** — results are rolled up and exported to a static JSON artifact served by the dashboard.
+
+---
+
+## Classification Taxonomy
+
+Classification proceeds in two phases. Phase 1 labels are not mutually exclusive — a single report may carry multiple signal types.
+
+### Phase 1: Type of AI Mention
+
+| Category | Description |
+|---|---|
+| **Adoption** | Company reports using AI or LLMs in its operations or products |
+| **Risk** | AI is named as a material risk to the business |
+| **Harm** | AI is cited as causing or enabling harm |
+| **Vendor** | A specific AI vendor or model is named |
+| **General / ambiguous** | AI is mentioned but without clear signal |
+| **None / false positive** | Mention is not meaningfully AI-related |
+
+### Phase 2: Adoption Sub-taxonomy
+
+Applied to all chunks classified as Adoption in Phase 1:
+
+- Non-LLM AI
+- LLM adoption
+- Agentic AI
+
+### Phase 2: Risk Sub-taxonomy
+
+Applied to all chunks classified as Risk in Phase 1:
+
+- Regulatory / compliance
+- Strategic / competitive
+- Operational / technical
+- Cybersecurity
+- Reputational / ethical
+- Third party / supply chain
+- Workforce impacts
+- Information integrity
+- National security
+- Environmental impact
+
+### Phase 2: Vendor Sub-taxonomy
+
+Applied to all chunks classified as Vendor in Phase 1:
+
+- Microsoft
+- OpenAI
+- Google
+- Amazon
+- Anthropic
+- Meta
+- Internal (proprietary model)
+- Undisclosed
+- Other
+
+---
+
+## Substantiveness Scoring
+
+Each classified chunk is also rated for substantiveness — distinguishing boilerplate language from meaningful, specific disclosure. This allows filtering for reports where AI is genuinely material versus those where it appears only in passing.
+
+---
+
+## Data Quality
+
+- All pipeline outputs are append-only and versioned.
+- Every record is traceable from raw source filing to final classification, including the model used, classifier version, confidence score, and full prompt/response logs.
+- Accuracy is evaluated against a human-annotated golden set with a target of ~90% agreement.
+- Low-confidence or multi-model disagreement cases are flagged for human review.
+
+---
+
+## Source Code
+
+Full source code is available at: https://github.com/84rt/AI-Risk-Observatory
+
+The repository includes:
+- `/dashboard` — Next.js visualisation app
+- `/pipeline` — end-to-end data processing and classification pipeline
+- `/scripts` — batch orchestration and data-build scripts
+- `/data` — raw inputs, processed outputs, and results

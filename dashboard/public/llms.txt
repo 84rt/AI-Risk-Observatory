@@ -1,0 +1,19 @@
+# AI Risk Observatory
+
+> Tracks AI-related risk disclosure, LLM adoption, and third-party AI exposure across UK public-company annual reports — with a focus on Critical National Infrastructure sectors. Built for policymakers and resilience researchers, sponsored by the AI Security Institute (AISI).
+
+## Home
+
+- [Overview](https://YOUR_DOMAIN/): Mission, coverage statistics, and trend charts showing how AI risk and adoption disclosures have changed over time across UK public companies.
+
+## Dashboard
+
+- [Data Dashboard](https://YOUR_DOMAIN/data): Interactive dashboard for exploring AI disclosure signals by year, sector, and signal type across 1,362 companies and 9,821 annual reports (2020–2026).
+
+## Methodology
+
+- [About the Observatory](https://YOUR_DOMAIN/about): Full explanation of the data pipeline — how iXBRL filings are ingested, converted, chunked, and classified through a two-stage LLM pipeline. Includes the classification taxonomy, substantiveness scoring, and quality evaluation approach.
+
+## Source Code
+
+- [GitHub Repository](https://github.com/84rt/AI-Risk-Observatory): Full source code for the data pipeline and dashboard, including classifier prompts and taxonomy.
