@@ -1704,7 +1704,13 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
 
   const resolvedCniSectors = cniSectors.length ? cniSectors : ['Unknown'];
   const resolvedIsicSectors = [...isicSectors].sort((a, b) => a.localeCompare(b, 'en'));
-  const resolvedMarketSegments = ['FTSE 350', 'Main Market', 'AIM'];
+  const resolvedMarketSegments = ['Main Market', 'Main Market (FTSE 100 only)', 'Main Market (FTSE 350 only)', 'AIM'];
+  const marketSegmentFilters: Record<string, (seg: string) => boolean> = {
+    'Main Market': seg => seg === 'FTSE 100' || seg === 'FTSE 250' || seg === 'Main Market',
+    'Main Market (FTSE 100 only)': seg => seg === 'FTSE 100',
+    'Main Market (FTSE 350 only)': seg => seg === 'FTSE 100' || seg === 'FTSE 250',
+    'AIM': seg => seg === 'AIM',
+  };
 
   const perReportData = aggregateToReports(
     annotations,
@@ -1734,8 +1740,9 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
   const byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }> = {};
   const byMarketSegmentAndCompanyScope: Record<string, Record<'all' | 'cniOnly', GoldenDatasetCollection>> = {};
   resolvedMarketSegments.forEach(segment => {
-    const segReportData = perReportData.filter(r => r.marketSegment === segment);
-    const segChunkData = perChunkData.filter(r => r.marketSegment === segment);
+    const filterFn = marketSegmentFilters[segment];
+    const segReportData = perReportData.filter(r => filterFn(r.marketSegment));
+    const segChunkData = perChunkData.filter(r => filterFn(r.marketSegment));
     const segmentDatasets = buildDatasetCollection(
       segReportData,
       segChunkData,
