@@ -305,8 +305,8 @@ type TrendTimeAxis = 'year' | 'month';
 type RiskBreakdownMode = 'categories' | 'phase1';
 type RiskSectorView = 'cni' | 'isic';
 type SignalQualityMode = 'explicitness' | 'substantiveness';
-type ExplicitnessSignalFilter = 'risk_signal' | 'adoption_signal' | 'vendor_signal';
 type MetricMode = 'count' | 'pct_reports';
+type SignalQualityMetricMode = 'count' | 'pct_year_total';
 type DashboardPreset = 'ai-risk-line' | 'llm-adoption-line' | 'cyber-risk-line';
 type ChartRow = Record<string, string | number | null | undefined>;
 type HeatmapCell = { x: string | number; y: string | number; value: number };
@@ -377,6 +377,16 @@ const convertHeatmapToPercent = (
     ...cell,
     value: toPercent(cell.value, denominatorForCell(cell)),
   }));
+const convertHeatmapToPercentOfXAxisTotal = (cells: HeatmapCell[]): HeatmapCell[] => {
+  const totalsByX = new Map<string, number>();
+
+  cells.forEach(cell => {
+    const key = String(cell.x);
+    totalsByX.set(key, (totalsByX.get(key) || 0) + cell.value);
+  });
+
+  return convertHeatmapToPercent(cells, cell => totalsByX.get(String(cell.x)) || 0);
+};
 const aggregateHeatmapCellsByRowGroups = (
   cells: HeatmapCell[],
   rowGroups: HeatmapRowGroup[]
@@ -483,8 +493,11 @@ function DashboardLoadingState({
   action?: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f8f8f7] text-primary">
-      <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_52%,#f4f5f7_100%)] text-primary">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 top-0 h-[24rem] bg-[radial-gradient(circle_at_top,rgba(199,216,238,0.48)_0%,rgba(199,216,238,0.22)_24%,rgba(199,216,238,0)_68%)]" />
+      </div>
+      <main className="relative mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
         <div className="w-full rounded-2xl border border-border bg-white p-8 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-10">
           <div className="mb-6 h-2 w-24 rounded-full bg-accent/80" />
           <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
@@ -600,8 +613,8 @@ function DashboardContent({
     4: 'definitions',
   });
   const [signalQualityMode, setSignalQualityMode] = useState<SignalQualityMode>('explicitness');
-  const [explicitnessSignalFilter, setExplicitnessSignalFilter] = useState<ExplicitnessSignalFilter>('risk_signal');
   const [metricMode, setMetricMode] = useState<MetricMode>('pct_reports');
+  const [signalQualityMetricMode, setSignalQualityMetricMode] = useState<SignalQualityMetricMode>('count');
   const [marketSegmentFilter, setMarketSegmentFilter] = useState<string>('all');
   const [showCniCompaniesOnly, setShowCniCompaniesOnly] = useState(false);
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
@@ -632,8 +645,8 @@ function DashboardContent({
     setVendorSectorView('cni');
     setVendorFilter('all');
     setSignalQualityMode('explicitness');
-    setExplicitnessSignalFilter('risk_signal');
     setMetricMode('pct_reports');
+    setSignalQualityMetricMode('count');
     setMarketSegmentFilter('all');
     setShowCniCompaniesOnly(true);
     setExpandedIsicGroups([]);
@@ -713,7 +726,20 @@ function DashboardContent({
     }
   }, [activeView]);
 
-  const currentViewUrl = `${dashboardBaseUrl}${activeView === DEFAULT_VIEW_ID ? '' : `#${getViewHash(activeView)}`}`;
+  useEffect(() => {
+    if (!isSignalQualityOpen) return;
+    if (activeView === 1) return;
+    if (signalQualityMode !== 'substantiveness') return;
+    setSignalQualityMode('explicitness');
+  }, [activeView, isSignalQualityOpen, signalQualityMode]);
+
+  const currentViewUrl = `${dashboardBaseUrl}${
+    isSignalQualityOpen
+      ? '#signal-quality'
+      : activeView === DEFAULT_VIEW_ID
+        ? ''
+        : `#${getViewHash(activeView)}`
+  }`;
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const isTrendChartView = visualizationMode === 'chart' && !isSignalQualityOpen;
@@ -1370,6 +1396,8 @@ function DashboardContent({
       ),
     [activeData.substantivenessHeatmap, selectedStartYear, selectedEndYear]
   );
+  const signalQualityScopeLabel = activeView === 2 ? 'adoption' : activeView === 3 ? 'vendor' : 'risk';
+  const canUseSignalQualitySubstantiveness = activeView === 1;
 
   const riskHeatmapYLabels = useMemo(
     () =>
@@ -1595,65 +1623,109 @@ function DashboardContent({
     reportTotalsBySectorYearMap,
   ]);
   const selectedSignalQualityHeatmap = useMemo(() => {
+    const isPercentOfYearTotal = signalQualityMetricMode === 'pct_year_total';
+    const valueFormatter = isPercentOfYearTotal
+      ? (value: number) => formatPercent(value)
+      : (value: number) => `${value}`;
+    const totalsMode = isPercentOfYearTotal ? 'average' as const : 'sum' as const;
+    const totalsLabel = isPercentOfYearTotal ? 'Avg' : 'Total';
+    const totalValueFormatter = isPercentOfYearTotal
+      ? (value: number) => formatPercent(value)
+      : undefined;
+
     if (signalQualityMode === 'substantiveness') {
+      const rawData = substantivenessHeatmapInRange;
+      const heatmapData = isPercentOfYearTotal
+        ? convertHeatmapToPercentOfXAxisTotal(rawData)
+        : rawData;
+
       return {
-        data: substantivenessHeatmapInRange,
+        data: heatmapData,
         yLabels: data.labels.substantivenessBands,
         baseColor: '#f59e0b',
         title: 'AI Risk Substantiveness Distribution',
         subtitle:
-          'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency.',
+          isPercentOfYearTotal
+            ? 'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell shows the percentage share of that year’s substantiveness classifications that fell into the band; colour intensity encodes relative frequency.'
+            : 'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency.',
         tooltip:
-          'Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic.',
+          isPercentOfYearTotal
+            ? 'Substantiveness measures depth and specificity of risk disclosure at report level. Percentage mode normalises each year to 100%, making it easier to compare how disclosure quality shifts over time.'
+            : 'Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic.',
         yAxisLabel: 'Quality Band',
         compact: false,
+        valueFormatter,
+        totalsMode,
+        totalsLabel,
+        totalValueFormatter,
       };
     }
 
-    switch (explicitnessSignalFilter) {
-      case 'risk_signal':
-        return {
-          data: riskSignalHeatmapInRange,
-          yLabels: data.labels.riskSignalLevels,
-          baseColor: '#e63946',
-          title: 'AI Risk Signal Strength',
-          subtitle:
-            'Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
-          tooltip:
-            'Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports.',
-          yAxisLabel: 'Signal Level',
-          compact: true,
-        };
-      case 'adoption_signal':
-        return {
-          data: adoptionSignalHeatmapInRange,
-          yLabels: data.labels.riskSignalLevels,
-          baseColor: '#3b82f6',
-          title: 'AI Adoption Signal Strength',
-          subtitle:
-            'Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
-          tooltip:
-            'Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language.',
-          yAxisLabel: 'Signal Level',
-          compact: true,
-        };
-      case 'vendor_signal':
-        return {
-          data: vendorSignalHeatmapInRange,
-          yLabels: data.labels.riskSignalLevels,
-          baseColor: '#64748b',
-          title: 'AI Vendor Signal Strength',
-          subtitle:
-            'Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
-          tooltip:
-            'Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution.',
-          yAxisLabel: 'Signal Level',
-          compact: true,
-        };
-    }
+    const baseConfigByScope = {
+      risk: {
+        rawData: riskSignalHeatmapInRange,
+        baseColor: '#e63946',
+        title: 'AI Risk Signal Strength',
+        subtitle:
+          isPercentOfYearTotal
+            ? 'Heatmap of risk-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s risk signal scores that fell into the level; colour intensity encodes relative frequency.'
+            : 'Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+        tooltip:
+          isPercentOfYearTotal
+            ? 'Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Percentage mode normalises each year to 100% for easier comparison across years.'
+            : 'Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Each cell counts label-level outcomes, not unique reports.',
+      },
+      adoption: {
+        rawData: adoptionSignalHeatmapInRange,
+        baseColor: '#3b82f6',
+        title: 'AI Adoption Signal Strength',
+        subtitle:
+          isPercentOfYearTotal
+            ? 'Heatmap of adoption-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s adoption signal scores that fell into the level; colour intensity encodes relative frequency.'
+            : 'Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+        tooltip:
+          isPercentOfYearTotal
+            ? 'Applies the same signal-strength rubric to AI adoption mentions. Percentage mode normalises each year to 100%, highlighting changes in the mix of explicit versus implicit disclosures over time.'
+            : 'Applies the same signal-strength rubric to AI adoption mentions. Higher rows indicate clearer, more directly supported adoption disclosures, while lower rows reflect softer inferential language.',
+      },
+      vendor: {
+        rawData: vendorSignalHeatmapInRange,
+        baseColor: '#64748b',
+        title: 'AI Vendor Signal Strength',
+        subtitle:
+          isPercentOfYearTotal
+            ? 'Heatmap of vendor-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s vendor signal scores that fell into the level; colour intensity encodes relative frequency.'
+            : 'Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+        tooltip:
+          isPercentOfYearTotal
+            ? 'Measures how directly a vendor relationship is stated in the text. Percentage mode normalises each year to 100%, making it easier to compare shifts in disclosure clarity over time.'
+            : 'Measures how directly a vendor relationship is stated in the text. Low explicitness can indicate more opaque supplier disclosure; higher explicit counts suggest clearer provider attribution.',
+      },
+    } as const;
+
+    const selectedConfig = baseConfigByScope[signalQualityScopeLabel];
+    const heatmapData = isPercentOfYearTotal
+      ? convertHeatmapToPercentOfXAxisTotal(selectedConfig.rawData)
+      : selectedConfig.rawData;
+
+    return {
+      data: heatmapData,
+      yLabels: data.labels.riskSignalLevels,
+      baseColor: selectedConfig.baseColor,
+      title: selectedConfig.title,
+      subtitle: selectedConfig.subtitle,
+      tooltip: selectedConfig.tooltip,
+      yAxisLabel: 'Signal Level',
+      compact: true,
+      valueFormatter,
+      totalsMode,
+      totalsLabel,
+      totalValueFormatter,
+    };
   }, [
     signalQualityMode,
-    explicitnessSignalFilter,
+    signalQualityMetricMode,
+    signalQualityScopeLabel,
     riskSignalHeatmapInRange,
     adoptionSignalHeatmapInRange,
     vendorSignalHeatmapInRange,
@@ -1664,7 +1736,6 @@ function DashboardContent({
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
-  const signalQualityScopeLabel = activeView === 1 ? 'risk' : activeView === 2 ? 'adoption' : 'vendor';
   const stackedChartYAxisFormatter = isReportShareMode
     ? (value: number) => `${Math.round(value)}%`
     : undefined;
@@ -1758,22 +1829,6 @@ function DashboardContent({
     visibleVendorHeatmapData,
     selectedSignalQualityHeatmap,
   ]);
-
-  const handleDownloadVisualization = () => {
-    if (!currentVisualizationExport.csv) return;
-
-    const blob = new Blob([currentVisualizationExport.csv], {
-      type: 'text/csv;charset=utf-8;',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${currentVisualizationExport.fileBase}-${selectedStartYear}-${selectedEndYear}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
 
   const exportWatermark = (
     <div className="flex flex-col items-end gap-1 text-right">
@@ -1942,40 +1997,29 @@ function DashboardContent({
     </div>
   );
 
-  const explicitnessSummaryToggle = (
+  const signalQualityMetricModeToggle = (
     <div className="inline-flex w-full items-center overflow-hidden rounded border border-border bg-white p-1">
       <button
         type="button"
-        onClick={() => setExplicitnessSignalFilter('risk_signal')}
+        onClick={() => setSignalQualityMetricMode('count')}
         className={`flex-1 ${segmentedButtonClass} ${
-          explicitnessSignalFilter === 'risk_signal'
+          signalQualityMetricMode === 'count'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
-        Risk
+        Raw Count
       </button>
       <button
         type="button"
-        onClick={() => setExplicitnessSignalFilter('adoption_signal')}
+        onClick={() => setSignalQualityMetricMode('pct_year_total')}
         className={`flex-1 ${segmentedButtonClass} ${
-          explicitnessSignalFilter === 'adoption_signal'
+          signalQualityMetricMode === 'pct_year_total'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
-        Adoption
-      </button>
-      <button
-        type="button"
-        onClick={() => setExplicitnessSignalFilter('vendor_signal')}
-        className={`flex-1 ${segmentedButtonClass} ${
-          explicitnessSignalFilter === 'vendor_signal'
-            ? 'bg-primary text-white'
-            : 'text-muted-foreground hover:bg-secondary'
-        }`}
-      >
-        Vendor
+        % of Year Total
       </button>
     </div>
   );
@@ -2189,10 +2233,12 @@ function DashboardContent({
 
   const switchDashboardView = (viewId: number) => {
     setActiveView(viewId);
-    setIsSignalQualityOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const openSignalQuality = () => {
+    if (activeView !== 1) {
+      setSignalQualityMode('explicitness');
+    }
     setIsSignalQualityOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -2251,11 +2297,30 @@ function DashboardContent({
           <div className="px-5 py-5 space-y-3">
             {renderSettingsSectionHeading('View', 'Switch between signal strength (how explicit each mention is) and substantiveness (how detailed and concrete the disclosure is).')}
             {signalQualityModeToggle}
-            {signalQualityMode === 'substantiveness' && (
+            {signalQualityMode === 'explicitness' && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
+                Signal-strength data follows the current dashboard tab: Risk, Adoption, or Vendors.
+              </p>
+            )}
+            {!canUseSignalQualitySubstantiveness && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
+                Substantiveness is currently only available for risk disclosures.
+              </p>
+            )}
+            {signalQualityMode === 'substantiveness' && canUseSignalQualitySubstantiveness && (
               <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
                 Substantiveness data is currently only available for risk mentions.
               </p>
             )}
+            <div className="pt-2 space-y-3">
+              {renderSettingsSectionHeading(
+                'Heatmap Metric',
+                signalQualityMode === 'substantiveness'
+                  ? 'Raw count shows the number of risk-disclosure classifications in each year-band cell. % of year total normalises each year to 100% so you can compare the mix of substantiveness bands over time.'
+                  : 'Raw count shows the number of signal scores in each year-level cell. % of year total normalises each year to 100% so you can compare the mix of explicit versus implicit classifications over time.'
+              )}
+              {signalQualityMetricModeToggle}
+            </div>
           </div>
         ) : (<>
 
@@ -2422,15 +2487,6 @@ function DashboardContent({
                 {makeSectorToggle(vendorSectorView, setVendorSectorView)}
               </div>
             )}
-            {isSignalQualityOpen && signalQualityMode === 'explicitness' && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Explicitness Summary',
-                  'Switch between risk, adoption, and vendor explicitness breakdowns.'
-                )}
-                {explicitnessSummaryToggle}
-              </div>
-            )}
           </div>
         </CollapsibleSection>
 
@@ -2534,11 +2590,12 @@ function DashboardContent({
       <button
         type="button"
         onClick={() => setSignalQualityMode('substantiveness')}
+        disabled={!canUseSignalQualitySubstantiveness}
         className={`${segmentedButtonTallClass} ${
           signalQualityMode === 'substantiveness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
-        }`}
+        } ${!canUseSignalQualitySubstantiveness ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
       >
         Substantiveness
       </button>
@@ -2842,8 +2899,11 @@ function DashboardContent({
     sharedFaqItem,
   ];
 
+  const activeInfoPanelViewKey = isSignalQualityOpen ? 4 : activeView;
   const activeInfoPanelItems =
-    activeView === 1
+    isSignalQualityOpen
+      ? signalQualityInfoPanelItems
+      : activeView === 1
       ? riskInfoPanelItems
       : activeView === 2
         ? adoptionInfoPanelItems
@@ -2851,7 +2911,7 @@ function DashboardContent({
           ? vendorInfoPanelItems
           : signalQualityInfoPanelItems;
 
-  const selectedInfoPanelKey = infoPanelSelections[activeView] ?? 'cite';
+  const selectedInfoPanelKey = infoPanelSelections[activeInfoPanelViewKey] ?? 'cite';
   const selectedInfoPanel =
     activeInfoPanelItems.find(item => item.value === selectedInfoPanelKey) ?? activeInfoPanelItems[0];
 
@@ -2867,7 +2927,7 @@ function DashboardContent({
                 onClick={() =>
                   setInfoPanelSelections(prev => ({
                     ...prev,
-                    [activeView]: item.value,
+                    [activeInfoPanelViewKey]: item.value,
                   }))
                 }
                 className={`${infoTabButtonClass} ${
@@ -2883,7 +2943,7 @@ function DashboardContent({
         </div>
         <div className="lg:border-l lg:border-border lg:pl-8">
           <div className="h-[540px] overflow-y-auto pr-1 sm:h-[600px]">
-            <span className="aisi-tag">{view.title}</span>
+            <span className="aisi-tag">{isSignalQualityOpen ? 'Signal Quality' : view.title}</span>
             {selectedInfoPanel.title && (
               <h3 className="mt-3 text-lg font-semibold text-primary">{selectedInfoPanel.title}</h3>
             )}
@@ -3141,8 +3201,11 @@ function DashboardContent({
   );
 
   return (
-    <div className="min-h-screen bg-white text-primary">
-      <main className="mx-auto max-w-[1320px] px-6 py-10 sm:py-14">
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_52%,#f4f5f7_100%)] text-primary">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 top-0 h-[26rem] bg-[radial-gradient(circle_at_top,rgba(199,216,238,0.48)_0%,rgba(199,216,238,0.22)_24%,rgba(199,216,238,0)_68%)]" />
+      </div>
+      <main className="relative mx-auto max-w-[1320px] px-6 py-10 sm:py-14">
         <div aria-hidden="true" className="h-0 overflow-hidden">
           {VIEWS.map(item => (
             <div key={item.id} id={getViewHash(item.id)} />
@@ -3217,9 +3280,12 @@ function DashboardContent({
                 xLabels={filteredYears}
                 yLabels={selectedSignalQualityHeatmap.yLabels}
                 baseColor={selectedSignalQualityHeatmap.baseColor}
-                valueFormatter={value => `${value}`}
+                valueFormatter={selectedSignalQualityHeatmap.valueFormatter}
                 yLabelFormatter={formatLabel}
                 showTotals={true}
+                totalsMode={selectedSignalQualityHeatmap.totalsMode}
+                totalsLabel={selectedSignalQualityHeatmap.totalsLabel}
+                totalValueFormatter={selectedSignalQualityHeatmap.totalValueFormatter}
                 showBlindSpots={false}
                 title={selectedSignalQualityHeatmap.title}
                 subtitle={selectedSignalQualityHeatmap.subtitle}
