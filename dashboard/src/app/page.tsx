@@ -101,18 +101,18 @@ export default function HomePage() {
 
             <div
               id="coverage"
-              className="mt-8 grid gap-x-8 gap-y-4 border-t border-border/80 pt-5 sm:grid-cols-2 xl:grid-cols-4"
+              className="mt-8 grid grid-cols-3 gap-x-3 gap-y-4 border-t border-border/80 pt-5 sm:gap-x-6"
             >
-              <div>
-                <div className="text-2xl font-bold leading-none text-primary">{perReportSummary.totalCompanies}</div>
+              <div className="min-w-0">
+                <div className="text-lg font-bold leading-none text-primary sm:text-2xl">{perReportSummary.totalCompanies}</div>
                 <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Companies</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold leading-none text-primary">{perReportSummary.totalReports}</div>
+              <div className="min-w-0">
+                <div className="text-lg font-bold leading-none text-primary sm:text-2xl">{perReportSummary.totalReports}</div>
                 <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Reports</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold leading-none text-primary">{yearRange}</div>
+              <div className="min-w-0">
+                <div className="text-lg font-bold leading-none text-primary sm:text-2xl">{yearRange}</div>
                 <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Years covered</div>
               </div>
             </div>
@@ -241,8 +241,8 @@ export default function HomePage() {
               sectors.
             </p>
             <p className="mt-5 text-xl leading-relaxed text-muted">
-              We use annual reports as our primary source because they are audited, legally
-              mandated, making them a consistent baseline for
+              We use annual reports as our primary source because they are audited and legally
+              mandated. Which makes them a consistent baseline for
               tracking corporate perspectives on AI risk exposures.
             </p>
             <div className="mt-10">

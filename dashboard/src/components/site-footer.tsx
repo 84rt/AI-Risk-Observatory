@@ -101,7 +101,7 @@ export function SiteFooter() {
             AI Risk Observatory
           </p>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Monitoring AI adoption, risk, vendor concentration, and disclosure blind spots across UK public-company reporting.
+            Monitoring AI adoption, risk, and vendor concentration across UK public-company annual reports.
           </p>
           <p className="mt-6 text-[10px] uppercase tracking-widest text-muted-foreground">
             &copy; {new Date().getFullYear()} AI Risk Observatory

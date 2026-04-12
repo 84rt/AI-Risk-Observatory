@@ -1664,6 +1664,7 @@ function DashboardContent({
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
+  const signalQualityScopeLabel = activeView === 1 ? 'risk' : activeView === 2 ? 'adoption' : 'vendor';
   const stackedChartYAxisFormatter = isReportShareMode
     ? (value: number) => `${Math.round(value)}%`
     : undefined;
@@ -1675,8 +1676,8 @@ function DashboardContent({
     if (activeView === 1) {
       if (visualizationMode === 'chart') {
         return {
-          title: riskBreakdownMode === 'phase1' ? 'AI Risk Mentioned Over Time' : 'AI Risk Categories Over Time',
-          fileBase: riskBreakdownMode === 'phase1' ? 'ai-risk-mentioned-over-time' : 'ai-risk-categories-over-time',
+          title: riskBreakdownMode === 'phase1' ? 'AI Risk Mentioned Over Time' : 'AI Risk Categories Mentioned Over Time',
+          fileBase: riskBreakdownMode === 'phase1' ? 'ai-risk-mentioned-over-time' : 'ai-risk-categories-mentioned-over-time',
           csv: toCsv(displayRiskTrend),
         };
       }
@@ -2172,6 +2173,17 @@ function DashboardContent({
       {action ? <div className="ml-auto shrink-0">{action}</div> : null}
     </div>
   );
+  const renderTaxonomyLead = (subject: 'risk' | 'adoption' | 'vendor') => (
+    <p className="mb-3 text-sm leading-relaxed text-slate-500">
+      The taxonomy used in our classification of {
+        subject === 'adoption'
+          ? 'mentioned AI adoption'
+          : subject === 'risk'
+            ? 'mentioned risk from AI'
+            : 'mentioned AI vendors'
+      }:
+    </p>
+  );
 
   const mentionTagFilterTooltip = 'Filters the view to AI mentions with the selected tag. In Per Report mode, a report is included if at least one AI mention in that filing has that tag.';
 
@@ -2492,7 +2504,7 @@ function DashboardContent({
                 'A dedicated heatmap showing how explicit and substantive AI disclosures are across sectors and years. Use it to focus on the most credible signals and filter out boilerplate.'
               )}
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Each cell shows the share of reports in that sector-year rated as explicit or highly substantive. Switch between Signal Strength and Substantiveness breakdowns.
+                View a heatmap of signal quality and substantiveness levels per each year for {signalQualityScopeLabel}.
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {signalQualityViewButton}
@@ -2593,7 +2605,15 @@ function DashboardContent({
     content: (
       <div className="space-y-5 text-sm leading-relaxed text-slate-600">
         <p>
-          Use the citation format that fits your workflow. Each block can be copied directly.
+          AI Risk Observatory&apos;s data is free to use, distribute, and reproduce provided the source and authors are credited under the{' '}
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2 hover:opacity-75"
+          >
+            Creative Commons Attribution license
+          </a>.
         </p>
         {renderCopyableReferenceBlock('citation-plain', 'Citation', plainCitation)}
         {renderCopyableReferenceBlock('citation-bibtex', 'BibTeX Citation', bibtexCitation)}
@@ -2632,7 +2652,23 @@ function DashboardContent({
           </a>{' '}
           for the full rubric.
         </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="Why do category counts add up to more than 100%?" open={openFaqIndex === 2} onToggle={() => setOpenFaqIndex(openFaqIndex === 2 ? null : 2)}>
+        <CollapsibleSection variant="faq" title="What is the most conservative way to read the data?" open={openFaqIndex === 2} onToggle={() => setOpenFaqIndex(openFaqIndex === 2 ? null : 2)}>
+          Use the <strong className="text-slate-800">% of reports with a given AI mention</strong> metric with the{' '}
+          <strong className="text-slate-800">Per Report</strong> aggregation. Both avoid double-counting and give
+          the most conservative reading of prevalence — each annual filing counts as one data point regardless of
+          how many AI mentions it contains.
+        </CollapsibleSection>
+        <CollapsibleSection variant="faq" title="What does 'publication year' mean?" open={openFaqIndex === 3} onToggle={() => setOpenFaqIndex(openFaqIndex === 3 ? null : 3)}>
+          Years on the x-axis reflect when the report was filed or published, not the end of the company&apos;s
+          fiscal year. A report covering fiscal year 2021 but published in April 2022 will appear under 2022. This
+          is consistent across the entire dataset.
+        </CollapsibleSection>
+        <CollapsibleSection variant="faq" title="Why are some sectors missing from the heatmap?" open={openFaqIndex === 4} onToggle={() => setOpenFaqIndex(openFaqIndex === 4 ? null : 4)}>
+          The heatmap only shows sectors with at least one report in the selected year range. If a CNI sector has
+          no matching reports after filters are applied, it is omitted from the view. Switching to ISIC grouping or
+          broadening the year range may reveal additional sectors.
+        </CollapsibleSection>
+        <CollapsibleSection variant="faq" title="Why do category counts add up to more than 100%?" open={openFaqIndex === 5} onToggle={() => setOpenFaqIndex(openFaqIndex === 5 ? null : 5)}>
           A single report or AI mention can be tagged with more than one category. A disclosure about a vendor deploying AI in a way that creates
           operational risk will be tagged for both Vendor and Risk. This means counts across categories are not
           mutually exclusive — a single report or AI mention can contribute to several bars or cells simultaneously. See{' '}
@@ -2640,22 +2676,6 @@ function DashboardContent({
             Phase 1: Mention Classification
           </a>{' '}
           in the methodology for how labels are assigned.
-        </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="What is the most conservative way to read the data?" open={openFaqIndex === 3} onToggle={() => setOpenFaqIndex(openFaqIndex === 3 ? null : 3)}>
-          Use the <strong className="text-slate-800">% of reports with a given AI mention</strong> metric with the{' '}
-          <strong className="text-slate-800">Per Report</strong> aggregation. Both avoid double-counting and give
-          the most conservative reading of prevalence — each annual filing counts as one data point regardless of
-          how many AI mentions it contains.
-        </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="What does 'publication year' mean?" open={openFaqIndex === 4} onToggle={() => setOpenFaqIndex(openFaqIndex === 4 ? null : 4)}>
-          Years on the x-axis reflect when the report was filed or published, not the end of the company&apos;s
-          fiscal year. A report covering fiscal year 2021 but published in April 2022 will appear under 2022. This
-          is consistent across the entire dataset.
-        </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="Why are some sectors missing from the heatmap?" open={openFaqIndex === 5} onToggle={() => setOpenFaqIndex(openFaqIndex === 5 ? null : 5)}>
-          The heatmap only shows sectors with at least one report in the selected year range. If a CNI sector has
-          no matching reports after filters are applied, it is omitted from the view. Switching to ISIC grouping or
-          broadening the year range may reveal additional sectors.
         </CollapsibleSection>
       </div>
     ),
@@ -2702,6 +2722,7 @@ function DashboardContent({
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
             A single report or AI mention can be tagged with more than one category when the disclosure covers multiple AI risk dimensions.
           </p>
+          {renderTaxonomyLead('risk')}
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
               <tbody>
@@ -2736,6 +2757,7 @@ function DashboardContent({
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
             A single report or AI mention can be tagged with more than one adoption type when the disclosure covers multiple AI adoption dimensions.
           </p>
+          {renderTaxonomyLead('adoption')}
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
               <tbody>
@@ -2770,6 +2792,7 @@ function DashboardContent({
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
             A single report or AI mention can be tagged with more than one vendor tag when the disclosure covers multiple AI provider relationships.
           </p>
+          {renderTaxonomyLead('vendor')}
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
               <tbody>
@@ -3135,7 +3158,7 @@ function DashboardContent({
               <span className="mr-3 inline-block h-6 w-1.5 bg-accent align-middle" />
               {view.heading}
             </h2>
-            <div className="mt-3 max-w-full overflow-x-auto">
+            <div className="mt-3 max-w-full overflow-x-auto pb-4 [scrollbar-gutter:stable]">
               <p className="inline-block min-w-max whitespace-nowrap text-sm leading-relaxed text-muted sm:text-base">
                 {datasetSummaryByView[activeView] ?? view.description}
               </p>
@@ -3182,7 +3205,7 @@ function DashboardContent({
               </button>
               <span className="text-muted-foreground" aria-hidden="true">·</span>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Signal Quality is an advanced diagnostic view. It shows how explicit and substantive each AI disclosure is, independent of topic.
+                This is an advanced validation metric that allowes us to determene the strength of our findings.
               </p>
             </div>
             {renderVisualizationArea(
@@ -3242,7 +3265,7 @@ function DashboardContent({
                       : (key) => setRiskFilter(prev => (prev === key ? 'all' : key))
                   }
                   footerExtra={visualizationFooter}
-                  title={riskBreakdownMode === 'phase1' ? 'AI Risk Mentioned Over Time' : 'AI Risk Categories Over Time'}
+                  title={riskBreakdownMode === 'phase1' ? 'AI Risk Mentioned Over Time' : 'AI Risk Categories Mentioned Over Time'}
                   subtitle={
                     riskBreakdownMode === 'phase1'
                       ? isReportShareMode

@@ -20,7 +20,13 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
+    const frame = window.requestAnimationFrame(() => {
+      setHasMounted(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const years = Array.from(
@@ -70,11 +76,18 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
               {item.linkHref ? (
                 <Link
                   href={item.linkHref}
-                  title="see full data"
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+                  title="see on the dashboard"
+                  aria-label={`${item.label} see on the dashboard`}
+                  className="group inline-flex items-center gap-1 overflow-hidden rounded-full text-sm font-semibold text-slate-800 underline decoration-border underline-offset-4 transition-colors hover:text-primary"
                 >
                   <span>{item.label}</span>
-                  <span aria-hidden="true" className="text-xs leading-none">↗</span>
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex max-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-xs leading-none opacity-0 transition-all duration-300 ease-out group-hover:max-w-[180px] group-hover:opacity-100"
+                  >
+                    <span className="pl-1">see on the dashboard</span>
+                    <span>↗</span>
+                  </span>
                 </Link>
               ) : (
                 <span className="text-sm font-semibold text-slate-800">{item.label}</span>

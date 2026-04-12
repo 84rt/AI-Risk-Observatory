@@ -240,7 +240,7 @@ export default function AboutPage() {
           <span className="aisi-tag">Methodology</span>
           <h1 className="aisi-h1">About the<br />Observatory</h1>
           <p className="mt-8 text-xl leading-relaxed text-muted">
-            This page explains how we turn annual reports from UK-listed companies into the data
+            This page explains how we turn annual reports from UK-listed public companies into the data
             powering the dashboard, and the decisions behind each step in the pipeline.
             For a deeper dive,{' '}
             <a href="about:blank" className="underline underline-offset-2 hover:text-primary transition-colors">read our full technical report</a>.
@@ -257,7 +257,7 @@ export default function AboutPage() {
             <section id="overview" className="scroll-mt-20 space-y-6">
               <h2 className="aisi-h2 uppercase">Overview</h2>
               <p>
-                The AI Risk Observatory processes annual reports from UK-listed companies through
+                The AI Risk Observatory processes annual reports from UK-listed public companies through
                 a two-stage AI classification pipeline. The dataset spans all annual reports
                 published between {data.years[0]} and {data.years[data.years.length - 1]} by{' '}
                 {summary.totalCompanies.toLocaleString()} companies, totalling{' '}
