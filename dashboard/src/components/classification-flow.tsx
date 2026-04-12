@@ -20,8 +20,8 @@ const FLOW_STAGES: FlowStage[] = [
     stageNumber: '01',
     title: 'Pre-processing',
     summary:
-      'Build the company-year universe, fetch the reports, normalize the documents, and isolate the passages that are genuinely relevant to AI.',
-    output: 'Output: normalized report text plus AI-relevant excerpts with company, year, and document metadata.',
+      'Build the company-year universe, fetch the reports, normalize the documents, and isolate the AI mentions that are genuinely relevant to AI.',
+    output: 'Output: normalized report text plus AI mentions with company, year, and document metadata.',
     accentClass: 'bg-[#e63946]',
     surfaceClass: 'bg-[#fff3f4]',
     borderClass: 'border-[#f1c6ca]',
@@ -40,8 +40,8 @@ const FLOW_STAGES: FlowStage[] = [
         detail: 'Convert reports into clean Markdown/text so the rest of the pipeline can work on a stable representation.',
       },
       {
-        label: 'Extract AI excerpts',
-        detail: 'Keep only the passages that explicitly mention AI or clearly AI-specific techniques.',
+        label: 'Extract AI mentions',
+        detail: 'Keep only the text that explicitly mentions AI or clearly AI-specific techniques.',
       },
     ],
   },
@@ -57,8 +57,8 @@ const FLOW_STAGES: FlowStage[] = [
     badgeClass: 'text-[#24598d]',
     steps: [
       {
-        label: 'Gate the excerpt',
-        detail: 'First determine whether the passage is a real AI mention, a false positive, or only a high-level ambiguous reference.',
+        label: 'Gate the AI mention',
+        detail: 'First determine whether the text is a real AI mention, a false positive, or only a high-level ambiguous reference.',
       },
       {
         label: 'Assign mention type',
@@ -66,7 +66,7 @@ const FLOW_STAGES: FlowStage[] = [
       },
       {
         label: 'Run phase-two tagging',
-        detail: 'For signal-bearing excerpts, classify adoption type, risk category, and vendor/provider information.',
+        detail: 'For signal-bearing AI mentions, classify adoption type, risk category, and vendor/provider information.',
       },
       {
         label: 'Score disclosure quality',
@@ -78,7 +78,7 @@ const FLOW_STAGES: FlowStage[] = [
     stageNumber: '03',
     title: 'Aggregation',
     summary:
-      'Roll excerpt-level labels up into report, sector, and year views so the corpus becomes usable as a monitoring system rather than a pile of documents.',
+      'Roll AI-mention-level labels up into report, sector, and year views so the corpus becomes usable as a monitoring system rather than a pile of documents.',
     output: 'Output: dashboard-ready trends, heatmaps, report-level metrics, and a traceable structured dataset.',
     accentClass: 'bg-[#00703c]',
     surfaceClass: 'bg-[#eefaf4]',
@@ -86,7 +86,7 @@ const FLOW_STAGES: FlowStage[] = [
     badgeClass: 'text-[#26634a]',
     steps: [
       {
-        label: 'Aggregate across excerpts',
+        label: 'Aggregate across AI mentions',
         detail: 'Combine labels at the report level so one company filing can be understood as a whole rather than as isolated snippets.',
       },
       {

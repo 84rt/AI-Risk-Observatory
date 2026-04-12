@@ -266,7 +266,7 @@ export default function AboutPage() {
                 AI-relevant mention, and after quality filters{' '}
                 {flow.phase1SignalReports.toLocaleString()} carry meaningful AI signal. Because
                 annual reports can run to hundreds of pages, we extract only the relevant
-                passages — giving us {totalChunks.toLocaleString()} annotated text chunks in
+                AI mentions and their surrounding context — giving us {totalChunks.toLocaleString()} annotated text chunks in
                 total.
               </p>
               <p>The pipeline follows three stages:</p>
@@ -335,7 +335,7 @@ export default function AboutPage() {
                     Phase 1: Classify the Type of AI Mention
                   </p>
                   <p className="mb-5 text-center text-sm text-muted">
-                    Excerpts that mention AI are classified into six categories.
+                    AI mentions are classified into six categories.
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {phase1Cards.map(card => {
@@ -389,7 +389,7 @@ export default function AboutPage() {
                                 <div
                                   key={child.id}
                                   className="relative flex items-baseline justify-between gap-3 overflow-hidden rounded-sm px-2 py-1 text-sm text-muted"
-                                  title={`${child.count.toLocaleString()} reports; ${child.chunkCount.toLocaleString()} chunks tagged ${displayLabel}`}
+                                  title={`${child.count.toLocaleString()} reports; ${child.chunkCount.toLocaleString()} AI mentions tagged ${displayLabel}`}
                                 >
                                   <div
                                     className={`absolute inset-y-1 left-0 rounded-sm ${card.highlightClass}`}
@@ -493,10 +493,10 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Chunking Approach</h3>
                 <p>
                   Once each annual report is in structured Markdown text, we split it into
-                  passages (chunks) using a sliding-window approach that respects paragraph and
+                  chunks using a sliding-window approach that respects paragraph and
                   section boundaries, with generous padding around each AI mention. An AI keyword filter isolates sections that explicitly mention AI
                   or closely related techniques; only those sections are retained for further
-                  annotation. Each chunk carries metadata: company identifier, reporting year,
+                  annotation as AI mentions. Each chunk carries metadata: company identifier, reporting year,
                   release month, report section (e.g. <em>Risk Factors</em>,{' '}
                   <em>Strategy</em>), and a stable chunk ID for traceability.
                 </p>
@@ -506,7 +506,7 @@ export default function AboutPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Chunking Results</h3>
                 <p>
                   The table below shows filings with AI mentions and the number of
-                  AI-relevant chunks (excerpts) extracted per year.
+                  AI mentions extracted per year.
                 </p>
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -514,7 +514,7 @@ export default function AboutPage() {
                       <th className="py-2 pr-4 font-bold text-primary">Year</th>
                       <th className="py-2 pr-4 font-bold text-primary text-right">Number of Filings</th>
                       <th className="py-2 pr-4 font-bold text-primary text-right">Filings with AI Mention (% of total)</th>
-                      <th className="py-2 font-bold text-primary text-right">Number of excerpts that mention AI</th>
+                      <th className="py-2 font-bold text-primary text-right">Count of AI mentions</th>
                     </tr>
                   </thead>
                   <tbody className="text-muted">
@@ -560,7 +560,7 @@ export default function AboutPage() {
                 <h3 className="text-lg font-bold text-primary">Phase 1: Mention-Type Classification</h3>
                 <p>
                   First, each chunk is passed to an LLM classifier that decides whether the
-                  passage contains a genuine AI mention and, if so, assigns one or more
+                  text contains a genuine AI mention and, if so, assigns one or more
                   mention-type labels. Chunks assigned only the <em>None</em> label are
                   filtered out as false positives before Phase 2.
                 </p>
@@ -763,7 +763,7 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                   <strong className="text-primary">QA scripts</strong> — we run QA tests across each pipeline stage, checking primarily for anomalies and out-of-distribution outputs:
                   <ul className="mt-2 space-y-1 pl-4 list-disc text-muted">
                     <li>Document size, length, duplication, fiscal-year-match, and text anomalies (non-Markdown formatting, unexpected characters).</li>
-                    <li>Outlier analysis on the distribution of Phase 1 and Phase 2 labels per company, report, and year; excerpts extracted per report; and chunk creation keywords.</li>
+                    <li>Outlier analysis on the distribution of Phase 1 and Phase 2 labels per company, report, and year; AI mentions extracted per report; and chunk creation keywords.</li>
                   </ul>
                   <p className="mt-2">All flagged outputs were manually reviewed.</p>
                 </li>

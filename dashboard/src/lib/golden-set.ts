@@ -103,6 +103,7 @@ export type GoldenDashboardData = {
   byCompanyScope: Record<'all' | 'cniOnly', { perReport: GoldenDataset; perChunk: GoldenDataset }>;
   byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }>;
   byMarketSegmentAndCompanyScope: Record<string, Record<'all' | 'cniOnly', { perReport: GoldenDataset; perChunk: GoldenDataset }>>;
+  companiesPerSector: Record<string, number>;
 };
 
 export type GoldenDataset = {
@@ -1688,6 +1689,7 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     marketSegmentMap,
     cniSectors,
     isicSectors,
+    companySectors,
     reportUniverseRows,
   } = parseCompanySectors();
   const annotations = parseAnnotations(ANNOTATIONS_PATH);
@@ -1754,6 +1756,16 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     };
   });
 
+  const companiesPerSector: Record<string, number> = {};
+  const sectorCompanySet = new Map<string, Set<string>>();
+  for (const { company_name, cniSector } of companySectors) {
+    if (!sectorCompanySet.has(cniSector)) sectorCompanySet.set(cniSector, new Set());
+    sectorCompanySet.get(cniSector)!.add(company_name);
+  }
+  sectorCompanySet.forEach((companies, sector) => {
+    companiesPerSector[sector] = companies.size;
+  });
+
   return {
     years,
     sectors: resolvedCniSectors,
@@ -1778,6 +1790,7 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     exampleChunks,
     byMarketSegment,
     byMarketSegmentAndCompanyScope,
+    companiesPerSector,
   };
 };
 
@@ -1787,7 +1800,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   if (shouldPreferPrecomputedDashboardData()) {
     const precomputedData = loadPrecomputedDashboardData();
     if (precomputedData) {
-      if (!precomputedData.byCompanyScope || !precomputedData.byMarketSegmentAndCompanyScope) {
+      if (!precomputedData.byCompanyScope || !precomputedData.byMarketSegmentAndCompanyScope || !precomputedData.companiesPerSector) {
         const rawData = buildGoldenSetDashboardDataFromRaw();
         cachedDashboardData = rawData;
         return rawData;

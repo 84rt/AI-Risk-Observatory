@@ -2,7 +2,7 @@
 
 import { type ReactNode, type RefObject, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
 } from 'recharts';
 
@@ -96,8 +96,8 @@ interface StackedBarChartProps {
   onLegendItemClick?: (key: string) => void;
   yAxisDomain?: [number, number];
   footerExtra?: React.ReactNode;
-  chartType?: 'bar' | 'line';
-  onChartTypeChange?: (type: 'bar' | 'line') => void;
+  chartType?: 'bar' | 'grouped' | 'line';
+  onChartTypeChange?: (type: 'bar' | 'grouped' | 'line') => void;
   showLegend?: boolean;
   exportRef?: RefObject<HTMLDivElement | null>;
   exportWatermark?: ReactNode;
@@ -137,9 +137,9 @@ export function StackedBarChart({
   exportWatermark,
   exportMode = false,
 }: StackedBarChartProps) {
-  const [internalChartType, setInternalChartType] = useState<'bar' | 'line'>('bar');
+  const [internalChartType, setInternalChartType] = useState<'bar' | 'grouped' | 'line'>('bar');
   const resolvedChartType = chartType ?? internalChartType;
-  const setResolvedChartType = (nextType: 'bar' | 'line') => {
+  const setResolvedChartType = (nextType: 'bar' | 'grouped' | 'line') => {
     if (onChartTypeChange) {
       onChartTypeChange(nextType);
       return;
@@ -152,6 +152,9 @@ export function StackedBarChart({
   const showSideLegend = showLegend && legendPosition === 'right';
   const showFloatingLegend = showLegend && legendPosition === 'floating-top-left';
   const visibleLegendKeys = [...(legendKeys ?? stackKeys ?? [])];
+  const isGrouped = activeChartType === 'grouped';
+  const showSingleLineArea = activeChartType === 'line' && stackKeys.length === 1;
+  const chartInstanceKey = `${activeChartType}-${xAxisKey}-${stackKeys.join('|')}`;
   const renderLegendItems = () =>
     visibleLegendKeys.map((key) => {
       const isSelected = activeLegendKey === key;
@@ -277,10 +280,19 @@ export function StackedBarChart({
           <button
             onClick={() => setResolvedChartType('bar')}
             className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'bar' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
-            title="Bar chart"
+            title="Stacked bar chart"
           >
-            Bar
+            Stacked
           </button>
+          {allowLineChart && (
+            <button
+              onClick={() => setResolvedChartType('grouped')}
+              className={`h-full rounded-sm px-3 text-[9px] font-bold uppercase tracking-widest transition-all ${activeChartType === 'grouped' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+              title="Grouped bar chart"
+            >
+              Grouped
+            </button>
+          )}
           {allowLineChart && (
             <button
               onClick={() => setResolvedChartType('line')}
@@ -323,7 +335,18 @@ export function StackedBarChart({
         <div className={`relative ${(showLeftLegend || showSideLegend) ? 'h-[420px] w-full lg:flex-1' : 'h-[420px]'}`}>
           <ResponsiveContainer width="100%" height="100%">
             {activeChartType === 'line' ? (
-              <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <LineChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                {showSingleLineArea && (
+                  <defs>
+                    {stackKeys.map((key) => (
+                      <linearGradient key={key} id={`line-area-${key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={colors[key] || colors.default} stopOpacity={0.22} />
+                        <stop offset="65%" stopColor={colors[key] || colors.default} stopOpacity={0.07} />
+                        <stop offset="100%" stopColor={colors[key] || colors.default} stopOpacity={0.01} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                )}
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
@@ -331,6 +354,16 @@ export function StackedBarChart({
                 {showLegend && !showSideLegend && !showFloatingLegend && (
                   <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
                 )}
+                {showSingleLineArea && stackKeys.map((key) => (
+                  <Area
+                    key={`${key}-area`}
+                    type="monotone"
+                    dataKey={key}
+                    stroke="none"
+                    fill={`url(#line-area-${key})`}
+                    isAnimationActive={false}
+                  />
+                ))}
                 {stackKeys.map((key) => (
                   <Line
                     key={key}
@@ -344,7 +377,7 @@ export function StackedBarChart({
                 ))}
               </LineChart>
             ) : (
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} barCategoryGap={isGrouped ? '20%' : '10%'} barGap={isGrouped ? 2 : 0}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis {...sharedAxisProps.xAxis} />
                 <YAxis {...sharedAxisProps.yAxis} />
@@ -356,7 +389,7 @@ export function StackedBarChart({
                   <Bar
                     key={key}
                     dataKey={key}
-                    stackId="a"
+                    stackId={isGrouped ? undefined : 'a'}
                     fill={colors[key] || colors.default}
                     name={formatLabel(key)}
                   />
@@ -413,6 +446,7 @@ interface GenericHeatmapProps {
   labelColumnWidth?: number;
   rowHeight?: number;
   yLabelClassName?: string;
+  yLabelSubtext?: Record<string | number, string | number>;
   rowGroups?: {
     label: string;
     childKeys: (string | number)[];
@@ -448,6 +482,7 @@ export function GenericHeatmap({
   labelColumnWidth,
   rowHeight,
   yLabelClassName,
+  yLabelSubtext,
   rowGroups,
   expandedRowGroups = [],
   onToggleRowGroup,
@@ -699,7 +734,14 @@ export function GenericHeatmap({
                   } ${yLabelClassName || ''}`}
                   style={{ height: cellHeight }}
                 >
-                  {yLabelFormatter(y)}
+                  {yLabelSubtext?.[y] !== undefined ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span>{yLabelFormatter(y)}</span>
+                      <span className="text-[9px] font-normal normal-case tracking-normal text-muted-foreground">
+                        {yLabelSubtext[y]} {typeof yLabelSubtext[y] === 'number' ? 'companies' : ''}
+                      </span>
+                    </div>
+                  ) : yLabelFormatter(y)}
                 </div>
               );
             })()}

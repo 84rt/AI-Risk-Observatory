@@ -8,21 +8,25 @@ export function CollapsibleSection({
   variant = 'default',
   open: controlledOpen,
   onToggle,
+  defaultOpen = false,
+  noDivider = false,
 }: {
   title: string;
   children: ReactNode;
   variant?: 'default' | 'faq' | 'settings';
   open?: boolean;
   onToggle?: () => void;
+  defaultOpen?: boolean;
+  noDivider?: boolean;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const toggle = isControlled ? onToggle! : () => setInternalOpen(prev => !prev);
 
   if (variant === 'settings') {
     return (
-      <div className="border-b border-border last:border-b-0">
+      <div className={noDivider ? '' : 'border-b border-border last:border-b-0'}>
         <button
           type="button"
           onClick={toggle}

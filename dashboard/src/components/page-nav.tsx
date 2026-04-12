@@ -102,7 +102,7 @@ export function PageNav() {
                 rel="noopener noreferrer"
                 className="border-l border-amber-200 px-3 py-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700"
               >
-                Feedback
+                Submit Feedback
               </a>
             </div>
           </div>

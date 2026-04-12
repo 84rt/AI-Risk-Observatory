@@ -54,25 +54,23 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-y border-slate-200/90 py-3">
         {series.map(item => {
-          const latestValue = item.data[item.data.length - 1]?.value ?? 0;
           return (
             <div key={item.label} className="flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="text-sm font-semibold text-slate-800">{item.label}</span>
               {item.linkHref ? (
                 <Link
                   href={item.linkHref}
-                  className="text-xs font-bold tracking-[0.08em] text-primary underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+                  title="see full data"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 underline decoration-border underline-offset-4 transition-colors hover:text-primary"
                 >
-                  see full data
+                  <span>{item.label}</span>
+                  <span aria-hidden="true" className="text-xs leading-none">↗</span>
                 </Link>
               ) : (
-                <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                  {latestValue}% in {latestYear}
-                </span>
+                <span className="text-sm font-semibold text-slate-800">{item.label}</span>
               )}
             </div>
           );

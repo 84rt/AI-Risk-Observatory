@@ -79,12 +79,6 @@ const VIEWS: View[] = [
     heading: 'AI Vendor References',
     description: 'Which technology vendors companies name in their reports, and how that varies by sector.',
   },
-  {
-    id: 4,
-    title: 'Signal Quality',
-    heading: 'AI Disclosure Quality',
-    description: 'How explicit and substantive each disclosure is — from concrete detail to boilerplate language.',
-  },
 ];
 
 const adoptionColors: Record<string, string> = {
@@ -510,9 +504,10 @@ export default function DashboardClient({
   const [showCniCompaniesOnly, setShowCniCompaniesOnly] = useState(false);
   const [expandedIsicGroups, setExpandedIsicGroups] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSignalQualityOpen, setIsSignalQualityOpen] = useState(false);
   const [signalStrengthFilter, setSignalStrengthFilter] = useState<string>('all');
   const [boilerplateFilter, setBoilerplateFilter] = useState<string>('all');
-  const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'line'>('bar');
+  const [chartDisplayType, setChartDisplayType] = useState<'bar' | 'grouped' | 'line'>('bar');
   const [showChartLegend, setShowChartLegend] = useState(true);
   const [shareButtonLabel, setShareButtonLabel] = useState('Share');
   const [copiedReferenceKey, setCopiedReferenceKey] = useState<string | null>(null);
@@ -545,6 +540,7 @@ export default function DashboardClient({
     setSignalStrengthFilter('all');
     setBoilerplateFilter('all');
     setYearRangeIndices(defaultYearRange);
+    setIsSignalQualityOpen(false);
   };
 
   useEffect(() => {
@@ -561,27 +557,29 @@ export default function DashboardClient({
       setMetricMode('pct_reports');
       setVisualizationMode('chart');
       setChartDisplayType('line');
-      setShowChartLegend(false);
+      setShowChartLegend(true);
       setMarketSegmentFilter('all');
       setShowCniCompaniesOnly(false);
 
       if (dashboardPreset === 'llm-adoption-line') {
         setActiveView(2);
         setAdoptionFilter('llm');
-        return true;
+      } else {
+        setActiveView(1);
+        setAdoptionFilter('all');
+
+        if (dashboardPreset === 'ai-risk-line') {
+          setRiskBreakdownMode('phase1');
+          setRiskFilter('all');
+        } else {
+          setRiskBreakdownMode('categories');
+          setRiskFilter('cybersecurity');
+        }
       }
 
-      setActiveView(1);
-      setAdoptionFilter('all');
-
-      if (dashboardPreset === 'ai-risk-line') {
-        setRiskBreakdownMode('phase1');
-        setRiskFilter('all');
-        return true;
-      }
-
-      setRiskBreakdownMode('categories');
-      setRiskFilter('cybersecurity');
+      // Strip preset param from URL so refresh gives the normal dashboard
+      const cleanHash = window.location.hash || '#risk';
+      window.history.replaceState(null, '', `/data${cleanHash}`);
       return true;
     };
 
@@ -616,7 +614,7 @@ export default function DashboardClient({
   const currentViewUrl = `${dashboardBaseUrl}${activeView === DEFAULT_VIEW_ID ? '' : `#${getViewHash(activeView)}`}`;
 
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
-  const isTrendChartView = visualizationMode === 'chart' && activeView !== 4;
+  const isTrendChartView = visualizationMode === 'chart' && !isSignalQualityOpen;
   const effectiveCompanyScope = isTrendChartView && showCniCompaniesOnly ? 'cniOnly' : 'all';
   const resolvedDatasets =
     effectiveCompanyScope === 'cniOnly'
@@ -637,7 +635,7 @@ export default function DashboardClient({
   const activeData = resolvedDatasets[datasetKey];
   const reportBaselineData = resolvedDatasets.perReport;
   const canShowReportShare =
-    activeView !== 4 && datasetKey === 'perReport';
+    !isSignalQualityOpen && datasetKey === 'perReport';
   const effectiveMetricMode: MetricMode = canShowReportShare ? metricMode : 'count';
   const isReportShareMode = effectiveMetricMode === 'pct_reports';
   const availableYears = activeData.years;
@@ -1628,7 +1626,7 @@ export default function DashboardClient({
       };
     }
 
-    if (activeView === 4) {
+    if (isSignalQualityOpen) {
       return {
         title: selectedSignalQualityHeatmap.title,
         fileBase: slugify(selectedSignalQualityHeatmap.title),
@@ -1643,6 +1641,7 @@ export default function DashboardClient({
     };
   }, [
     activeView,
+    isSignalQualityOpen,
     visualizationMode,
     displayRiskTrend,
     riskBreakdownMode,
@@ -1824,7 +1823,7 @@ export default function DashboardClient({
             : 'text-muted-foreground hover:bg-secondary'
         } ${!canShowReportShare ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
       >
-        % of Reports
+        % of reports with a given AI mention
       </button>
       <button
         type="button"
@@ -1835,7 +1834,7 @@ export default function DashboardClient({
             : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
-        number of mentions
+        {datasetKey === 'perChunk' ? 'Number of AI mentions (total)' : 'Number of reports (total)'}
       </button>
     </div>
   );
@@ -1878,10 +1877,9 @@ export default function DashboardClient({
     </div>
   );
 
-  const showVisualizationToggle = activeView !== 4;
-  const showSignalQualityToggle = activeView === 4;
-  const canUseLineChart = visualizationMode === 'chart' && activeView !== 4 && trendTimeAxis === 'year';
-  const activeChartDisplayType = canUseLineChart ? chartDisplayType : 'bar';
+  const showVisualizationToggle = !isSignalQualityOpen;
+  const canUseNonStackedChart = visualizationMode === 'chart' && !isSignalQualityOpen && trendTimeAxis === 'year';
+  const activeChartDisplayType = canUseNonStackedChart ? chartDisplayType : 'bar';
 
   const visualizationModeToggle = (
     <div className="inline-flex shrink-0 items-center overflow-hidden rounded border border-border bg-white p-0.5">
@@ -1925,20 +1923,35 @@ export default function DashboardClient({
             : 'text-muted-foreground hover:bg-secondary'
         }`}
       >
-        Bar
+        Stacked
       </button>
       <button
         type="button"
         onClick={() => {
-          if (!canUseLineChart) return;
+          if (!canUseNonStackedChart) return;
+          setChartDisplayType('grouped');
+        }}
+        disabled={!canUseNonStackedChart}
+        className={`${segmentedButtonClass} ${
+          activeChartDisplayType === 'grouped'
+            ? 'bg-primary text-white'
+            : 'text-muted-foreground hover:bg-secondary'
+        } ${!canUseNonStackedChart ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
+      >
+        Grouped
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (!canUseNonStackedChart) return;
           setChartDisplayType('line');
         }}
-        disabled={!canUseLineChart}
+        disabled={!canUseNonStackedChart}
         className={`${segmentedButtonClass} ${
           activeChartDisplayType === 'line'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
-        } ${!canUseLineChart ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
+        } ${!canUseNonStackedChart ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
       >
         Line
       </button>
@@ -1963,6 +1976,30 @@ export default function DashboardClient({
         <span
           className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
             showChartLegend ? 'translate-x-3.5' : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  );
+
+  const riskSubcategoriesToggle = (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={riskBreakdownMode === 'categories'}
+      onClick={() => setRiskBreakdownMode(prev => prev === 'categories' ? 'phase1' : 'categories')}
+      className="inline-flex items-center rounded-full transition"
+      title={riskBreakdownMode === 'categories' ? 'Show as single AI risk signal' : 'Break into sub-categories'}
+    >
+      <span
+        className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+          riskBreakdownMode === 'categories' ? 'bg-primary' : 'bg-slate-300'
+        }`}
+        aria-hidden="true"
+      >
+        <span
+          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+            riskBreakdownMode === 'categories' ? 'translate-x-3.5' : 'translate-x-0.5'
           }`}
         />
       </span>
@@ -2034,6 +2071,18 @@ export default function DashboardClient({
     </div>
   );
 
+  const mentionTagFilterTooltip = 'Filters the view to AI mentions with the selected tag. In Per Report mode, a report is included if at least one AI mention in that filing has that tag.';
+
+  const switchDashboardView = (viewId: number) => {
+    setActiveView(viewId);
+    setIsSignalQualityOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const openSignalQuality = () => {
+    setIsSignalQualityOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const renderSettingsPanel = () => (
     <div className="overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)] min-[960px]:flex min-[960px]:h-full min-[960px]:flex-col">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -2084,98 +2133,24 @@ export default function DashboardClient({
       </div>
       <div className="min-[960px]:flex-1 min-[960px]:overflow-y-auto">
 
-        {/* ── View ── */}
-        <CollapsibleSection title="View" variant="settings">
-          <div className="space-y-5">
-            {isTrendChartView && (
-              <div className="flex items-center gap-2">
-                {legendVisibilityToggle}
-                <p className="text-sm font-semibold leading-tight text-primary">Show Legend</p>
-              </div>
-            )}
-            {isTrendChartView && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Chart Style',
-                  'Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line charts are only available in the yearly view.'
-                )}
-                {chartTypeToggle}
-              </div>
-            )}
-            {isTrendChartView && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading('Group by')}
-                {trendTimeToggle}
-              </div>
-            )}
-            {visualizationMode === 'heatmap' && activeView === 1 && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Sector Classification',
-                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
-                )}
-                {makeSectorToggle(riskSectorView, setRiskSectorView)}
-              </div>
-            )}
-            {visualizationMode === 'heatmap' && activeView === 2 && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Sector Classification',
-                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
-                )}
-                {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
-              </div>
-            )}
-            {visualizationMode === 'heatmap' && activeView === 3 && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Sector Classification',
-                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
-                )}
-                {makeSectorToggle(vendorSectorView, setVendorSectorView)}
-              </div>
+        {isSignalQualityOpen ? (
+          <div className="px-5 py-5 space-y-3">
+            {renderSettingsSectionHeading('View', 'Switch between signal strength (how explicit each mention is) and substantiveness (how detailed and concrete the disclosure is).')}
+            {signalQualityModeToggle}
+            {signalQualityMode === 'substantiveness' && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
+                Substantiveness data is currently only available for risk mentions.
+              </p>
             )}
           </div>
-        </CollapsibleSection>
+        ) : (<>
 
-        {/* ── Data ── */}
-        <CollapsibleSection title="Data" variant="settings">
+        {/* ── Filters ── */}
+        <CollapsibleSection title="Filters" variant="settings" defaultOpen noDivider={isSignalQualityOpen}>
           <div className="space-y-5">
-            {activeView === 1 && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Risk Measure',
-                  'Categories use phase 2 risk-taxonomy labels. AI Risk Mentioned uses the phase 1 risk signal only.'
-                )}
-                <div className="inline-flex w-full items-center overflow-hidden rounded border border-border bg-white p-1">
-                  <button
-                    type="button"
-                    onClick={() => setRiskBreakdownMode('categories')}
-                    className={`flex-1 ${segmentedButtonClass} ${
-                      riskBreakdownMode === 'categories'
-                        ? 'bg-primary text-white'
-                        : 'text-muted-foreground hover:bg-secondary'
-                    }`}
-                  >
-                    Categories
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRiskBreakdownMode('phase1')}
-                    className={`flex-1 ${segmentedButtonClass} ${
-                      riskBreakdownMode === 'phase1'
-                        ? 'bg-primary text-white'
-                        : 'text-muted-foreground hover:bg-secondary'
-                    }`}
-                  >
-                    AI Risk Mentioned
-                  </button>
-                </div>
-              </div>
-            )}
             {activeView === 1 && riskBreakdownMode === 'categories' && (
               <div className="space-y-3">
-                {renderSettingsSectionHeading('Focus On One Risk Type')}
+                {renderSettingsSectionHeading('Focus On One Risk Type', mentionTagFilterTooltip)}
                 <div className="flex items-center gap-2">
                   <select
                     id="risk-filter"
@@ -2196,7 +2171,7 @@ export default function DashboardClient({
             )}
             {activeView === 2 && (
               <div className="space-y-3">
-                {renderSettingsSectionHeading('Focus On One AI Type')}
+                {renderSettingsSectionHeading('Focus On One AI Type', mentionTagFilterTooltip)}
                 <div className="flex items-center gap-2">
                   <select
                     id="adoption-filter"
@@ -2217,7 +2192,7 @@ export default function DashboardClient({
             )}
             {activeView === 3 && (
               <div className="space-y-3">
-                {renderSettingsSectionHeading('Focus On One Vendor')}
+                {renderSettingsSectionHeading('Focus On One Vendor', mentionTagFilterTooltip)}
                 <div className="flex items-center gap-2">
                   <select
                     id="vendor-filter"
@@ -2256,7 +2231,7 @@ export default function DashboardClient({
               <div className="space-y-3">
                 {renderSettingsSectionHeading(
                   'Company Scope',
-                  'Restrict the trend chart to companies mapped to a named UK Critical National Infrastructure sector. This excludes firms currently grouped under Other.'
+                  "Restrict the trend chart to companies mapped to a named UK Critical National Infrastructure sector. This excludes firms that don't have a direct mapping to a CNI sector."
                 )}
                 <div className="flex items-center gap-2">
                   {cniCompaniesOnlyToggle}
@@ -2264,7 +2239,106 @@ export default function DashboardClient({
                 </div>
               </div>
             )}
-            {activeView !== 4 && (
+          </div>
+        </CollapsibleSection>
+
+        {/* ── Display ── */}
+        <CollapsibleSection title="Display" variant="settings" noDivider={isSignalQualityOpen}>
+          <div className="space-y-5">
+            {isTrendChartView && (
+              <div className="flex items-center gap-2">
+                {legendVisibilityToggle}
+                <p className="text-sm font-semibold leading-tight text-primary">Show Legend</p>
+              </div>
+            )}
+            {activeView === 1 && (
+              <div className="flex items-center gap-2">
+                {riskSubcategoriesToggle}
+                <p className="text-sm font-semibold leading-tight text-primary">Show subcategories</p>
+                <InfoTooltip content={
+                  <>
+                    <p>Splits the AI risk signal into specific taxonomy categories (e.g. cybersecurity, governance, model risk).</p>
+                    <p className="mt-2">Because a single report can carry multiple risk labels, category percentages may not sum to 100%.</p>
+                  </>
+                } />
+              </div>
+            )}
+            {isTrendChartView && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Chart Style',
+                  'Bar chart stacks all categories. Line chart shows each category as a separate trend line. Line charts are only available in the yearly view.'
+                )}
+                {chartTypeToggle}
+              </div>
+            )}
+            {isTrendChartView && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Y-Axis Metric',
+                  'Choose what the Y-axis shows. % of reports with a given AI mention shows the share of annual filings that contain the selected label in each period. Number of reports (total) shows the raw number of matching annual reports. Number of AI mentions (total) shows the raw number of matching AI mentions.'
+                )}
+                {metricModeToggle}
+              </div>
+            )}
+            {visualizationMode === 'heatmap' && activeView === 1 && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Sector Classification',
+                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+                )}
+                {makeSectorToggle(riskSectorView, setRiskSectorView)}
+              </div>
+            )}
+            {visualizationMode === 'heatmap' && activeView === 2 && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Sector Classification',
+                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+                )}
+                {makeSectorToggle(adoptionSectorView, setAdoptionSectorView)}
+              </div>
+            )}
+            {visualizationMode === 'heatmap' && activeView === 3 && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Sector Classification',
+                  'CNI groups companies by UK Critical National Infrastructure sector. ISIC uses standard industry codes for a broader cross-sector comparison.'
+                )}
+                {makeSectorToggle(vendorSectorView, setVendorSectorView)}
+              </div>
+            )}
+            {isSignalQualityOpen && signalQualityMode === 'explicitness' && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Explicitness Summary',
+                  'Switch between risk, adoption, and vendor explicitness breakdowns.'
+                )}
+                {explicitnessSummaryToggle}
+              </div>
+            )}
+          </div>
+        </CollapsibleSection>
+
+        {/* ── Advanced ── */}
+        <CollapsibleSection title="Advanced" variant="settings" noDivider={isSignalQualityOpen}>
+          <div className="space-y-5">
+            {isTrendChartView && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading('Group by')}
+                {trendTimeToggle}
+              </div>
+            )}
+            {!isSignalQualityOpen && effectiveMetricMode === 'count' && (
+              <div className="space-y-3">
+                {renderSettingsSectionHeading(
+                  'Aggregate Data By',
+                  'Aggregate by report (one annual filing = one data point) or by AI mention (each tagged AI mention counts separately). Per Report is the default and avoids double-counting a single filing.'
+                )}
+                {datasetToggle}
+              </div>
+            )}
+            {!isSignalQualityOpen && (
               <div className="space-y-3">
                 {renderSettingsSectionHeading(
                   'Signal Strength',
@@ -2287,7 +2361,7 @@ export default function DashboardClient({
                 </div>
               </div>
             )}
-            {activeView !== 4 && (
+            {!isSignalQualityOpen && (
               <div className="space-y-3">
                 {renderSettingsSectionHeading(
                   'Substantiveness',
@@ -2310,42 +2384,22 @@ export default function DashboardClient({
                 </div>
               </div>
             )}
-            {isTrendChartView && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Show Values As',
-                  '% of Reports shows what share of annual filings contain this label in each period. The number of mentions option shows the raw number of matching reports or AI mentions.'
-                )}
-                {metricModeToggle}
+            <div className="space-y-3">
+              {renderSettingsSectionHeading(
+                'Signal Quality View',
+                'A dedicated heatmap showing how explicit and substantive AI disclosures are across sectors and years. Use it to focus on the most credible signals and filter out boilerplate.'
+              )}
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Each cell shows the share of reports in that sector-year rated as explicit or highly substantive. Switch between Signal Strength and Substantiveness breakdowns.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {signalQualityViewButton}
               </div>
-            )}
+            </div>
           </div>
         </CollapsibleSection>
 
-        {/* ── Advanced ── */}
-        <CollapsibleSection title="Advanced" variant="settings">
-          <div className="space-y-5">
-            {activeView !== 4 && effectiveMetricMode === 'count' && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Aggregate Data By',
-                  'Aggregate by report (one annual filing = one data point) or by AI mention (each tagged AI mention counts separately). Per Report is the default and avoids double-counting a single filing.'
-                )}
-                {datasetToggle}
-              </div>
-            )}
-            {activeView === 4 && signalQualityMode === 'explicitness' && (
-              <div className="space-y-3">
-                {renderSettingsSectionHeading(
-                  'Explicitness Summary',
-                  'Switch between risk, adoption, and vendor explicitness breakdowns.'
-                )}
-                {explicitnessSummaryToggle}
-              </div>
-            )}
-          </div>
-        </CollapsibleSection>
-
+      </>)}
       </div>
     </div>
   );
@@ -2452,37 +2506,51 @@ export default function DashboardClient({
     title: 'Frequently Asked Questions',
     content: (
       <div className="text-sm">
-        <CollapsibleSection variant="faq" title="Why do category counts add up to more than 100%?" open={openFaqIndex === 0} onToggle={() => setOpenFaqIndex(openFaqIndex === 0 ? null : 0)}>
-          Each AI mention can carry more than one tag. A disclosure about a vendor deploying AI in a way that creates
+        <CollapsibleSection variant="faq" title="Does the adoption prompt only count adoption by the reporting company?" open={openFaqIndex === 0} onToggle={() => setOpenFaqIndex(openFaqIndex === 0 ? null : 0)}>
+          The adoption prompt is designed to capture AI adoption by the reporting company. However, it does not
+          impose a fully explicit entity-scope gate, so in ambiguous cases the classifier may also pick up adjacent
+          forms of adoption described in the excerpt rather than only strict first-party company adoption.
+        </CollapsibleSection>
+        <CollapsibleSection variant="faq" title="How do we handle ambiguity?" open={openFaqIndex === 1} onToggle={() => setOpenFaqIndex(openFaqIndex === 1 ? null : 1)}>
+          We handle ambiguity in two ways. First, Phase 2 labels use signal scores to show how directly the text
+          supports a classification: higher signal means the type is explicit and well-supported, while lower signal
+          means the label is more inferential or weakly evidenced. The{' '}
+          <button
+            type="button"
+            onClick={openSignalQuality}
+            className="text-primary underline underline-offset-2 hover:opacity-75"
+          >
+            Signal Quality view
+          </button>
+          {' '}surfaces these signal levels so you can filter to clearer disclosures only.
+          Second, we score substantiveness from boilerplate to substantive, which separates generic AI language from
+          disclosures that provide concrete implementation detail, metrics, or explanation. See{' '}
+          <a href="/about#phase-2" className="text-primary underline underline-offset-2 hover:opacity-75">
+            Phase 2: Detailed Classification
+          </a>{' '}
+          for the full rubric.
+        </CollapsibleSection>
+        <CollapsibleSection variant="faq" title="Why do category counts add up to more than 100%?" open={openFaqIndex === 2} onToggle={() => setOpenFaqIndex(openFaqIndex === 2 ? null : 2)}>
+          A single report or AI mention can be tagged with more than one category. A disclosure about a vendor deploying AI in a way that creates
           operational risk will be tagged for both Vendor and Risk. This means counts across categories are not
-          mutually exclusive — a single mention can contribute to several bars or cells simultaneously. See{' '}
+          mutually exclusive — a single report or AI mention can contribute to several bars or cells simultaneously. See{' '}
           <a href="/about#phase-1" className="text-primary underline underline-offset-2 hover:opacity-75">
             Phase 1: Mention Classification
           </a>{' '}
           in the methodology for how labels are assigned.
         </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="What is a signal strength score?" open={openFaqIndex === 1} onToggle={() => setOpenFaqIndex(openFaqIndex === 1 ? null : 1)}>
-          Every tag is accompanied by a confidence score (0–1) indicating how directly the text supports that
-          classification. A score near 1 means the mention is explicit and unambiguous; lower scores reflect weaker
-          or inferential evidence. The Signal Quality view surfaces these scores so you can filter to
-          high-confidence disclosures only. See{' '}
-          <a href="/about#phase-2" className="text-primary underline underline-offset-2 hover:opacity-75">
-            Phase 2: Detailed Classification
-          </a>{' '}
-          for the full scoring rubric.
-        </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="What is the most conservative way to read the data?" open={openFaqIndex === 2} onToggle={() => setOpenFaqIndex(openFaqIndex === 2 ? null : 2)}>
-          Use the <strong className="text-slate-800">% of Reports</strong> metric with the{' '}
+        <CollapsibleSection variant="faq" title="What is the most conservative way to read the data?" open={openFaqIndex === 3} onToggle={() => setOpenFaqIndex(openFaqIndex === 3 ? null : 3)}>
+          Use the <strong className="text-slate-800">% of reports with a given AI mention</strong> metric with the{' '}
           <strong className="text-slate-800">Per Report</strong> aggregation. Both avoid double-counting and give
           the most conservative reading of prevalence — each annual filing counts as one data point regardless of
           how many AI mentions it contains.
         </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="What does 'publication year' mean?" open={openFaqIndex === 3} onToggle={() => setOpenFaqIndex(openFaqIndex === 3 ? null : 3)}>
+        <CollapsibleSection variant="faq" title="What does 'publication year' mean?" open={openFaqIndex === 4} onToggle={() => setOpenFaqIndex(openFaqIndex === 4 ? null : 4)}>
           Years on the x-axis reflect when the report was filed or published, not the end of the company&apos;s
           fiscal year. A report covering fiscal year 2021 but published in April 2022 will appear under 2022. This
           is consistent across the entire dataset.
         </CollapsibleSection>
-        <CollapsibleSection variant="faq" title="Why are some sectors missing from the heatmap?" open={openFaqIndex === 4} onToggle={() => setOpenFaqIndex(openFaqIndex === 4 ? null : 4)}>
+        <CollapsibleSection variant="faq" title="Why are some sectors missing from the heatmap?" open={openFaqIndex === 5} onToggle={() => setOpenFaqIndex(openFaqIndex === 5 ? null : 5)}>
           The heatmap only shows sectors with at least one report in the selected year range. If a CNI sector has
           no matching reports after filters are applied, it is omitted from the view. Switching to ISIC grouping or
           broadening the year range may reveal additional sectors.
@@ -2530,7 +2598,7 @@ export default function DashboardClient({
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
-            A single report will usually contain multiple mentions. A single mention can be tagged to more than one risk category.
+            A single report or AI mention can be tagged with more than one category when the disclosure covers multiple AI risk dimensions.
           </p>
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
@@ -2564,7 +2632,7 @@ export default function DashboardClient({
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
-            A single report will usually contain multiple mentions. A single mention can be tagged to more than one adoption type.
+            A single report or AI mention can be tagged with more than one adoption type when the disclosure covers multiple AI adoption dimensions.
           </p>
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
@@ -2598,7 +2666,7 @@ export default function DashboardClient({
       content: (
         <>
           <p className="mb-3 text-sm leading-relaxed text-slate-500">
-            A single report will usually contain multiple mentions. A single mention can be tagged to more than one vendor tag.
+            A single report or AI mention can be tagged with more than one vendor tag when the disclosure covers multiple AI provider relationships.
           </p>
           <div className="overflow-hidden rounded border border-slate-200">
             <table className="w-full border-collapse text-sm leading-relaxed text-slate-600">
@@ -2833,34 +2901,22 @@ export default function DashboardClient({
   );
 
   const visualizationFooter = yearRangeSelector;
-  const primaryViews = VIEWS.filter(item => item.id !== 4);
-  const signalQualityView = VIEWS.find(item => item.id === 4);
-  const switchDashboardView = (viewId: number) => {
-    setActiveView(viewId);
-    setVisualizationMode(viewId === 4 ? 'heatmap' : 'chart');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  const signalQualityViewButton = signalQualityView ? (
+  const signalQualityViewButton = (
     <button
       type="button"
-      onClick={() => switchDashboardView(signalQualityView.id)}
+      onClick={openSignalQuality}
       className={`${tabButtonClass} ${
-        activeView === signalQualityView.id
+        isSignalQualityOpen
           ? 'border-primary bg-primary text-white'
           : 'border-border bg-secondary text-primary hover:bg-white'
       }`}
     >
-      {signalQualityView.title}
+      Signal Quality
     </button>
-  ) : null;
+  );
 
   const visualizationActions = (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {signalQualityViewButton}
-        {showSignalQualityToggle ? signalQualityModeToggle : null}
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
           onClick={handleShareVisualization}
@@ -2936,7 +2992,6 @@ export default function DashboardClient({
           </svg>
           Download Image
         </button>
-      </div>
     </div>
   );
 
@@ -2988,7 +3043,7 @@ export default function DashboardClient({
           <div className={isSettingsOpen ? 'mt-8 overflow-x-auto min-[960px]:pr-[300px]' : 'mt-8 overflow-x-auto'}>
             <div className="flex min-w-max items-start justify-between gap-3">
               <div className="flex shrink-0 items-center gap-2.5">
-                {primaryViews.map(item => (
+                {VIEWS.map(item => (
                   <div key={item.id} className="flex items-center gap-2.5">
                     <button
                       onClick={() => switchDashboardView(item.id)}
@@ -3009,6 +3064,50 @@ export default function DashboardClient({
         </div>
 
         <div className="mt-3">
+
+        {isSignalQualityOpen ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setIsSignalQualityOpen(false)}
+                className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-accent"
+              >
+                <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" aria-hidden="true">
+                  <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Back to {VIEWS.find(v => v.id === activeView)?.title ?? 'main view'}
+              </button>
+              <span className="text-muted-foreground" aria-hidden="true">·</span>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Signal Quality is an advanced diagnostic view. It shows how explicit and substantive each AI disclosure is, independent of topic.
+              </p>
+            </div>
+            {renderVisualizationArea(
+              <GenericHeatmap
+                exportRef={visualizationExportRef}
+                exportMode={isExportingVisualization}
+                exportWatermark={exportWatermark}
+                data={selectedSignalQualityHeatmap.data}
+                xLabels={filteredYears}
+                yLabels={selectedSignalQualityHeatmap.yLabels}
+                baseColor={selectedSignalQualityHeatmap.baseColor}
+                valueFormatter={value => `${value}`}
+                yLabelFormatter={formatLabel}
+                showTotals={true}
+                showBlindSpots={false}
+                title={selectedSignalQualityHeatmap.title}
+                subtitle={selectedSignalQualityHeatmap.subtitle}
+                tooltip={selectedSignalQualityHeatmap.tooltip}
+                xAxisLabel="Year"
+                yAxisLabel={selectedSignalQualityHeatmap.yAxisLabel}
+                compact={selectedSignalQualityHeatmap.compact}
+                headerExtra={visualizationHeaderExtra}
+                footerExtra={visualizationFooter}
+              />
+            )}
+          </div>
+        ) : (<>
 
         {activeView === 1 && (
           <div className="space-y-8">
@@ -3048,7 +3147,7 @@ export default function DashboardClient({
                         ? `Bar chart showing the percentage of annual reports with a phase 1 AI-risk signal (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis).`
                         : `Bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} with a phase 1 AI-risk signal (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis).`
                       : isReportShareMode
-                      ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category. Because a single report can carry multiple risk labels, stacked totals can exceed 100%.`
+                      ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category.`
                       : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`
                   }
                   tooltip={
@@ -3127,6 +3226,7 @@ export default function DashboardClient({
                   labelColumnWidth={riskSectorView === 'isic' ? 330 : undefined}
                   rowHeight={riskSectorView === 'isic' ? 58 : undefined}
                   yLabelClassName={riskSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  yLabelSubtext={riskSectorView === 'cni' ? data.companiesPerSector : undefined}
                   headerExtra={visualizationHeaderExtra}
                   footerExtra={visualizationFooter}
                 />
@@ -3220,6 +3320,7 @@ export default function DashboardClient({
                   labelColumnWidth={adoptionSectorView === 'isic' ? 330 : undefined}
                   rowHeight={adoptionSectorView === 'isic' ? 58 : undefined}
                   yLabelClassName={adoptionSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  yLabelSubtext={adoptionSectorView === 'cni' ? data.companiesPerSector : undefined}
                   headerExtra={visualizationHeaderExtra}
                   footerExtra={visualizationFooter}
                 />
@@ -3314,6 +3415,7 @@ export default function DashboardClient({
                   labelColumnWidth={vendorSectorView === 'isic' ? 330 : undefined}
                   rowHeight={vendorSectorView === 'isic' ? 58 : undefined}
                   yLabelClassName={vendorSectorView === 'isic' ? 'text-xs leading-snug' : undefined}
+                  yLabelSubtext={vendorSectorView === 'cni' ? data.companiesPerSector : undefined}
                   headerExtra={visualizationHeaderExtra}
                   footerExtra={visualizationFooter}
                 />
@@ -3322,33 +3424,7 @@ export default function DashboardClient({
           </div>
         )}
 
-        {activeView === 4 && (
-          <div className="space-y-8">
-            {renderVisualizationArea(
-              <GenericHeatmap
-                exportRef={visualizationExportRef}
-                exportMode={isExportingVisualization}
-                exportWatermark={exportWatermark}
-                data={selectedSignalQualityHeatmap.data}
-                xLabels={filteredYears}
-                yLabels={selectedSignalQualityHeatmap.yLabels}
-                baseColor={selectedSignalQualityHeatmap.baseColor}
-                valueFormatter={value => `${value}`}
-                yLabelFormatter={formatLabel}
-                showTotals={true}
-                showBlindSpots={false}
-                title={selectedSignalQualityHeatmap.title}
-                subtitle={selectedSignalQualityHeatmap.subtitle}
-                tooltip={selectedSignalQualityHeatmap.tooltip}
-                xAxisLabel="Year"
-                yAxisLabel={selectedSignalQualityHeatmap.yAxisLabel}
-                compact={selectedSignalQualityHeatmap.compact}
-                headerExtra={visualizationHeaderExtra}
-                footerExtra={visualizationFooter}
-              />
-            )}
-          </div>
-        )}
+        </>)}
         </div>
       </main>
     </div>
