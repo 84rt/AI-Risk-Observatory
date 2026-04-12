@@ -3013,7 +3013,7 @@ function DashboardContent({
           : 'border-border bg-secondary text-primary hover:bg-white'
       }`}
     >
-      Signal Quality
+      Open Signal Quality View
     </button>
   );
 

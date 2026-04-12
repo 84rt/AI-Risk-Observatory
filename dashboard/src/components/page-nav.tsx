@@ -91,18 +91,26 @@ export function PageNav() {
               );
             })}
           </div>
-          <div className="ml-auto flex items-center pb-2 sm:pb-0">
-            <div className="flex items-center overflow-hidden rounded border border-amber-200 text-xs font-semibold">
-              <span className="bg-amber-100 px-3 py-1.5 text-[10px] uppercase tracking-widest text-amber-700">
-                Beta
-              </span>
+          <div className="ml-auto flex w-full items-center pb-2 sm:w-auto sm:pb-0">
+            <div className="group flex w-full items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 sm:w-auto">
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                  Beta
+                </p>
+                <p className="text-[11px] leading-4 text-muted-foreground sm:hidden">
+                  Website is in beta. Feedback welcome.
+                </p>
+                <p className="hidden max-w-0 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground opacity-0 transition-all duration-200 sm:block sm:group-hover:max-w-[210px] sm:group-hover:opacity-100 sm:group-focus-within:max-w-[210px] sm:group-focus-within:opacity-100">
+                  Website is in beta. Feedback welcome.
+                </p>
+              </div>
               <a
                 href="https://forms.gle/qgwZSUPrMhxeTxcEA"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border-l border-amber-200 px-3 py-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700"
+                className="inline-flex shrink-0 items-center rounded border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
               >
-                Submit Feedback
+                Share feedback
               </a>
             </div>
           </div>
