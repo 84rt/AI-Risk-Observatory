@@ -316,6 +316,11 @@ type VisualizationExport = {
   csv: string;
 };
 
+type DashboardClientProps = {
+  data?: GoldenDashboardData;
+  renderedAtIso?: string;
+};
+
 const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
 const toPercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
@@ -470,7 +475,104 @@ const buildVisibleGroupedYLabels = (
   return [...groupedLabels, ...ungroupedLabels];
 };
 
+function DashboardLoadingState({
+  message,
+  action,
+}: {
+  message: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-[#f8f8f7] text-primary">
+      <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
+        <div className="w-full rounded-2xl border border-border bg-white p-8 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-10">
+          <div className="mb-6 h-2 w-24 rounded-full bg-accent/80" />
+          <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
+            AI Risk Observatory Data Explorer
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
+            {message}
+          </p>
+          {action ? <div className="mt-6">{action}</div> : null}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function DashboardClient({
+  data: initialData,
+  renderedAtIso: initialRenderedAtIso,
+}: DashboardClientProps) {
+  const [data, setData] = useState<GoldenDashboardData | null>(initialData ?? null);
+  const [renderedAtIso, setRenderedAtIso] = useState<string | null>(initialRenderedAtIso ?? null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState(0);
+
+  useEffect(() => {
+    if (initialData && initialRenderedAtIso) return;
+
+    const controller = new AbortController();
+    let isActive = true;
+
+    const loadDashboardData = async () => {
+      try {
+        setLoadError(null);
+        const response = await fetch('/api/dashboard-data', {
+          cache: 'force-cache',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const nextData = (await response.json()) as GoldenDashboardData;
+        if (!isActive) return;
+
+        setData(nextData);
+        setRenderedAtIso(response.headers.get('x-rendered-at') ?? new Date().toISOString());
+      } catch (error) {
+        if (!isActive || controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : 'Unable to load dashboard data.');
+      }
+    };
+
+    void loadDashboardData();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [initialData, initialRenderedAtIso, requestKey]);
+
+  if (!data || !renderedAtIso) {
+    if (loadError) {
+      return (
+        <DashboardLoadingState
+          message={`The dashboard dataset could not be loaded. ${loadError}`}
+          action={(
+            <button
+              type="button"
+              onClick={() => setRequestKey(prev => prev + 1)}
+              className="inline-flex h-10 items-center justify-center rounded border border-slate-950 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Retry loading data
+            </button>
+          )}
+        />
+      );
+    }
+
+    return (
+      <DashboardLoadingState message="Loading the dashboard dataset. The first request can take a moment while the data is transferred." />
+    );
+  }
+
+  return <DashboardContent data={data} renderedAtIso={renderedAtIso} />;
+}
+
+function DashboardContent({
   data,
   renderedAtIso,
 }: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, type RefObject, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useState } from 'react';
 import {
   Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -137,7 +137,13 @@ export function StackedBarChart({
   exportWatermark,
   exportMode = false,
 }: StackedBarChartProps) {
+  const [hasMounted, setHasMounted] = useState(false);
   const [internalChartType, setInternalChartType] = useState<'bar' | 'grouped' | 'line'>('bar');
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   const resolvedChartType = chartType ?? internalChartType;
   const setResolvedChartType = (nextType: 'bar' | 'grouped' | 'line') => {
     if (onChartTypeChange) {
@@ -333,70 +339,74 @@ export function StackedBarChart({
           </div>
         )}
         <div className={`relative ${(showLeftLegend || showSideLegend) ? 'h-[420px] w-full lg:flex-1' : 'h-[420px]'}`}>
-          <ResponsiveContainer width="100%" height="100%">
-            {activeChartType === 'line' ? (
-              <LineChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                {showSingleLineArea && (
-                  <defs>
-                    {stackKeys.map((key) => (
-                      <linearGradient key={key} id={`line-area-${key}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={colors[key] || colors.default} stopOpacity={0.22} />
-                        <stop offset="65%" stopColor={colors[key] || colors.default} stopOpacity={0.07} />
-                        <stop offset="100%" stopColor={colors[key] || colors.default} stopOpacity={0.01} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                )}
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis {...sharedAxisProps.xAxis} />
-                <YAxis {...sharedAxisProps.yAxis} />
-                <Tooltip {...tooltipProps} />
-                {showLegend && !showSideLegend && !showFloatingLegend && (
-                  <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-                )}
-                {showSingleLineArea && stackKeys.map((key) => (
-                  <Area
-                    key={`${key}-area`}
-                    type="monotone"
-                    dataKey={key}
-                    stroke="none"
-                    fill={`url(#line-area-${key})`}
-                    isAnimationActive={false}
-                  />
-                ))}
-                {stackKeys.map((key) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={colors[key] || colors.default}
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: colors[key] || colors.default }}
-                    name={formatLabel(key)}
-                  />
-                ))}
-              </LineChart>
-            ) : (
-              <BarChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} barCategoryGap={isGrouped ? '20%' : '10%'} barGap={isGrouped ? 2 : 0}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis {...sharedAxisProps.xAxis} />
-                <YAxis {...sharedAxisProps.yAxis} />
-                <Tooltip {...tooltipProps} />
-                {showLegend && !showSideLegend && !showFloatingLegend && (
-                  <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-                )}
-                {stackKeys.map((key) => (
-                  <Bar
-                    key={key}
-                    dataKey={key}
-                    stackId={isGrouped ? undefined : 'a'}
-                    fill={colors[key] || colors.default}
-                    name={formatLabel(key)}
-                  />
-                ))}
-              </BarChart>
-            )}
-          </ResponsiveContainer>
+          {hasMounted ? (
+            <ResponsiveContainer width="100%" height="100%">
+              {activeChartType === 'line' ? (
+                <LineChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  {showSingleLineArea && (
+                    <defs>
+                      {stackKeys.map((key) => (
+                        <linearGradient key={key} id={`line-area-${key}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={colors[key] || colors.default} stopOpacity={0.22} />
+                          <stop offset="65%" stopColor={colors[key] || colors.default} stopOpacity={0.07} />
+                          <stop offset="100%" stopColor={colors[key] || colors.default} stopOpacity={0.01} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                  )}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis {...sharedAxisProps.xAxis} />
+                  <YAxis {...sharedAxisProps.yAxis} />
+                  <Tooltip {...tooltipProps} />
+                  {showLegend && !showSideLegend && !showFloatingLegend && (
+                    <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                  )}
+                  {showSingleLineArea && stackKeys.map((key) => (
+                    <Area
+                      key={`${key}-area`}
+                      type="monotone"
+                      dataKey={key}
+                      stroke="none"
+                      fill={`url(#line-area-${key})`}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                  {stackKeys.map((key) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={colors[key] || colors.default}
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: colors[key] || colors.default }}
+                      name={formatLabel(key)}
+                    />
+                  ))}
+                </LineChart>
+              ) : (
+                <BarChart key={chartInstanceKey} data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} barCategoryGap={isGrouped ? '20%' : '10%'} barGap={isGrouped ? 2 : 0}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis {...sharedAxisProps.xAxis} />
+                  <YAxis {...sharedAxisProps.yAxis} />
+                  <Tooltip {...tooltipProps} />
+                  {showLegend && !showSideLegend && !showFloatingLegend && (
+                    <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                  )}
+                  {stackKeys.map((key) => (
+                    <Bar
+                      key={key}
+                      dataKey={key}
+                      stackId={isGrouped ? undefined : 'a'}
+                      fill={colors[key] || colors.default}
+                      name={formatLabel(key)}
+                    />
+                  ))}
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full w-full animate-pulse rounded-xl bg-slate-100" aria-hidden="true" />
+          )}
         </div>
         {showSideLegend && (
           <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:w-56">
