@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { GenericHeatmap, StackedBarChart, InfoTooltip } from '@/components/overview-charts';
 import { CollapsibleSection } from '@/components/collapsible-section';
 import { buildIsicSectorGroups, type HeatmapRowGroup } from '@/lib/isic';
-import type { GoldenDashboardData } from '@/lib/golden-set';
+import type { GoldenDashboardData, GoldenDataset } from '@/lib/golden-set';
 
 // Filter type for risk distribution view
 type RiskFilter = 'all' | string;
@@ -319,6 +319,7 @@ type VisualizationExport = {
 type DashboardClientProps = {
   data?: GoldenDashboardData;
   renderedAtIso?: string;
+  dataVersion?: string;
 };
 
 const toNumber = (value: string | number | null | undefined) => Number(value) || 0;
@@ -471,6 +472,263 @@ const aggregateYearLabelTotalsByRowGroups = (
   return nextTotals;
 };
 
+type QualityScope = 'risk' | 'adoption' | 'vendor';
+type CompanyScope = 'all' | 'cniOnly';
+type FilterIndexRow = GoldenDashboardData['filterIndex']['perReport'][number];
+
+const FILTER_ROW = {
+  year: 0,
+  monthIndex: 1,
+  cniSectorIndex: 2,
+  isicSectorIndex: 3,
+  marketSegmentIndex: 4,
+  mentionMask: 5,
+  adoptionMask: 6,
+  riskMask: 7,
+  vendorMask: 8,
+  adoptionSignalMask: 9,
+  riskSignalMask: 10,
+  vendorSignalMask: 11,
+  adoptionSubstantivenessMask: 12,
+  riskSubstantivenessMask: 13,
+  vendorSubstantivenessMask: 14,
+} as const;
+
+const hasBit = (mask: number, index: number) => index >= 0 && (mask & (1 << index)) !== 0;
+
+const forEachMaskLabel = (
+  mask: number,
+  labels: string[],
+  callback: (label: string) => void
+) => {
+  labels.forEach((label, index) => {
+    if (hasBit(mask, index)) callback(label);
+  });
+};
+
+const initClientYearSeries = (years: number[], keys: string[]) =>
+  years.map(year => {
+    const row: Record<string, number> = { year };
+    keys.forEach(key => {
+      row[key] = 0;
+    });
+    return row;
+  });
+
+const initClientMonthSeries = (months: string[], keys: string[]) =>
+  months.map(month => {
+    const row: Record<string, string | number> = { month };
+    keys.forEach(key => {
+      row[key] = 0;
+    });
+    return row;
+  });
+
+const addYearSeriesCount = (
+  series: Record<string, number>[],
+  year: number,
+  key: string
+) => {
+  const row = series.find(entry => entry.year === year);
+  if (!row) return;
+  row[key] = (row[key] || 0) + 1;
+};
+
+const addMonthSeriesCount = (
+  series: Record<string, string | number>[],
+  month: string,
+  key: string
+) => {
+  const row = series.find(entry => entry.month === month);
+  if (!row) return;
+  row[key] = (Number(row[key]) || 0) + 1;
+};
+
+const addHeatmapCount = (
+  map: Map<string, number>,
+  parts: (string | number | undefined)[]
+) => {
+  if (parts.some(part => part === undefined || part === '')) return;
+  const key = parts.join('|||');
+  map.set(key, (map.get(key) || 0) + 1);
+};
+
+const mapToYearHeatmap = (map: Map<string, number>) =>
+  Array.from(map.entries()).map(([key, value]) => {
+    const [year, x, y] = key.split('|||');
+    return { year: Number(year), x, y, value };
+  });
+
+const mapToMentionYearHeatmap = (map: Map<string, number>) =>
+  Array.from(map.entries()).map(([key, value]) => {
+    const [x, y] = key.split('|||');
+    return { x: Number(x), y, value };
+  });
+
+const getSignalMaskForScope = (row: FilterIndexRow, scope: QualityScope) => {
+  if (scope === 'adoption') return row[FILTER_ROW.adoptionSignalMask];
+  if (scope === 'vendor') return row[FILTER_ROW.vendorSignalMask];
+  return row[FILTER_ROW.riskSignalMask];
+};
+
+const getSubstantivenessMaskForScope = (row: FilterIndexRow, scope: QualityScope) => {
+  if (scope === 'adoption') return row[FILTER_ROW.adoptionSubstantivenessMask];
+  if (scope === 'vendor') return row[FILTER_ROW.vendorSubstantivenessMask];
+  return row[FILTER_ROW.riskSubstantivenessMask];
+};
+
+const matchesMarketSegmentFilter = (marketSegment: string, filter: string) => {
+  if (filter === 'all') return true;
+  if (filter === 'Main Market') {
+    return marketSegment === 'FTSE 100' || marketSegment === 'FTSE 250' || marketSegment === 'Main Market';
+  }
+  if (filter === 'Main Market (FTSE 100 only)') return marketSegment === 'FTSE 100';
+  if (filter === 'Main Market (FTSE 350 only)') {
+    return marketSegment === 'FTSE 100' || marketSegment === 'FTSE 250';
+  }
+  return marketSegment === filter;
+};
+
+const isCniMappedSectorLabel = (sector: string) => {
+  const normalized = sector.trim();
+  return normalized !== '' && normalized !== 'Unknown' && normalized !== 'Other';
+};
+
+const buildFilteredDatasetFromIndex = ({
+  baseData,
+  data,
+  datasetKey,
+  scope,
+  signalStrengthFilter,
+  substantivenessFilter,
+  marketSegmentFilter,
+  companyScope,
+}: {
+  baseData: GoldenDataset;
+  data: GoldenDashboardData;
+  datasetKey: DatasetKey;
+  scope: QualityScope;
+  signalStrengthFilter: string;
+  substantivenessFilter: string;
+  marketSegmentFilter: string;
+  companyScope: CompanyScope;
+}): GoldenDataset => {
+  const rows = data.filterIndex[datasetKey];
+  const filterIndexMonths =
+    datasetKey === 'perReport' ? data.filterIndex.perReportMonths : data.filterIndex.perChunkMonths;
+  const signalLevelIndex = data.labels.riskSignalLevels.indexOf(signalStrengthFilter);
+  const substantivenessIndex = data.labels.substantivenessBands.indexOf(substantivenessFilter);
+
+  const mentionTrend = initClientYearSeries(baseData.years, data.labels.mentionTypes);
+  const adoptionTrend = initClientYearSeries(baseData.years, data.labels.adoptionTypes);
+  const riskTrend = initClientYearSeries(baseData.years, data.labels.riskLabels);
+  const vendorTrend = initClientYearSeries(baseData.years, data.labels.vendorTags);
+  const mentionTrendMonthly = initClientMonthSeries(baseData.months, data.labels.mentionTypes);
+  const riskTrendMonthly = initClientMonthSeries(baseData.months, data.labels.riskLabels);
+  const adoptionTrendMonthly = initClientMonthSeries(baseData.months, data.labels.adoptionTypes);
+  const vendorTrendMonthly = initClientMonthSeries(baseData.months, data.labels.vendorTags);
+
+  const riskBySectorYearCounts = new Map<string, number>();
+  const riskByIsicSectorYearCounts = new Map<string, number>();
+  const adoptionBySectorYearCounts = new Map<string, number>();
+  const adoptionByIsicSectorYearCounts = new Map<string, number>();
+  const vendorBySectorYearCounts = new Map<string, number>();
+  const vendorByIsicSectorYearCounts = new Map<string, number>();
+  const riskMentionBySectorYearCounts = new Map<string, number>();
+  const riskMentionByIsicSectorYearCounts = new Map<string, number>();
+
+  let totalRows = 0;
+  let aiSignalRows = 0;
+  let adoptionRows = 0;
+  let riskRows = 0;
+  let vendorRows = 0;
+
+  rows.forEach(row => {
+    const sector = data.sectors[row[FILTER_ROW.cniSectorIndex]];
+    const isicSector = data.isicSectors[row[FILTER_ROW.isicSectorIndex]];
+    const marketSegment = data.filterIndex.marketSegments[row[FILTER_ROW.marketSegmentIndex]] || '';
+    if (!sector || !isicSector) return;
+    if (companyScope === 'cniOnly' && !isCniMappedSectorLabel(sector)) return;
+    if (!matchesMarketSegmentFilter(marketSegment, marketSegmentFilter)) return;
+    if (signalStrengthFilter !== 'all' && !hasBit(getSignalMaskForScope(row, scope), signalLevelIndex)) return;
+    if (substantivenessFilter !== 'all' && !hasBit(getSubstantivenessMaskForScope(row, scope), substantivenessIndex)) return;
+
+    totalRows += 1;
+    const year = row[FILTER_ROW.year];
+    const month = filterIndexMonths[row[FILTER_ROW.monthIndex]];
+    const mentionMask = row[FILTER_ROW.mentionMask];
+    const adoptionMask = row[FILTER_ROW.adoptionMask];
+    const riskMask = row[FILTER_ROW.riskMask];
+    const vendorMask = row[FILTER_ROW.vendorMask];
+    const hasAiSignal = mentionMask > 0;
+    const hasAdoption = hasBit(mentionMask, data.labels.mentionTypes.indexOf('adoption'));
+    const hasRisk =
+      hasBit(mentionMask, data.labels.mentionTypes.indexOf('risk')) ||
+      riskMask > 0;
+    const hasVendor = hasBit(mentionMask, data.labels.mentionTypes.indexOf('vendor'));
+
+    if (hasAiSignal) aiSignalRows += 1;
+    if (hasAdoption) adoptionRows += 1;
+    if (hasRisk) riskRows += 1;
+    if (hasVendor) vendorRows += 1;
+
+    forEachMaskLabel(mentionMask, data.labels.mentionTypes, label => {
+      addYearSeriesCount(mentionTrend, year, label);
+      if (month) addMonthSeriesCount(mentionTrendMonthly, month, label);
+    });
+    forEachMaskLabel(adoptionMask, data.labels.adoptionTypes, label => {
+      addYearSeriesCount(adoptionTrend, year, label);
+      addHeatmapCount(adoptionBySectorYearCounts, [year, label, sector]);
+      addHeatmapCount(adoptionByIsicSectorYearCounts, [year, label, isicSector]);
+      if (month) addMonthSeriesCount(adoptionTrendMonthly, month, label);
+    });
+    forEachMaskLabel(riskMask, data.labels.riskLabels, label => {
+      addYearSeriesCount(riskTrend, year, label);
+      addHeatmapCount(riskBySectorYearCounts, [year, label, sector]);
+      addHeatmapCount(riskByIsicSectorYearCounts, [year, label, isicSector]);
+      if (month) addMonthSeriesCount(riskTrendMonthly, month, label);
+    });
+    forEachMaskLabel(vendorMask, data.labels.vendorTags, label => {
+      addYearSeriesCount(vendorTrend, year, label);
+      addHeatmapCount(vendorBySectorYearCounts, [year, label, sector]);
+      addHeatmapCount(vendorByIsicSectorYearCounts, [year, label, isicSector]);
+      if (month) addMonthSeriesCount(vendorTrendMonthly, month, label);
+    });
+    if (hasRisk) {
+      addHeatmapCount(riskMentionBySectorYearCounts, [year, sector]);
+      addHeatmapCount(riskMentionByIsicSectorYearCounts, [year, isicSector]);
+    }
+  });
+
+  return {
+    ...baseData,
+    summary: {
+      ...baseData.summary,
+      totalReports: totalRows,
+      aiSignalReports: aiSignalRows,
+      adoptionReports: adoptionRows,
+      riskReports: riskRows,
+      vendorReports: vendorRows,
+    },
+    mentionTrend,
+    mentionTrendMonthly,
+    adoptionTrend,
+    riskTrend,
+    vendorTrend,
+    riskTrendMonthly,
+    adoptionTrendMonthly,
+    vendorTrendMonthly,
+    riskBySectorYear: mapToYearHeatmap(riskBySectorYearCounts),
+    riskByIsicSectorYear: mapToYearHeatmap(riskByIsicSectorYearCounts),
+    adoptionBySectorYear: mapToYearHeatmap(adoptionBySectorYearCounts),
+    adoptionByIsicSectorYear: mapToYearHeatmap(adoptionByIsicSectorYearCounts),
+    vendorBySectorYear: mapToYearHeatmap(vendorBySectorYearCounts),
+    vendorByIsicSectorYear: mapToYearHeatmap(vendorByIsicSectorYearCounts),
+    riskMentionBySectorYear: mapToMentionYearHeatmap(riskMentionBySectorYearCounts),
+    riskMentionByIsicSectorYear: mapToMentionYearHeatmap(riskMentionByIsicSectorYearCounts),
+  };
+};
+
 const buildVisibleGroupedYLabels = (
   rowGroups: HeatmapRowGroup[],
   ungroupedLabels: string[],
@@ -516,6 +774,7 @@ function DashboardLoadingState({
 export default function DashboardClient({
   data: initialData,
   renderedAtIso: initialRenderedAtIso,
+  dataVersion,
 }: DashboardClientProps) {
   const [data, setData] = useState<GoldenDashboardData | null>(initialData ?? null);
   const [renderedAtIso, setRenderedAtIso] = useState<string | null>(initialRenderedAtIso ?? null);
@@ -531,8 +790,11 @@ export default function DashboardClient({
     const loadDashboardData = async () => {
       try {
         setLoadError(null);
-        const response = await fetch('/api/dashboard-data', {
-          cache: 'force-cache',
+        const dashboardDataUrl = dataVersion
+          ? `/api/dashboard-data?v=${encodeURIComponent(dataVersion)}`
+          : '/api/dashboard-data';
+        const response = await fetch(dashboardDataUrl, {
+          cache: dataVersion ? 'force-cache' : 'no-store',
           signal: controller.signal,
         });
 
@@ -557,7 +819,7 @@ export default function DashboardClient({
       isActive = false;
       controller.abort();
     };
-  }, [initialData, initialRenderedAtIso, requestKey]);
+  }, [initialData, initialRenderedAtIso, requestKey, dataVersion]);
 
   if (!data || !renderedAtIso) {
     if (loadError) {
@@ -726,13 +988,6 @@ function DashboardContent({
     }
   }, [activeView]);
 
-  useEffect(() => {
-    if (!isSignalQualityOpen) return;
-    if (activeView === 1) return;
-    if (signalQualityMode !== 'substantiveness') return;
-    setSignalQualityMode('explicitness');
-  }, [activeView, isSignalQualityOpen, signalQualityMode]);
-
   const currentViewUrl = `${dashboardBaseUrl}${
     isSignalQualityOpen
       ? '#signal-quality'
@@ -744,7 +999,7 @@ function DashboardContent({
   const view = VIEWS.find(item => item.id === activeView) ?? VIEWS[0];
   const isTrendChartView = visualizationMode === 'chart' && !isSignalQualityOpen;
   const effectiveCompanyScope = isTrendChartView && showCniCompaniesOnly ? 'cniOnly' : 'all';
-  const resolvedDatasets =
+  const baseResolvedDatasets =
     effectiveCompanyScope === 'cniOnly'
       ? (
           marketSegmentFilter === 'all'
@@ -760,8 +1015,47 @@ function DashboardContent({
             ? data.datasets
             : (data.byMarketSegment[marketSegmentFilter] ?? data.datasets)
         );
+  const viewScope: QualityScope = activeView === 2 ? 'adoption' : activeView === 3 ? 'vendor' : 'risk';
+  const hasAdvancedQualityFilter =
+    !isSignalQualityOpen && (signalStrengthFilter !== 'all' || boilerplateFilter !== 'all');
+  const resolvedDatasets = useMemo(() => {
+    if (!hasAdvancedQualityFilter) return baseResolvedDatasets;
+
+    return {
+      perReport: buildFilteredDatasetFromIndex({
+        baseData: baseResolvedDatasets.perReport,
+        data,
+        datasetKey: 'perReport',
+        scope: viewScope,
+        signalStrengthFilter,
+        substantivenessFilter: boilerplateFilter,
+        marketSegmentFilter,
+        companyScope: effectiveCompanyScope,
+      }),
+      perChunk: buildFilteredDatasetFromIndex({
+        baseData: baseResolvedDatasets.perChunk,
+        data,
+        datasetKey: 'perChunk',
+        scope: viewScope,
+        signalStrengthFilter,
+        substantivenessFilter: boilerplateFilter,
+        marketSegmentFilter,
+        companyScope: effectiveCompanyScope,
+      }),
+    };
+  }, [
+    baseResolvedDatasets,
+    boilerplateFilter,
+    data,
+    effectiveCompanyScope,
+    hasAdvancedQualityFilter,
+    marketSegmentFilter,
+    signalStrengthFilter,
+    viewScope,
+  ]);
   const activeData = resolvedDatasets[datasetKey];
-  const reportBaselineData = resolvedDatasets.perReport;
+  const activeReportData = resolvedDatasets.perReport;
+  const reportBaselineData = baseResolvedDatasets.perReport;
   const canShowReportShare =
     !isSignalQualityOpen && datasetKey === 'perReport';
   const effectiveMetricMode: MetricMode = canShowReportShare ? metricMode : 'count';
@@ -785,15 +1079,15 @@ function DashboardContent({
       (sum, row) => sum + (Number(row.total_reports) || 0),
       0
     );
-    const riskMentionReports = reportBaselineData.blindSpotTrend.reduce(
-      (sum, row) => sum + (Number(row.ai_risk_mention) || 0),
+    const riskMentionReports = activeReportData.mentionTrend.reduce(
+      (sum, row) => sum + (Number(row.risk) || 0),
       0
     );
     const excerptRiskMentions = resolvedDatasets.perChunk.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.risk) || 0),
       0
     );
-    const adoptionMentionReports = reportBaselineData.mentionTrend.reduce(
+    const adoptionMentionReports = activeReportData.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.adoption) || 0),
       0
     );
@@ -801,7 +1095,7 @@ function DashboardContent({
       (sum, row) => sum + (Number(row.adoption) || 0),
       0
     );
-    const vendorMentionReports = reportBaselineData.mentionTrend.reduce(
+    const vendorMentionReports = activeReportData.mentionTrend.reduce(
       (sum, row) => sum + (Number(row.vendor) || 0),
       0
     );
@@ -828,7 +1122,7 @@ function DashboardContent({
       3: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, ${formatNumber(vendorMentionReports)} name AI vendors across ${formatNumber(excerptVendorMentions)} tagged AI mentions.`,
       4: `Across ${formatNumber(totalReports)} annual reports${datasetScopeFragment} from ${fullDatasetYearSpan}, the dataset includes ${formatNumber(riskSignalTotal)} risk, ${formatNumber(adoptionSignalTotal)} adoption, and ${formatNumber(vendorSignalTotal)} vendor quality assessments.`,
     } as Record<number, string>;
-  }, [reportBaselineData, resolvedDatasets.perChunk, fullDatasetYearSpan, datasetScopeFragment]);
+  }, [activeReportData.mentionTrend, reportBaselineData, resolvedDatasets.perChunk, fullDatasetYearSpan, datasetScopeFragment]);
 
   const adoptionStackKeys = useMemo(() => data.labels.adoptionTypes, [data.labels.adoptionTypes]);
   const adoptionLegendKeys = useMemo(() => [...adoptionStackKeys].reverse(), [adoptionStackKeys]);
@@ -944,34 +1238,34 @@ function DashboardContent({
 
   const riskBySectorYearInRange = useMemo(
     () =>
-      reportBaselineData.riskBySectorYear.filter(
+      activeReportData.riskBySectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.riskBySectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.riskBySectorYear, selectedStartYear, selectedEndYear]
   );
 
   const riskByIsicSectorYearInRange = useMemo(
     () =>
-      reportBaselineData.riskByIsicSectorYear.filter(
+      activeReportData.riskByIsicSectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.riskByIsicSectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.riskByIsicSectorYear, selectedStartYear, selectedEndYear]
   );
 
   const riskMentionBySectorYearInRange = useMemo(
     () =>
-      reportBaselineData.riskMentionBySectorYear.filter(
+      activeReportData.riskMentionBySectorYear.filter(
         cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
       ),
-    [reportBaselineData.riskMentionBySectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.riskMentionBySectorYear, selectedStartYear, selectedEndYear]
   );
 
   const riskMentionByIsicSectorYearInRange = useMemo(
     () =>
-      reportBaselineData.riskMentionByIsicSectorYear.filter(
+      activeReportData.riskMentionByIsicSectorYear.filter(
         cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
       ),
-    [reportBaselineData.riskMentionByIsicSectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.riskMentionByIsicSectorYear, selectedStartYear, selectedEndYear]
   );
 
   const riskBySectorInRange = useMemo(
@@ -1006,10 +1300,10 @@ function DashboardContent({
 
   const adoptionBySectorYearInRange = useMemo(
     () =>
-      reportBaselineData.adoptionBySectorYear.filter(
+      activeReportData.adoptionBySectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.adoptionBySectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.adoptionBySectorYear, selectedStartYear, selectedEndYear]
   );
 
   const adoptionBySectorInRange = useMemo(
@@ -1029,10 +1323,10 @@ function DashboardContent({
 
   const adoptionByIsicSectorYearInRange = useMemo(
     () =>
-      reportBaselineData.adoptionByIsicSectorYear.filter(
+      activeReportData.adoptionByIsicSectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.adoptionByIsicSectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.adoptionByIsicSectorYear, selectedStartYear, selectedEndYear]
   );
 
   const adoptionByIsicSectorInRange = useMemo(
@@ -1052,10 +1346,10 @@ function DashboardContent({
 
   const vendorBySectorYearInRange = useMemo(
     () =>
-      reportBaselineData.vendorBySectorYear.filter(
+      activeReportData.vendorBySectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.vendorBySectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.vendorBySectorYear, selectedStartYear, selectedEndYear]
   );
 
   const vendorBySectorInRange = useMemo(
@@ -1075,10 +1369,10 @@ function DashboardContent({
 
   const vendorByIsicSectorYearInRange = useMemo(
     () =>
-      reportBaselineData.vendorByIsicSectorYear.filter(
+      activeReportData.vendorByIsicSectorYear.filter(
         cell => cell.year >= selectedStartYear && cell.year <= selectedEndYear
       ),
-    [reportBaselineData.vendorByIsicSectorYear, selectedStartYear, selectedEndYear]
+    [activeReportData.vendorByIsicSectorYear, selectedStartYear, selectedEndYear]
   );
 
   const vendorByIsicSectorInRange = useMemo(
@@ -1396,8 +1690,21 @@ function DashboardContent({
       ),
     [activeData.substantivenessHeatmap, selectedStartYear, selectedEndYear]
   );
+  const adoptionSubstantivenessHeatmapInRange = useMemo(
+    () =>
+      (activeData.adoptionSubstantivenessHeatmap ?? []).filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.adoptionSubstantivenessHeatmap, selectedStartYear, selectedEndYear]
+  );
+  const vendorSubstantivenessHeatmapInRange = useMemo(
+    () =>
+      (activeData.vendorSubstantivenessHeatmap ?? []).filter(
+        cell => cell.x >= selectedStartYear && cell.x <= selectedEndYear
+      ),
+    [activeData.vendorSubstantivenessHeatmap, selectedStartYear, selectedEndYear]
+  );
   const signalQualityScopeLabel = activeView === 2 ? 'adoption' : activeView === 3 ? 'vendor' : 'risk';
-  const canUseSignalQualitySubstantiveness = activeView === 1;
 
   const riskHeatmapYLabels = useMemo(
     () =>
@@ -1634,7 +1941,15 @@ function DashboardContent({
       : undefined;
 
     if (signalQualityMode === 'substantiveness') {
-      const rawData = substantivenessHeatmapInRange;
+      const substantivenessHeatmapByScope = {
+        risk: substantivenessHeatmapInRange,
+        adoption: adoptionSubstantivenessHeatmapInRange,
+        vendor: vendorSubstantivenessHeatmapInRange,
+      };
+      const scopeColors = { risk: '#f59e0b', adoption: '#3b82f6', vendor: '#64748b' };
+      const scopeLabel = signalQualityScopeLabel === 'adoption' ? 'Adoption' : signalQualityScopeLabel === 'vendor' ? 'Vendor' : 'Risk';
+
+      const rawData = (substantivenessHeatmapByScope[signalQualityScopeLabel] ?? []);
       const heatmapData = isPercentOfYearTotal
         ? convertHeatmapToPercentOfXAxisTotal(rawData)
         : rawData;
@@ -1642,16 +1957,16 @@ function DashboardContent({
       return {
         data: heatmapData,
         yLabels: data.labels.substantivenessBands,
-        baseColor: '#f59e0b',
-        title: 'AI Risk Substantiveness Distribution',
+        baseColor: scopeColors[signalQualityScopeLabel],
+        title: `AI ${scopeLabel} Substantiveness Distribution`,
         subtitle:
           isPercentOfYearTotal
-            ? 'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell shows the percentage share of that year’s substantiveness classifications that fell into the band; colour intensity encodes relative frequency.'
-            : 'Heatmap of report-level risk-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell counts the number of reports whose AI-risk language was classified into that quality tier in a given year; colour intensity encodes relative frequency.',
+            ? `Heatmap of report-level ${scopeLabel.toLowerCase()}-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell shows the percentage share of that year's substantiveness classifications that fell into the band; colour intensity encodes relative frequency.`
+            : `Heatmap of report-level ${scopeLabel.toLowerCase()}-disclosure quality by substantiveness band (rows: Substantive, Moderate, Boilerplate) and publication year (columns). Each cell counts the number of reports whose AI-${scopeLabel.toLowerCase()} language was classified into that quality tier in a given year; colour intensity encodes relative frequency.`,
         tooltip:
           isPercentOfYearTotal
-            ? 'Substantiveness measures depth and specificity of risk disclosure at report level. Percentage mode normalises each year to 100%, making it easier to compare how disclosure quality shifts over time.'
-            : 'Substantiveness measures depth and specificity of risk disclosure at report level. Substantive disclosures include concrete mechanisms and mitigation/action detail, while boilerplate disclosures remain generic.',
+            ? 'Substantiveness measures depth and specificity of disclosure at report level. Percentage mode normalises each year to 100%, making it easier to compare how disclosure quality shifts over time.'
+            : 'Substantiveness measures depth and specificity of disclosure at report level. Substantive disclosures include concrete mechanisms and detail, while boilerplate disclosures remain generic.',
         yAxisLabel: 'Quality Band',
         compact: false,
         valueFormatter,
@@ -1668,8 +1983,8 @@ function DashboardContent({
         title: 'AI Risk Signal Strength',
         subtitle:
           isPercentOfYearTotal
-            ? 'Heatmap of risk-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s risk signal scores that fell into the level; colour intensity encodes relative frequency.'
-            : 'Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+            ? "Heatmap of risk-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year's risk signal scores that fell into the level; colour intensity encodes relative frequency."
+            : "Heatmap of risk-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level risk classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.",
         tooltip:
           isPercentOfYearTotal
             ? 'Risk signal strength scores how directly the text supports a risk classification. 3 = explicit statement; 2 = strong implicit evidence; 1 = weak implicit evidence. Percentage mode normalises each year to 100% for easier comparison across years.'
@@ -1681,8 +1996,8 @@ function DashboardContent({
         title: 'AI Adoption Signal Strength',
         subtitle:
           isPercentOfYearTotal
-            ? 'Heatmap of adoption-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s adoption signal scores that fell into the level; colour intensity encodes relative frequency.'
-            : 'Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+            ? "Heatmap of adoption-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year's adoption signal scores that fell into the level; colour intensity encodes relative frequency."
+            : "Heatmap of adoption-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level adoption classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.",
         tooltip:
           isPercentOfYearTotal
             ? 'Applies the same signal-strength rubric to AI adoption mentions. Percentage mode normalises each year to 100%, highlighting changes in the mix of explicit versus implicit disclosures over time.'
@@ -1694,8 +2009,8 @@ function DashboardContent({
         title: 'AI Vendor Signal Strength',
         subtitle:
           isPercentOfYearTotal
-            ? 'Heatmap of vendor-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year’s vendor signal scores that fell into the level; colour intensity encodes relative frequency.'
-            : 'Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.',
+            ? "Heatmap of vendor-classification signal shares by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell shows the percentage share of that year's vendor signal scores that fell into the level; colour intensity encodes relative frequency."
+            : "Heatmap of vendor-classification signal counts by signal-strength level (rows: Explicit, Strong Implicit, Weak Implicit) and publication year (columns). Each cell counts how many label-level vendor classifications fell into that strength tier in a given year; colour intensity encodes relative frequency.",
         tooltip:
           isPercentOfYearTotal
             ? 'Measures how directly a vendor relationship is stated in the text. Percentage mode normalises each year to 100%, making it easier to compare shifts in disclosure clarity over time.'
@@ -1730,6 +2045,8 @@ function DashboardContent({
     adoptionSignalHeatmapInRange,
     vendorSignalHeatmapInRange,
     substantivenessHeatmapInRange,
+    adoptionSubstantivenessHeatmapInRange,
+    vendorSubstantivenessHeatmapInRange,
     data.labels.riskSignalLevels,
     data.labels.substantivenessBands,
   ]);
@@ -2236,9 +2553,6 @@ function DashboardContent({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const openSignalQuality = () => {
-    if (activeView !== 1) {
-      setSignalQualityMode('explicitness');
-    }
     setIsSignalQualityOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -2302,21 +2616,16 @@ function DashboardContent({
                 Signal-strength data follows the current dashboard tab: Risk, Adoption, or Vendors.
               </p>
             )}
-            {!canUseSignalQualitySubstantiveness && (
+            {signalQualityMode === 'substantiveness' && (
               <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
-                Substantiveness is currently only available for risk disclosures.
-              </p>
-            )}
-            {signalQualityMode === 'substantiveness' && canUseSignalQualitySubstantiveness && (
-              <p className="text-[11px] leading-relaxed text-muted-foreground pt-1">
-                Substantiveness data is currently only available for risk mentions.
+                Substantiveness data follows the current dashboard tab: Risk, Adoption, or Vendors.
               </p>
             )}
             <div className="pt-2 space-y-3">
               {renderSettingsSectionHeading(
                 'Heatmap Metric',
                 signalQualityMode === 'substantiveness'
-                  ? 'Raw count shows the number of risk-disclosure classifications in each year-band cell. % of year total normalises each year to 100% so you can compare the mix of substantiveness bands over time.'
+                  ? 'Raw count shows the number of disclosure classifications in each year-band cell. % of year total normalises each year to 100% so you can compare the mix of substantiveness bands over time.'
                   : 'Raw count shows the number of signal scores in each year-level cell. % of year total normalises each year to 100% so you can compare the mix of explicit versus implicit classifications over time.'
               )}
               {signalQualityMetricModeToggle}
@@ -2590,12 +2899,11 @@ function DashboardContent({
       <button
         type="button"
         onClick={() => setSignalQualityMode('substantiveness')}
-        disabled={!canUseSignalQualitySubstantiveness}
         className={`${segmentedButtonTallClass} ${
           signalQualityMode === 'substantiveness'
             ? 'bg-primary text-white'
             : 'text-muted-foreground hover:bg-secondary'
-        } ${!canUseSignalQualitySubstantiveness ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
+        }`}
       >
         Substantiveness
       </button>

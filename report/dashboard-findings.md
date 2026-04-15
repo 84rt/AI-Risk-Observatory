@@ -1,10 +1,10 @@
 # Dashboard Findings
 
-Generated on 2026-04-13 from `data/dashboard-data.json`.
+Generated on 2026-04-13 from `data/dashboard-data.json`. Updated on 2026-04-15 with annotation-level substantiveness analysis from `data/annotations.jsonl`.
 
 ## Scope and caveats
 
-- This report uses the existing precomputed dashboard artifact only. It does not add any new metrics to the dashboard.
+- Most report-level tables use the existing precomputed dashboard artifact. The added boilerplate/substantiveness analysis also uses `data/annotations.jsonl`, because `adoption_substantiveness`, `risk_substantiveness`, and `vendor_substantiveness` are stored per extracted AI chunk.
 - 2026 is present in the artifact, but because the current date is 2026-04-13, 2026 should be treated as a partial year. The main YoY comparisons below therefore use 2024 -> 2025.
 - Tables based on `riskTrend`, `adoptionTrend`, and `vendorTrend` are label-assignment counts, not unique-report counts. A single report can contribute to multiple labels.
 - Sector-level unique adoption and vendor rates are not derivable from the current artifact because the available sector arrays for adoption and vendor are label-level counts rather than unique report counts.
@@ -42,6 +42,8 @@ Generated on 2026-04-13 from `data/dashboard-data.json`.
 - Vendor references remain fragmented. The largest vendor bucket in 2025 was `other` at 30.8% of vendor assignments; the leading named vendor was Microsoft at 18.8%.
 - In 2025, opaque vendor references (`other` + `undisclosed`) accounted for 42.7% of all vendor assignments. Among explicitly named vendors, the top three accounted for 75.7% of named-vendor assignments.
 - Risk disclosures became denser over time: average risk labels per risk-reporting company rose from 3.28 in 2024 to 3.63 in 2025.
+- The new substantiveness data shows that pure boilerplate is not the dominant problem in 2025. The bigger quality gap is moderate disclosure: 79.8% of risk-reporting reports were moderate, while only 9.6% were substantive.
+- Vendor disclosures are much more concrete than risk disclosures. In 2025, 59.4% of vendor-reporting reports were substantive, compared with 27.0% for adoption-reporting reports and 9.6% for risk-reporting reports.
 - At ISIC level, the strongest large-sample AI-risk disclosure rate in 2025 was in Other monetary intermediation (78.9%; n=57 reports, using a minimum-sample filter of 20).
 
 ## Coverage summary
@@ -321,6 +323,70 @@ Risk signal strength is based on label-level assignments, not unique reports. Ri
 | moderate | 78.0% | 80.7% | +2.7 pp | 544 |
 | boilerplate | 11.7% | 9.8% | -1.9 pp | 66 |
 
+## Boilerplate and substantiveness analysis
+
+This section uses the annotation-level dashboard data in `data/annotations.jsonl`, because the new `adoption_substantiveness`, `risk_substantiveness`, and `vendor_substantiveness` fields are stored per extracted AI chunk. Report-level rows below assign each report to its dominant band for that disclosure type, using the same tie-break used by the dashboard risk heatmap: substantive, then moderate, then boilerplate. Because this reads the current annotation file directly, risk band counts can differ slightly from the earlier precomputed `substantivenessHeatmap` rows if `dashboard-data.json` was generated before the latest annotation refresh.
+
+Main interpretation: pure boilerplate is not the dominant disclosure mode. The larger quality problem is that adoption and risk disclosures are mostly `moderate`: they contain some context, but usually not enough concrete mechanism, metric, mitigation, vendor detail, or timeline to count as substantive. Vendor disclosures are the exception because naming a provider often makes the disclosure more specific.
+
+- In 2025, only 9.6% of risk-reporting reports had a substantive dominant risk disclosure; 79.8% were moderate and 10.5% were boilerplate.
+- Adoption disclosure quality weakened in 2025: substantive adoption reports fell to 27.0% of adoption-reporting reports, while boilerplate rose to 13.2%.
+- Vendor disclosure is much more concrete: 59.4% of 2025 vendor-reporting reports were substantive, though boilerplate vendor references still rose to 14.8%.
+- CNI-only companies look similar to the full sample for risk quality: in 2025, 46 of 513 CNI AI-risk reports were substantive (9.0%), 418 were moderate (81.5%), and 49 were boilerplate (9.6%).
+
+### Substantiveness coverage by disclosure type
+
+Chunk-level counts count extracted AI mentions. Report-level counts collapse multiple chunks in one report to the dominant substantiveness band for that disclosure type.
+
+| Disclosure type | Scored chunks | Substantive chunks | Moderate chunks | Boilerplate chunks | Substantive chunk share | Boilerplate chunk share | Scored reports | Substantive report share | Boilerplate report share |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Adoption | 10,734 | 3,300 | 5,570 | 1,864 | 30.7% | 17.4% | 3,012 | 31.9% | 10.9% |
+| Risk | 5,178 | 594 | 3,841 | 743 | 11.5% | 14.3% | 1,860 | 10.5% | 9.0% |
+| Vendor | 1,737 | 1,061 | 443 | 233 | 61.1% | 13.4% | 877 | 67.4% | 11.2% |
+
+### 2025 report-level mix
+
+| Disclosure type | 2025 scored reports | Substantive | Moderate | Boilerplate | Substantive share | Moderate share | Boilerplate share |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Adoption | 721 | 195 | 431 | 95 | 27.0% | 59.8% | 13.2% |
+| Risk | 674 | 65 | 538 | 71 | 9.6% | 79.8% | 10.5% |
+| Vendor | 271 | 161 | 70 | 40 | 59.4% | 25.8% | 14.8% |
+
+### 2025 CNI sector substantive-risk blind spots
+
+This table uses report-level risk substantiveness and includes sectors with at least 20 reports in 2025. `No substantive-risk disclosure` is the share of all reports in the sector that did not contain substantive AI-risk disclosure.
+
+| Sector | 2025 reports | AI-risk reports | AI-risk rate | Substantive risk reports | Substantive risk rate | No substantive-risk disclosure |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Food | 70 | 31 | 44.3% | 0 | 0.0% | 100.0% |
+| Energy | 140 | 29 | 20.7% | 1 | 0.7% | 99.3% |
+| Finance | 657 | 325 | 49.5% | 17 | 2.6% | 97.4% |
+| Communications | 29 | 16 | 55.2% | 1 | 3.4% | 96.6% |
+| Defence | 22 | 9 | 40.9% | 1 | 4.5% | 95.5% |
+| Other | 389 | 161 | 41.4% | 22 | 5.7% | 94.3% |
+| Health | 100 | 37 | 37.0% | 6 | 6.0% | 94.0% |
+| Transport | 67 | 28 | 41.8% | 5 | 7.5% | 92.5% |
+| Data Infrastructure | 20 | 3 | 15.0% | 2 | 10.0% | 90.0% |
+| Chemicals | 24 | 12 | 50.0% | 3 | 12.5% | 87.5% |
+| Government | 23 | 14 | 60.9% | 5 | 21.7% | 78.3% |
+
+### 2025 risk-category substantiveness, chunk-level
+
+Risk categories below are chunk-level label assignments. A single chunk can contribute to multiple risk categories.
+
+| Risk category | 2025 assignments | Substantive | Moderate | Boilerplate | Substantive share | Boilerplate share |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Operational / Technical | 693 | 94 | 506 | 93 | 13.6% | 13.4% |
+| Strategic / Competitive | 829 | 97 | 621 | 111 | 11.7% | 13.4% |
+| Cybersecurity | 811 | 95 | 639 | 77 | 11.7% | 9.5% |
+| Workforce Impacts | 230 | 44 | 166 | 20 | 19.1% | 8.7% |
+| Reputational / Ethical | 550 | 93 | 412 | 45 | 16.9% | 8.2% |
+| Regulatory / Compliance | 852 | 116 | 674 | 62 | 13.6% | 7.3% |
+| Third-Party Supply Chain | 354 | 56 | 276 | 22 | 15.8% | 6.2% |
+| National Security | 70 | 7 | 59 | 4 | 10.0% | 5.7% |
+| Information Integrity | 257 | 52 | 200 | 5 | 20.2% | 1.9% |
+| Environmental Impact | 62 | 10 | 52 | 0 | 16.1% | 0.0% |
+
 ## Notes for follow-up analysis
 
 - The artifact already supports strong report-level findings for annual trends, CNI sectors, market segments, and ISIC risk rates.
@@ -335,7 +401,7 @@ Risk signal strength is based on label-level assignments, not unique reports. Ri
 - Over-index / under-index analysis: Which sectors and market segments disclose AI risk above or below the overall baseline once normalized? Supported now from the current artifact.
 - Pre/post inflection analysis: Does the 2023 -> 2024 break look like a slope change or a level shift, consistent with a ChatGPT / anticipatory Provision 29 shock? Supported now from annual series.
 - Boilerplate / staleness tracking: Are firms repeating the same AI-risk language year after year, or materially updating it? Requires company-level text history; this is one of the highest-value next analyses for the paper.
-- Adoption-quality analysis: Are adoption disclosures becoming more operationally specific, or merely more common? Requires extending substantiveness scoring to adoption chunks.
+- Adoption and vendor quality analysis: Are adoption and vendor disclosures becoming more operationally specific, or merely more common? Now supported at annotation level via `adoption_substantiveness` and `vendor_substantiveness`; the next step is rolling these fields into the precomputed dashboard artifact by year, sector, and market segment.
 
 ## Recommended headline outputs for the paper
 

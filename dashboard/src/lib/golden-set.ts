@@ -13,6 +13,8 @@ type GoldenAnnotation = {
   risk_taxonomy: string[];
   risk_confidence: Record<string, number> | null;
   risk_substantiveness: string | number | null;
+  adoption_substantiveness?: string | number | null;
+  vendor_substantiveness?: string | number | null;
   risk_signals?: Array<{ type?: string; signal?: number | string }> | Record<string, number> | null;
   vendor_tags: string[];
   vendor_confidence?: Record<string, number> | null;
@@ -104,6 +106,7 @@ export type GoldenDashboardData = {
   byMarketSegment: Record<string, { perReport: GoldenDataset; perChunk: GoldenDataset }>;
   byMarketSegmentAndCompanyScope: Record<string, Record<'all' | 'cniOnly', { perReport: GoldenDataset; perChunk: GoldenDataset }>>;
   companiesPerSector: Record<string, number>;
+  filterIndex: DashboardFilterIndex;
 };
 
 export type GoldenDataset = {
@@ -144,6 +147,8 @@ export type GoldenDataset = {
   adoptionSignalHeatmap: { x: number; y: string; value: number }[];
   vendorSignalHeatmap: { x: number; y: string; value: number }[];
   substantivenessHeatmap: { x: number; y: string; value: number }[];
+  adoptionSubstantivenessHeatmap: { x: number; y: string; value: number }[];
+  vendorSubstantivenessHeatmap: { x: number; y: string; value: number }[];
   blindSpotTrend: Record<string, number>[];
   noAiBySectorYear: { x: number; y: string; value: number }[];
   noAiRiskBySectorYear: { x: number; y: string; value: number }[];
@@ -154,6 +159,32 @@ export type GoldenDataset = {
 type GoldenDatasetCollection = {
   perReport: GoldenDataset;
   perChunk: GoldenDataset;
+};
+
+export type DashboardFilterIndexRow = [
+  year: number,
+  monthIndex: number,
+  cniSectorIndex: number,
+  isicSectorIndex: number,
+  marketSegmentIndex: number,
+  mentionMask: number,
+  adoptionMask: number,
+  riskMask: number,
+  vendorMask: number,
+  adoptionSignalMask: number,
+  riskSignalMask: number,
+  vendorSignalMask: number,
+  adoptionSubstantivenessMask: number,
+  riskSubstantivenessMask: number,
+  vendorSubstantivenessMask: number,
+];
+
+export type DashboardFilterIndex = {
+  marketSegments: string[];
+  perReportMonths: string[];
+  perChunkMonths: string[];
+  perReport: DashboardFilterIndexRow[];
+  perChunk: DashboardFilterIndexRow[];
 };
 
 export type ExampleChunk = {
@@ -623,6 +654,8 @@ type ReportData = {
   riskSignalValues: number[];
   vendorSignalValues: number[];
   riskSubstantivenessValues: string[];
+  adoptionSubstantivenessValues: string[];
+  vendorSubstantivenessValues: string[];
 };
 
 const makeEmptyReportData = (
@@ -651,6 +684,8 @@ const makeEmptyReportData = (
   riskSignalValues: [],
   vendorSignalValues: [],
   riskSubstantivenessValues: [],
+  adoptionSubstantivenessValues: [],
+  vendorSubstantivenessValues: [],
 });
 
 const aggregateToReports = (
@@ -768,6 +803,12 @@ const aggregateToReports = (
     // Substantiveness
     const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
     if (riskSubstantiveness) report.riskSubstantivenessValues.push(riskSubstantiveness);
+
+    const adoptionSubstantiveness = normalizeRiskSubstantiveness(item.adoption_substantiveness);
+    if (adoptionSubstantiveness) report.adoptionSubstantivenessValues.push(adoptionSubstantiveness);
+
+    const vendorSubstantiveness = normalizeRiskSubstantiveness(item.vendor_substantiveness);
+    if (vendorSubstantiveness) report.vendorSubstantivenessValues.push(vendorSubstantiveness);
   });
 
   return Array.from(reportMap.values());
@@ -1079,6 +1120,8 @@ const annotationsAsChunks = (
     });
 
     const riskSubstantiveness = normalizeRiskSubstantiveness(item.risk_substantiveness);
+    const adoptionSubstantiveness = normalizeRiskSubstantiveness(item.adoption_substantiveness);
+    const vendorSubstantiveness = normalizeRiskSubstantiveness(item.vendor_substantiveness);
 
     const vendorSignalMap: Record<string, number> = {};
     if (item.vendor_confidence && typeof item.vendor_confidence === 'object') {
@@ -1111,6 +1154,8 @@ const annotationsAsChunks = (
       riskSignalValues: Object.values(riskSignalMap),
       vendorSignalValues: Object.values(vendorSignalMap),
       riskSubstantivenessValues: riskSubstantiveness ? [riskSubstantiveness] : [],
+      adoptionSubstantivenessValues: adoptionSubstantiveness ? [adoptionSubstantiveness] : [],
+      vendorSubstantivenessValues: vendorSubstantiveness ? [vendorSubstantiveness] : [],
     };
   });
 };
@@ -1271,6 +1316,8 @@ const buildDataset = (
   const riskSignalCounts = new Map<string, number>();
   const vendorSignalCounts = new Map<string, number>();
   const substantivenessCounts = new Map<string, number>();
+  const adoptionSubstantivenessCounts = new Map<string, number>();
+  const vendorSubstantivenessCounts = new Map<string, number>();
   const blindSpotYearCounts = new Map<number, { total: number; noAi: number; noAiRisk: number }>();
   const noAiBySectorYearCounts = new Map<string, number>();
   const noAiRiskBySectorYearCounts = new Map<string, number>();
@@ -1433,6 +1480,30 @@ const buildDataset = (
       const key = `${year}|||${band}`;
       substantivenessCounts.set(key, (substantivenessCounts.get(key) || 0) + 1);
     }
+
+    if (report.adoptionSubstantivenessValues.length > 0) {
+      const counts: Record<string, number> = { substantive: 0, moderate: 0, boilerplate: 0 };
+      report.adoptionSubstantivenessValues.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+      const band =
+        counts.substantive >= counts.moderate && counts.substantive >= counts.boilerplate
+          ? 'substantive'
+          : counts.moderate >= counts.boilerplate
+            ? 'moderate'
+            : 'boilerplate';
+      adoptionSubstantivenessCounts.set(`${year}|||${band}`, (adoptionSubstantivenessCounts.get(`${year}|||${band}`) || 0) + 1);
+    }
+
+    if (report.vendorSubstantivenessValues.length > 0) {
+      const counts: Record<string, number> = { substantive: 0, moderate: 0, boilerplate: 0 };
+      report.vendorSubstantivenessValues.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+      const band =
+        counts.substantive >= counts.moderate && counts.substantive >= counts.boilerplate
+          ? 'substantive'
+          : counts.moderate >= counts.boilerplate
+            ? 'moderate'
+            : 'boilerplate';
+      vendorSubstantivenessCounts.set(`${year}|||${band}`, (vendorSubstantivenessCounts.get(`${year}|||${band}`) || 0) + 1);
+    }
   });
 
   const riskBySector = Array.from(riskBySectorCounts.entries()).map(([key, value]) => {
@@ -1535,6 +1606,28 @@ const buildDataset = (
         x: year,
         y: band,
         value: substantivenessCounts.get(`${year}|||${band}`) || 0,
+      });
+    });
+  });
+
+  const adoptionSubstantivenessHeatmap: { x: number; y: string; value: number }[] = [];
+  years.forEach(year => {
+    substantivenessBands.forEach(band => {
+      adoptionSubstantivenessHeatmap.push({
+        x: year,
+        y: band,
+        value: adoptionSubstantivenessCounts.get(`${year}|||${band}`) || 0,
+      });
+    });
+  });
+
+  const vendorSubstantivenessHeatmap: { x: number; y: string; value: number }[] = [];
+  years.forEach(year => {
+    substantivenessBands.forEach(band => {
+      vendorSubstantivenessHeatmap.push({
+        x: year,
+        y: band,
+        value: vendorSubstantivenessCounts.get(`${year}|||${band}`) || 0,
       });
     });
   });
@@ -1657,6 +1750,8 @@ const buildDataset = (
     adoptionSignalHeatmap,
     vendorSignalHeatmap,
     substantivenessHeatmap,
+    adoptionSubstantivenessHeatmap,
+    vendorSubstantivenessHeatmap,
     blindSpotTrend,
     noAiBySectorYear,
     noAiRiskBySectorYear,
@@ -1675,6 +1770,55 @@ const buildDatasetCollection = (
   perReport: buildDataset(reportRows, years, sectors, isicSectors),
   perChunk: buildDataset(chunkRows, years, sectors, isicSectors),
 });
+
+const maskFromValues = (values: Iterable<string>, labels: string[]): number => {
+  let mask = 0;
+  for (const value of values) {
+    const index = labels.indexOf(value);
+    if (index >= 0) mask |= 1 << index;
+  }
+  return mask;
+};
+
+const signalLevelForValue = (signal: number): string | null => {
+  if (signal >= 3) return '3-explicit';
+  if (signal >= 2) return '2-strong_implicit';
+  if (signal >= 1) return '1-weak_implicit';
+  return null;
+};
+
+const signalMaskFromValues = (values: number[]): number =>
+  maskFromValues(
+    values
+      .map(signalLevelForValue)
+      .filter((level): level is string => Boolean(level)),
+    riskSignalLevels
+  );
+
+const buildFilterIndexRows = (
+  rows: ReportData[],
+  months: string[],
+  sectors: string[],
+  isicSectors: string[],
+  marketSegments: string[]
+): DashboardFilterIndexRow[] =>
+  rows.map(row => [
+    row.report_year,
+    row.release_month ? months.indexOf(row.release_month) : -1,
+    sectors.indexOf(row.sector),
+    isicSectors.indexOf(row.isicSector),
+    marketSegments.indexOf(row.marketSegment),
+    maskFromValues(row.mentionTypes, mentionTypes),
+    maskFromValues(row.adoptionTypes, adoptionTypes),
+    maskFromValues(row.riskLabels, riskLabels),
+    maskFromValues(row.vendorTags, vendorTags),
+    signalMaskFromValues(row.adoptionSignalValues),
+    signalMaskFromValues(row.riskSignalValues),
+    signalMaskFromValues(row.vendorSignalValues),
+    maskFromValues(row.adoptionSubstantivenessValues, substantivenessBands),
+    maskFromValues(row.riskSubstantivenessValues, substantivenessBands),
+    maskFromValues(row.vendorSubstantivenessValues, substantivenessBands),
+  ]);
 
 const isCniMappedSector = (sector: string): boolean => {
   const normalized = sector.trim();
@@ -1773,6 +1917,29 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     companiesPerSector[sector] = companies.size;
   });
 
+  const filterIndexMarketSegments = Array.from(
+    new Set([...perReportData, ...perChunkData].map(row => row.marketSegment))
+  ).sort((a, b) => a.localeCompare(b, 'en'));
+  const filterIndex: DashboardFilterIndex = {
+    marketSegments: filterIndexMarketSegments,
+    perReportMonths: datasets.perReport.months,
+    perChunkMonths: datasets.perChunk.months,
+    perReport: buildFilterIndexRows(
+      perReportData,
+      datasets.perReport.months,
+      resolvedCniSectors,
+      resolvedIsicSectors,
+      filterIndexMarketSegments
+    ),
+    perChunk: buildFilterIndexRows(
+      perChunkData,
+      datasets.perChunk.months,
+      resolvedCniSectors,
+      resolvedIsicSectors,
+      filterIndexMarketSegments
+    ),
+  };
+
   return {
     years,
     sectors: resolvedCniSectors,
@@ -1798,6 +1965,7 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     byMarketSegment,
     byMarketSegmentAndCompanyScope,
     companiesPerSector,
+    filterIndex,
   };
 };
 
@@ -1807,7 +1975,7 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
   if (shouldPreferPrecomputedDashboardData()) {
     const precomputedData = loadPrecomputedDashboardData();
     if (precomputedData) {
-      if (!precomputedData.byCompanyScope || !precomputedData.byMarketSegmentAndCompanyScope || !precomputedData.companiesPerSector) {
+      if (!precomputedData.byCompanyScope || !precomputedData.byMarketSegmentAndCompanyScope || !precomputedData.companiesPerSector || !precomputedData.filterIndex) {
         const rawData = buildGoldenSetDashboardDataFromRaw();
         cachedDashboardData = rawData;
         return rawData;

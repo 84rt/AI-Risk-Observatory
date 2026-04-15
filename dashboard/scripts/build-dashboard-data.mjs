@@ -17,6 +17,20 @@ if (!fs.existsSync(ANNOTATIONS_PATH)) {
 fs.mkdirSync(outputDir, { recursive: true });
 
 const data = buildGoldenSetDashboardDataFromRaw();
+
+const validateFilterIndexYears = (rows, label) => {
+  const invalidRow = rows.find(row => !Number.isInteger(row[0]));
+  if (invalidRow) {
+    throw new Error(`Invalid ${label} filterIndex row year: ${JSON.stringify(invalidRow)}`);
+  }
+};
+
+if (!data.filterIndex?.perReport || !data.filterIndex?.perChunk) {
+  throw new Error('Dashboard data is missing filterIndex rows.');
+}
+validateFilterIndexYears(data.filterIndex.perReport, 'perReport');
+validateFilterIndexYears(data.filterIndex.perChunk, 'perChunk');
+
 fs.writeFileSync(PRECOMPUTED_DASHBOARD_DATA_PATH, `${JSON.stringify(data)}\n`, 'utf8');
 
 const stats = fs.statSync(PRECOMPUTED_DASHBOARD_DATA_PATH);

@@ -14,37 +14,39 @@
 
 **What we studied.** The corpus covers 9,821 annual reports from 1,362 companies, spanning publication years 2020 to 2026 (2026 partial). Reports are sourced from financialreports.eu (iXBRL primary) and Companies House (PDF gap-fill). Each report is processed through a two-stage classification pipeline using Gemini Flash 3 as the production model, assigning adoption type, risk category, vendor identity, and substantiveness to individual AI-related text chunks. The pipeline was validated against 474 human-annotated chunks.
 
-**Three headline findings.** First, AI disclosure has grown from a minority feature to a near-majority feature of UK annual reports. In 2020, 19.5% of reports contained any AI signal; by 2025 that figure reached 65.5%. Risk-specific disclosure grew faster than adoption disclosure, from 3.2% of reports in 2020 to 43.2% in 2025, a twenty-one-fold increase. The sharpest single-year inflection occurred between 2023 and 2024 (+200% in risk mentions), coinciding with mass-market generative AI adoption and early anticipatory compliance with the 2024 UK Corporate Governance Code.
+**Three headline findings.** First, AI disclosure has grown from a minority feature to a near-majority feature of UK annual reports. In 2020, 19.5% of reports contained any AI signal; by 2025 that figure reached 65.5%. Risk-specific disclosure grew faster than adoption disclosure, rising from 3.2% of reports in 2020 to 43.2% in 2025; in count terms, risk-reporting reports increased from 32 to 674, a twenty-one-fold increase. The sharpest single-year inflection occurred between 2023 and 2024 (+200% in risk mentions), coinciding with mass-market generative AI adoption and early anticipatory compliance with the 2024 UK Corporate Governance Code.
 
-Second, disclosure quality has not kept pace with disclosure volume. Fewer than 10% of risk-classified text chunks in 2025 were rated substantive, defined as containing named AI systems, specific operational context, and material governance evidence. The majority of AI risk language remains boilerplate or moderately specific: present in the document but not informative to a reader seeking to understand the real nature of a company's AI exposure. This quality plateau persists despite rising mention rates and represents the most policy-relevant finding in the dataset.
+Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. In 2025, only 9.6% of risk-reporting reports had substantive AI-risk disclosure, compared with 27.0% of adoption-reporting reports and 59.4% of vendor-reporting reports. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.
 
-Third, sector and market segment gaps are substantial. Finance (461 companies) and Health dominate the active-disclosure picture. Water, Defence, and Data Infrastructure show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies are near-saturated (65.6% signal rate) while AIM companies remain dramatically underrepresented (16.9% signal rate, 2.6% risk rate). Vendor concentration is systematically underreported: Microsoft, Google, and Amazon are the most commonly named providers, but the majority of AI provider references in 2025 were categorised as "other" or "undisclosed," masking growing infrastructure dependencies on a small number of hyperscalers.
+Third, sector and market segment gaps are substantial. Finance (461 companies) and Health dominate the active-disclosure picture. Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies are near-saturated in 2025 (84.8% AI mention rate, 71.3% risk rate) while AIM companies remain dramatically underrepresented (36.8% signal rate, 7.0% risk rate). Vendor concentration is systematically underreported: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were categorised as "other" or "undisclosed," masking growing infrastructure dependencies on a small number of hyperscalers.
 
-**Three policy implications.** Regulatory frameworks that treat disclosure *presence* as the primary quality signal will generate rising volumes without rising information content. Sector-specific engagement, particularly for Water, Defence, and Data Infrastructure, is likely to be more additive than generic disclosure requirements. And the underreporting of vendor concentration represents a systemic risk monitoring gap that persists even when companies make good-faith efforts to describe their AI activities.
+**Three policy implications.** Regulatory frameworks that treat disclosure *presence* as the primary quality signal will generate rising volumes without rising information content. Sector-specific engagement, particularly for Data Infrastructure and Energy, is likely to be more additive than generic disclosure requirements. And the underreporting of vendor concentration represents a systemic risk monitoring gap that persists even when companies make good-faith efforts to describe their AI activities.
 
 **What comes next.** The Observatory is designed as a reusable monitoring instrument. The most important near-term milestone is the FY2026 annual report cohort, the first full reporting cycle after Provision 29 of the 2024 UK Corporate Governance Code takes effect. Re-running the pipeline against that cohort will produce a direct, evidence-based assessment of whether the Code amendment delivers improvement in disclosure substantiveness or merely increases disclosure volume. The methodology is fully documented and portable to other jurisdictions; the UK dataset provides a baseline for cross-jurisdictional comparison as equivalent work develops in EU and US markets.
 
 ---
 
-## 2. Introduction
+## 1. Introduction
 
-### 2.1 Motivation
+### 1.1 Motivation
 
 Annual reports are legally mandated, board-accountable artefacts under the Companies Act and the FCA's Disclosure Guidance and Transparency Rules. Unlike voluntary ESG disclosures or earnings presentations, they are produced under a legal accountability regime that creates strong incentives for accuracy. This makes them a qualitatively different evidence base from surveys, earnings calls, or press releases for tracking how companies understand and govern their AI exposure.
 
+The legal basis for narrative risk reporting sits in the Companies Act 2006, which requires UK-incorporated companies above certain thresholds to produce a strategic report including a description of principal risks and uncertainties. The FRC's guidance requires that these disclosures be entity-specific and material, not generic restatements of sector-wide concerns. At the market-disclosure layer, DTR 4.1 requires Main Market issuers to publish annual financial reports within four months of the financial year end. AIM companies face a less prescriptive six-month window and are not required to comply with the UK Corporate Governance Code. These lighter AIM obligations are directly relevant to the disclosure gap documented in the findings: the difference is regulatory in origin, not solely a function of company size or AI exposure. The iXBRL filing format mandated for Main Market companies embeds machine-readable tags within human-readable HTML, making systematic large-scale ingestion feasible and underpinning the pipeline described in Section 3.
+
 This paper presents the AI Risk Observatory: an automated monitoring system applied to 9,821 annual reports from 1,362 UK-listed companies spanning publication years 2020 to 2026. The Observatory uses a two-stage LLM classification pipeline to identify, categorise, and quality-rate AI-related disclosures, producing structured signals across adoption type, risk category, vendor dependency, and disclosure substantiveness. The goal is to establish a replicable, longitudinal baseline for regulatory policy, supervisory prioritisation, and research on the evolution of corporate AI governance in the United Kingdom.
 
-### 2.2 Research Questions
+### 1.2 Research Questions
 
 The Observatory addresses three explicit empirical questions.
 
 First, how has the prevalence and composition of AI-related disclosure changed across UK listed companies between 2020 and 2025? This encompasses both the growth in the share of companies disclosing anything about AI, and the changing mix between adoption signal, risk signal, and vendor disclosure across the period.
 
-Second, is AI risk disclosure keeping pace with adoption disclosure, and is it substantive rather than boilerplate? The concern here is not merely whether companies mention AI risk, they increasingly do, but whether those mentions contain the specific operational detail, named systems, and governance evidence that would make them informative to investors, regulators, and researchers. A disclosure regime in which mention rates grow while quality stagnates is formally responsive but substantively hollow.
+Second, is AI risk disclosure keeping pace with adoption disclosure, and is it substantive rather than boilerplate? The concern here is not merely whether companies mention AI risk, they increasingly do, but whether those mentions contain the specific operational detail, named systems, and governance evidence that would make them informative to investors, regulators, and researchers. A disclosure regime in which mention rates grow while quality stagnates is formally responsive but substantively hollow. This question is given direct regulatory urgency by the FRC's 2024 revision of the UK Corporate Governance Code. Provision 29, applying from financial years beginning on or after 1 January 2026, requires boards to make a formal declaration on the effectiveness of all *material controls*, including financial, operational, reporting, and compliance controls, and to describe any failures, their root causes, and corrective actions. AI governance is a form of material control under this framing. Even before the provision's effective date, companies anticipating its requirements had an incentive to strengthen AI risk disclosure, which is a plausible explanation for the 200% surge in risk reports between 2023 and 2024. The SEC has made a parallel move: its 2024 review of disclosure practices explicitly called for AI disclosures to be tailored to specific circumstances and tied to actual business use, not generic statements about industry trends. Both regulators are pushing for substantive disclosure rather than mere presence.
 
-Third, which sectors and market segments show the greatest disclosure gaps relative to their plausible AI exposure? This question is motivated by the Observatory's Critical National Infrastructure focus. Sectors whose disruption would have cascading national consequences, Water, Energy, Defence, Communications, may present AI exposure patterns that are underrepresented in the disclosure record, whether because companies in those sectors are less AI-intensive, because they face different disclosure incentives, or because they are genuinely lagging in AI governance maturity.
+Third, which sectors and market segments show the greatest disclosure gaps relative to their plausible AI exposure? This question is motivated by the Observatory's Critical National Infrastructure focus. The UK's CNI framework designates thirteen sectors whose disruption would cause catastrophic consequences for public safety, economic stability, or national security: Energy, Finance, Transport, Health, Communications, Water, Food, Government, Defence, Civil Nuclear, Chemicals, Data Infrastructure, and Space. These sectors are defined and maintained by the National Protective Security Authority (NPSA). AI is deeply embedded across CNI: Energy faces OT/IT convergence risks; Finance relies on AI for trading, credit, and fraud detection; Health is deploying AI in clinical pathways; Communications mediates content at infrastructure scale. Two features make CNI disclosure monitoring particularly important: sector interdependence means AI failures can cascade across boundaries, and most CNI operators procure AI from a small number of third-party providers, creating vendor concentration risk that may not be visible in public disclosures. Sectors whose disruption would have cascading national consequences may therefore present AI exposure patterns that are underrepresented in the disclosure record.
 
-### 2.3 Scope and Contribution
+### 1.3 Scope and Contribution
 
 Most large-scale empirical work on AI disclosure has focused on US markets, specifically the SEC's 10-K mandatory filing. The most comprehensive recent study, Uberti-Bona Marin et al. (2025), analyses over 30,000 US filings and finds a steep rise in AI-risk mentions alongside persistently generic content. Lang and Stice-Lawrence (2015) demonstrated that large-sample textual analysis of annual reports outside the US is both feasible and methodologically sound, but empirical coverage of UK listed companies at scale remains sparse.
 
@@ -53,61 +55,27 @@ This paper makes four contributions. It provides the first large-scale structure
 
 ---
 
-## 3. Background and Regulatory Context
+## 2. Related Work
 
-### 3.1 The UK Annual Reporting Framework
+This Observatory draws on four established research streams: financial disclosure NLP, the study of substantiveness and boilerplate in regulated reporting, empirical work on AI disclosure and governance, and observatory-style monitoring systems applied to other risk domains. Together these streams provide the methodological and conceptual foundations for the design choices described in §3, and they position this work within an active research landscape while identifying the gap it addresses.
 
-Annual reports produced by UK listed companies are not discretionary communications. They are legally mandated artefacts with defined content requirements, produced on a fixed schedule, subject to audit, and filed with regulators. This combination of legal obligation, audit scrutiny, and structured periodicity makes them a qualitatively different signal source from surveys, earnings calls, or voluntary sustainability disclosures, and it is the foundation of their value as a monitoring surface.
-
-The legal basis for narrative risk reporting sits primarily in the Companies Act 2006 and associated regulations governing the strategic report. For financial years covered by this Observatory, UK-incorporated companies above certain thresholds are required to produce a strategic report that includes a fair review of the business and a description of the principal risks and uncertainties it faces. The Financial Reporting Council's (FRC) guidance on the strategic report makes clear that principal risk disclosures should be entity-specific and material, not generic restatements of sector-wide concerns. Whether AI risk qualifies as a principal risk is a judgement call made at the board level, which is why the prevalence and quality of that judgement across our corpus is itself an informative dataset.
-
-At the market-disclosure layer, the Financial Conduct Authority's Disclosure Guidance and Transparency Rules (DTR 4.1) require issuers subject to those rules to publish an annual financial report within four months of the financial year end. For companies listed on the AIM market, the AIM Rules for Companies impose a less prescriptive six-month window, and AIM companies are not required to comply with the UK Corporate Governance Code. These differences in reporting timelines and governance obligations are directly relevant to the disclosure gap documented in the Findings section: AIM companies face lighter mandatory disclosure pressure, which is reflected in their substantially lower AI signal rates. The difference is regulatory in origin, not solely a function of company size or AI exposure.
-
-The iXBRL filing format (Inline Extensible Business Reporting Language) is mandated for annual financial reports filed with HMRC and, for Main Market companies, with the FCA. iXBRL embeds machine-readable data tags within human-readable HTML, producing documents that are simultaneously readable and structured. This mandate is what makes systematic, large-scale ingestion of annual reports feasible: iXBRL filings can be downloaded programmatically, parsed at the document-structure level, and converted to clean markdown while retaining section metadata. Without this mandate, the Observatory's ingestion pipeline would require substantially more manual effort and would produce less consistent output across companies and years.
-
-### 3.2 Critical National Infrastructure and AI Exposure
-
-The UK's Critical National Infrastructure (CNI) framework designates thirteen sectors whose disruption or destruction would cause catastrophic consequences for public safety, economic stability, or national security. These sectors, including Energy, Finance, Transport, Health, Communications, Water, Food, Government, Defence, Civil Nuclear, Chemicals, Data Infrastructure, and Space, are defined and maintained by the National Protective Security Authority (NPSA) and sit at the intersection of the UK's security and economic governance frameworks.
-
-AI is not a peripheral concern for CNI sectors. In Energy, AI is increasingly embedded in grid management, predictive maintenance, and demand forecasting, and operational technology (OT) systems that have historically been air-gapped are converging with IT infrastructure in ways that expand the attack surface. In Finance, AI underpins trading systems, credit models, fraud detection, and increasingly, customer-facing decision-making at scale. In Health, AI tools are entering clinical pathways, diagnostic support, image analysis, medication management, in deployments where errors have direct patient consequences. In Communications, AI mediates content distribution at infrastructure scale, creating information integrity exposure that is simultaneously a commercial risk and a societal concern.
-
-Two features of AI in CNI sectors make disclosure-based monitoring particularly valuable. The first is interconnection: CNI sectors are not independent, and AI-related failures or dependencies in one sector can cascade across others. A compromised AI system in a financial institution may affect payment infrastructure; an AI-enabled cyber incident in an energy system may affect communications and transport. The second is third-party concentration: most CNI operators do not build their own AI systems. They procure AI capabilities from a small number of technology providers, creating dependency concentration that is not always visible in public disclosure. The vendor landscape documented in the Findings section, particularly the growth of *undisclosed* vendor references, is directly relevant to this systemic risk concern.
-
-This Observatory maps LSE-listed companies to CNI sectors using a crosswalk from the International Standard Industrial Classification (ISIC) to the NPSA sector taxonomy. The mapping involves inherent ambiguity, ISIC codes do not align cleanly with CNI sector boundaries, and some companies operate across multiple CNI sectors simultaneously. Where a company receives multiple CNI sector assignments, the primary classification is used for sector-level analysis. The sector distribution in our corpus (Finance: 461 companies, Energy: 141, Health: 111, Transport: 61, Communications: 28, Water: 18) reflects both the actual composition of the LSE-listed universe and the limitations of the ISIC-to-CNI crosswalk, which is described in Appendix B.
-
-### 3.3 Governance Reforms and Disclosure Incentives
-
-The regulatory environment governing how UK companies disclose risk has changed materially over the period covered by this Observatory, and those changes are visible in the data. The most consequential single development is the Financial Reporting Council's 2024 revision of the UK Corporate Governance Code, which introduced obligations that reshape how boards must account for their risk management and internal control frameworks.
-
-Under the pre-2024 Code, the board's obligation was largely procedural: directors were required to state that they had conducted a review of the effectiveness of the company's risk management and internal control systems. The threshold for compliance was the fact of review, not its depth. The 2024 Code raises this threshold substantially. From financial years beginning on or after 1 January 2025 the revised Code applies broadly; from financial years beginning on or after 1 January 2026, Provision 29 specifically requires boards to make a formal declaration on the effectiveness of all *material controls*, defined to span financial, operational, reporting, and compliance controls. Where material controls have not operated effectively, the board must describe the failure, explain its root cause, and state what corrective action has been taken or is planned. The provision operates within the UK's "comply or explain" regime rather than imposing statutory penalties, relying instead on public transparency and investor accountability to drive compliance, a deliberate contrast with the US Sarbanes-Oxley Act's mandatory auditor attestation model.
-
-The relevance of this reform to AI disclosure is direct. AI governance, covering how boards oversee AI deployment, manage AI-related compliance obligations, and control AI-related operational risks, is a form of material control under the Provision 29 framing. Even before the provision's effective date, companies anticipating its requirements had an incentive to strengthen their disclosure of AI-related risks and controls, to demonstrate that material exposures were being identified and managed. This anticipatory compliance effect is a plausible explanation for a substantial portion of the 2023–2024 risk disclosure surge documented in the Findings. The sharpest single-year increase in the dataset, risk reports growing from 194 in 2023 to 582 in 2024, a 200% increase, coincides precisely with the period in which the FRC published the revised Code and companies began preparing for compliance. Attribution is not straightforward: the ChatGPT diffusion effect, investor pressure, and genuine growth in AI deployment are all concurrent factors. But the governance reform provides a structural mechanism that the diffusion narrative alone cannot.
-
-The UK's reform is not occurring in isolation. In the United States, the Securities and Exchange Commission's 2024 review of disclosure practices observed a significant increase in AI mentions in annual reports and stated explicitly that disclosure teams expected companies' AI disclosures to be tailored to their specific circumstances, tied to actual business use, and grounded in a reasonable factual basis, not generic statements about industry-wide trends. The SEC's framing, that the form of AI disclosure is less important than whether it is material and specific, mirrors the FRC's Provision 29 emphasis on substantive over procedural compliance. The convergence of UK and US regulatory pressure on disclosure quality, rather than just disclosure presence, is directly relevant to the substantiveness gap documented in §6.5: if regulators in both jurisdictions are explicitly calling for specific and material AI disclosure, and the data shows that only approximately 10% of risk-disclosing companies are producing substantive language, the gap between regulatory expectation and disclosure practice remains large.
-
----
-
-## 4. Related Work
-
-This Observatory draws on four established research streams: financial disclosure NLP, the study of substantiveness and boilerplate in regulated reporting, empirical work on AI disclosure and governance, and observatory-style monitoring systems applied to other risk domains. Together these streams provide the methodological and conceptual foundations for the design choices described in §5, and they position this work within an active research landscape while identifying the gap it addresses.
-
-### 4.1 Financial Disclosure NLP
+### 2.1 Financial Disclosure NLP
 
 The application of natural language processing to corporate filings has a well-developed lineage, anchored by the observation that financial language is domain-specific enough to defeat general-purpose text analysis tools. Loughran and McDonald (2011) provided the foundational demonstration of this problem: showing that generic sentiment dictionaries, built on general English corpora, systematically misclassify financial text, treating routine accounting terms such as "liability," "tax," and "impairment" as negative when they carry no such valence in a financial context. Their construction of a finance-specific word list, and their evidence linking filing language to market outcomes, established annual reports as a legitimate and productive NLP corpus. Their subsequent survey of the field (Loughran & McDonald, 2016) maps the methodological terrain, tone, readability, topic extraction, risk language, document length, and provides the framework within which subsequent work, including this Observatory, situates its design choices.
 
 The question of whether textual analysis methods developed on US 10-K filings generalise to other jurisdictions is addressed directly by Lang and Stice-Lawrence (2015), whose study of international annual reports demonstrates that large-sample NLP analysis of non-US filings is both feasible and informative, while noting that disclosure norms, regulatory environments, and reporting cultures vary across markets. This finding supports the treatment of UK annual reports as a valid corpus for structured analysis while reinforcing the need for UK-specific calibration of any taxonomy or classifier.
 
-More recent work has extended this tradition to large language models. Kim (2024) demonstrates that LLMs can extract decision-relevant signals from financial statements at scale, producing outputs that are competitive with or superior to specialised financial models on several evaluation tasks. Park and colleagues (BIS/IFC, 2024) apply LLM-based agents specifically to the problem of materiality assessment in risk disclosures, identifying which disclosed risks are substantive enough to affect investment decisions, a task closely analogous to the substantiveness classification in our pipeline. These studies position LLM-based classification of financial text as an emerging standard rather than a novelty, and they validate the use of Gemini Flash 3 for the classification tasks described in §5.4.
+More recent work has extended this tradition to large language models. Kim (2024) demonstrates that LLMs can extract decision-relevant signals from financial statements at scale, producing outputs that are competitive with or superior to specialised financial models on several evaluation tasks. Park and colleagues (BIS/IFC, 2024) apply LLM-based agents specifically to the problem of materiality assessment in risk disclosures, identifying which disclosed risks are substantive enough to affect investment decisions, a task closely analogous to the substantiveness classification in our pipeline. These studies position LLM-based classification of financial text as an emerging standard rather than a novelty, and they validate the use of Gemini Flash 3 for the classification tasks described in §3.4.
 
-### 4.2 Substantiveness and Boilerplate
+### 2.2 Substantiveness and Boilerplate
 
 A parallel and closely related literature examines a distinctive feature of regulated disclosure: the tendency for mandatory reports to accumulate length and repetition without commensurate growth in informational content. Dyer, Lang and Stice-Lawrence (2017) document this phenomenon at scale across US 10-K filings spanning several decades, showing that reports have grown substantially longer while becoming more redundant and less specific, a pattern they attribute to regulatory accretion, legal caution, and the incentive to copy prior-year language rather than update it. This evidence of systematic disclosure inflation provides the empirical motivation for the Observatory's substantiveness classifier: if the default tendency of regulated disclosure is towards generic and sticky language, then measuring quality separately from volume is not merely useful but necessary.
 
 Brown and Tucker (2011) provide the most influential operationalisation of disclosure quality in this tradition, showing that year-over-year textual modification in the MD&A section of 10-Ks serves as a proxy for informational updating: reports that change more tend to carry more new information. This insight, that similarity to prior-year language is itself an informative signal, underpins the conceptual logic of our substantiveness scale, which assesses individual passages rather than whole-document similarity but shares the same underlying intuition: language that could appear unchanged in any company's report in any year tells the reader very little about that company's specific situation.
 
-The economics of boilerplate are not merely aesthetic. Generic risk factor language has historically provided legal protection under safe-harbour provisions, creating a rational incentive for companies to disclose broadly without disclosing specifically. Regulatory pressure on both sides of the Atlantic has begun to push against this: the SEC's 2020 modernisation of Regulation S-K introduced requirements for risk factors to be organised under relevant headings and summarised when lengthy, reflecting an explicit judgment that long lists of undifferentiated generic risks fail investors. The SEC's 2024 State of Disclosure Review extended this pressure specifically to AI: staff noted that AI disclosure had grown rapidly but remained in many cases untailored and insufficiently tied to actual business use. These regulatory developments contextualise the substantiveness gap documented in §6.5, the gap exists in a regulatory environment that has been actively trying to close it.
+The economics of boilerplate are not merely aesthetic. Generic risk factor language has historically provided legal protection under safe-harbour provisions, creating a rational incentive for companies to disclose broadly without disclosing specifically. Regulatory pressure on both sides of the Atlantic has begun to push against this: the SEC's 2020 modernisation of Regulation S-K introduced requirements for risk factors to be organised under relevant headings and summarised when lengthy, reflecting an explicit judgment that long lists of undifferentiated generic risks fail investors. The SEC's 2024 State of Disclosure Review extended this pressure specifically to AI: staff noted that AI disclosure had grown rapidly but remained in many cases untailored and insufficiently tied to actual business use. These regulatory developments contextualise the substantiveness gap documented in §4.6, which exists in a regulatory environment that has been actively trying to close it.
 
-### 4.3 AI Disclosure and Governance
+### 2.3 AI Disclosure and Governance
 
 Empirical research on AI disclosure in corporate filings has accelerated markedly since 2022, though it remains concentrated on US SEC filings and has not yet produced comparable work on UK annual reports. Uberti-Bona Marin and colleagues (2025) provide the most directly comparable large-scale study: analysing more than 30,000 filings from over 7,000 US firms, they document a steep rise in AI risk mentions between 2020 and 2024, with over 50% of firms mentioning AI in their annual filings by 2024, a pattern consistent in direction with the UK findings reported here, though the US base rate differs given the different disclosure environments. Critically, they also find that many disclosures remain generic and thin on mitigation detail, mirroring the substantiveness gap we document for UK risk disclosure.
 
@@ -115,23 +83,17 @@ On the UK specifically, a 2025 study of AI narratives in FTSE 100 annual reports
 
 Bonsón and colleagues (2023) examine algorithmic decision-making disclosures in major Western European companies, finding that practice is uneven and largely voluntary, a finding that reflects the pre-regulatory baseline and helps explain the heterogeneity we observe. Chiu (2025) raises a related but distinct concern: as companies begin using generative AI in the drafting of narrative disclosures themselves, the authorship and reliability of the text being analysed changes in ways that are difficult to detect. This is a methodological frontier for disclosure-based monitoring systems, including this one.
 
-### 4.4 Observatory-Style Monitoring Systems
+### 2.4 Observatory-Style Monitoring Systems
 
-The closest methodological precedents for this Observatory are not in AI disclosure research but in climate and ESG monitoring, where comparable systems have been built, validated, and applied to policy questions over the past decade. The genre is well established: define a thematic taxonomy, build or fine-tune a classifier on a structured corporate corpus, apply it at scale, and use the resulting signals to track how disclosure evolves in response to regulation, events, and market pressure.
+The closest methodological precedents for this Observatory come from climate and ESG monitoring, where researchers already use thematic taxonomies, domain-specific classifiers, and structured corporate corpora to track disclosure change over time. ClimateBERT (Webersinke et al., 2023) shows that specialist models can classify climate-risk disclosure at scale and expose the gap between disclosure volume and decision-useful specificity. Ferjančič et al. (2024) provide the closest UK analogue, using BERTopic on a decade of FTSE 350 annual reports to show that ESG themes shift measurably with regulation and major events. Supervisory work by the Bank of England, FCA, and BIS/IFC further confirms that large report corpora can be systematically read for policy-relevant risk signals.
 
-ClimateBERT (Webersinke et al., 2023) is the most technically proximate precedent: a transformer model fine-tuned on climate-related corporate and policy texts, applied to the classification of climate-risk disclosure in financial reports and related documents. The study makes two findings that are directly relevant here. First, domain-adaptive pre-training substantially improves classification performance over general-purpose models on specialist financial text, consistent with our use of a model carefully prompted with domain-specific taxonomies and examples. Second, monitoring at scale reveals that voluntary climate disclosure frequently lacks the specificity that would make it decision-useful, a finding that parallels the substantiveness gap in AI risk disclosure. Ferjančič and colleagues (2024) analyse a decade of FTSE 350 annual reports using BERTopic to extract ESG themes, demonstrating that topic prevalence in annual reports shifts measurably in response to regulatory changes and major events, validating the temporal monitoring logic underpinning this Observatory. Their corpus and methodology are the closest existing analogue to ours in a UK listed-company context.
-
-Central banks and financial supervisors have also developed this tradition. A Bank of England working paper applies NLP classification to public reports to retrieve climate-related information aligned with TCFD disclosure recommendations, while the FCA's multi-firm review of TCFD-aligned disclosures by premium-listed companies demonstrates that a regulator can systematically read and assess a large corpus of annual reports for thematic coverage, which is precisely the activity this Observatory automates and scales. The BIS/IFC work by Park and colleagues (2024) extends this to LLM-based risk extraction, describing a pipeline, identify, extract, classify, monitor, that closely mirrors the architecture described in §5.
-
-Taken together, these precedents demonstrate that NLP-driven monitoring of structured corporate report corpora is a productive and increasingly standard research methodology. What distinguishes this Observatory from existing work is its specific focus: UK annual reports rather than US 10-Ks, an explicit CNI sector decomposition, a vendor dependency signal not present in prior AI disclosure studies, and a substantiveness dimension that moves beyond mention frequency to assess disclosure quality. Prior observatory work has established the genre and validated the approach; this work extends it to a domain, AI risk and adoption in UK listed companies, where no comparable structured dataset previously existed.
+This Observatory applies that established monitoring logic to AI risk and adoption in UK annual reports. Its contribution is the domain and measurement design: UK annual reports rather than US 10-Ks, explicit CNI sector decomposition, vendor-dependency signals, and a substantiveness dimension that distinguishes mention frequency from disclosure quality. Prior climate and ESG observatories validate the method; this work extends it to a field where no comparable structured UK dataset previously existed.
 
 ---
 
----
+## 3. Methodology
 
-## 5. Methodology
-
-### 5.1 Corpus and Universe Definition
+### 3.1 Corpus and Universe Definition
 
 The starting point for the corpus was the full population of companies listed on the London Stock Exchange. To ensure consistent regulatory coverage and reliable document retrieval, the universe was restricted to UK-incorporated entities, removing 191 companies incorporated outside the UK, primarily in Ireland, the Netherlands, and Australia, that are LSE-listed but hold no Companies House registration. This yielded a target universe of **1,469 companies** across three market segments: the Main Market (including FTSE 350 constituents), AIM, and smaller markets including Aquis.
 
@@ -139,7 +101,9 @@ The temporal scope covers **publication years 2021 to 2025** as the primary anal
 
 The full target is **7,345 company-year slots** (1,469 companies × 5 publication years). The final corpus contains **9,821 processed reports** spanning **1,362 companies**, with the difference from the target reflecting the inclusion of 2020 and partial 2026 data alongside the exclusion of a small number of companies for which no processable filing was found across any year.
 
-### 5.2 Data Ingestion
+Each company is assigned to a CNI sector using a crosswalk from the International Standard Industrial Classification (ISIC) to the NPSA sector taxonomy. The mapping involves inherent ambiguity (ISIC codes do not align cleanly with CNI sector boundaries), and some companies operate across multiple sectors; where this occurs the primary classification is used. The sector distribution in the corpus reflects both the actual composition of the LSE-listed universe and the limitations of the crosswalk: Finance (461 companies), Energy (141), Health (111), Transport (61), Communications (28), Water (18). The crosswalk is described in full in Appendix B.
+
+### 3.2 Data Ingestion
 
 Annual reports were collected from two complementary sources to maximise coverage across market segments and years.
 
@@ -147,9 +111,9 @@ The primary source is **financialreports.eu (FR)**, which aggregates annual fili
 
 The secondary source is **Companies House (CH)**, which holds the PDF copy of every annual report filed by UK-incorporated companies regardless of market segment. PDF filings were downloaded via the Companies House API and converted to markdown through an OCR pipeline. The CH route serves primarily as a gap-fill for companies absent from or incompletely covered by FR, and is the dominant source for AIM companies. Cross-year deduplication was applied to prevent the same physical document from appearing in adjacent year slots, a known artefact arising when a company files with FR in December and with Companies House the following January.
 
-Despite combining both sources, 178 companies with confirmed Companies House filings could not be matched to any FR annual report, due to ingestion or classification failures on the FR side. The clearest case is Jet2 PLC, where FR entries labelled "Annual Report" were in fact share buyback notices, the actual annual report was absent from FR's index entirely. These gaps are partially mitigated by the CH PDF route but are not fully resolved. Full coverage detail and the source waterfall are provided in Appendix B.
+Despite combining both sources, 178 companies with confirmed Companies House filings could not be matched to any FR annual report, due to ingestion or classification failures on the FR side. The clearest case is Jet2 PLC, where FR entries labelled "Annual Report" were in fact share buyback notices, the actual annual report was absent from FR's index entirely. These gaps are partially mitigated by the CH PDF route but are not fully resolved. Coverage detail and CNI mapping are summarised in Appendix B.
 
-### 5.3 Preprocessing and Chunking
+### 3.3 Preprocessing and Chunking
 
 Raw documents, whether iXBRL-sourced markdown from FR or PDF-converted markdown from Companies House, are normalised to a consistent plain-text format with section metadata retained. The normalisation step strips iXBRL tag artefacts and OCR noise while preserving structural signals such as headings and section boundaries, which indicate where in the report a passage appears.
 
@@ -157,7 +121,7 @@ To focus processing on relevant material, a **keyword gate** is applied before a
 
 Passages that pass the gate are extracted with a **context window** of two paragraphs before and after the triggering passage, providing the classifier with enough surrounding text to assess intent and tone accurately. Overlapping windows produced by adjacent passages in the same document are deduplicated. Each resulting chunk carries structured metadata: company identity, publication year, market segment, CNI sector assignment, and the report section in which the passage appeared.
 
-### 5.4 Classification Pipeline
+### 3.4 Classification Pipeline
 
 Classification proceeds in two sequential stages applied to each chunk.
 
@@ -174,11 +138,11 @@ Labels are not mutually exclusive except for *none*, which must appear alone. St
 
 **Stage 2, Deep classification** is applied conditionally to chunks carrying a Stage 1 signal label. Three parallel classifiers run depending on which signal types were assigned:
 
-The *adoption classifier* characterises the type of AI being reported. Each chunk is scored across three non-mutually-exclusive categories: *non-LLM* (traditional machine learning, computer vision, predictive analytics, fraud detection, recommendation systems), *llm* (large language models and generative AI tools, including named products such as ChatGPT, Gemini, and Microsoft Copilot), and *agentic* (autonomous AI systems that execute tasks without continuous human oversight, the key distinguishing characteristic is autonomous action, not AI-assistance). Each category receives a signal score from 0 to 3 reflecting the directness of evidence: 0 indicates the type is not present, 1 a weak or implicit signal, 2 a strong implicit signal, and 3 an explicit and unambiguous mention.
+The *adoption classifier* characterises the type of AI being reported. Each chunk is scored across three non-mutually-exclusive categories: *non-LLM* (traditional machine learning, computer vision, predictive analytics, fraud detection, recommendation systems), *llm* (large language models and generative AI tools, including named products such as ChatGPT, Gemini, and Microsoft Copilot), and *agentic* (autonomous AI systems that execute tasks without continuous human oversight, the key distinguishing characteristic is autonomous action, not AI-assistance). Each category receives a signal score from 0 to 3 reflecting the directness of evidence. Adoption chunks also receive a substantiveness rating based on whether the company names a concrete use case, system, scale, outcome, or operational context.
 
-The *risk classifier* maps the AI-related risk to one or more of ten categories: strategic and competitive, cybersecurity, operational and technical, regulatory and compliance, reputational and ethical, third-party and supply chain, information integrity, workforce impacts, environmental impact, and national security. Each assigned category receives a signal strength score on the same 1–3 scale. In addition, each risk chunk receives a **substantiveness** rating assessing how concrete and decision-useful the disclosure is: *boilerplate* denotes generic language that could appear unchanged in any company's report ("AI poses risks to our business"); *moderate* identifies a specific risk area without concrete mitigation detail ("AI regulation may affect our compliance obligations"); and *substantive* describes specific risk mechanisms with named consequences or operational detail. The following 2021 disclosure from Prudential PLC illustrates the substantive band: *"The risk to the Group of not meeting these requirements and expectations may be increased by the development and usage of digital distribution and service channels, which can collect a broader range of personal and health-related data from individuals at increased scale, and the use of complex tools, machine learning and artificial intelligence technologies to process, analyse and interpret this data."* This passage earns its label because it identifies a specific causal pathway, a particular technology practice creating a specific data-handling exposure, rather than asserting AI risk in the abstract. The full definitions for each substantiveness band and risk category are reproduced in Appendix A.
+The *risk classifier* maps the AI-related risk to one or more of ten categories: strategic and competitive, cybersecurity, operational and technical, regulatory and compliance, reputational and ethical, third-party and supply chain, information integrity, workforce impacts, environmental impact, and national security. Each assigned category receives a signal strength score on the same 1–3 scale. Risk chunks also receive a substantiveness rating based on whether the disclosure identifies a concrete risk mechanism and a tangible company response (mitigation action, commitment, resource, timeline, control, or measurable target).
 
-The *vendor classifier* identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Meta, and Anthropic; an *internal* tag captures companies describing in-house AI development; *other* covers explicitly named providers not in the main list; and *undisclosed* is used when a company references an external AI capability without naming the provider.
+The *vendor classifier* identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Meta, and Anthropic; an *internal* tag captures companies describing in-house AI development; *other* covers explicitly named providers not in the main list; and *undisclosed* is used when a company references an external AI capability without naming the provider. Vendor chunks receive a substantiveness rating based on whether the provider or model is named and linked to a concrete use case, deployment context, scale, or outcome.
 
 **Table 1: Classifier Taxonomy**
 
@@ -221,10 +185,10 @@ The *vendor classifier* identifies the AI provider referenced in the chunk. Name
 | Band | Definition | Example |
 |---|---|---|
 | `boilerplate` | Generic language with no information content; could appear unchanged in any company's report. | *"AI poses risks to our business."* |
-| `moderate` | Identifies a specific risk area or use case but lacks concrete mechanism, mitigation detail, or quantification. | *"AI regulation may affect our compliance obligations."* |
-| `substantive` | Describes specific risk mechanisms with named systems, quantified impacts, concrete mitigation actions, or causal pathways. | *"We deployed GPT-4 for document review, cutting processing time by 40%."* |
+| `moderate` | Identifies a specific risk area, use case, or provider but lacks concrete mechanism, mitigation detail, deployment context, or quantification. | *"AI regulation may affect our compliance obligations."* |
+| `substantive` | Meets the disclosure-specific threshold for concrete, company-specific evidence. | *"We deployed GPT-4 for document review, cutting processing time by 40%."* |
 
-Note: the substantiveness definitions for the adoption classifier and the risk classifier are operationally distinct. For risk, *substantive* requires a specific risk mechanism **and** concrete mitigation actions or commitments; for adoption, it requires named systems, quantified impact, or technical specificity. Both share the same three-band scale for comparability, but the criteria differ because the underlying disclosure tasks differ.
+Note: the substantiveness definitions are operationally distinct. For risk, *substantive* requires a specific risk mechanism and concrete mitigation actions or commitments; for adoption, it requires named systems, quantified impact, or technical specificity; for vendor disclosure, it requires a named provider or model linked to a concrete use case, scale, or outcome. All three share the same bands for comparability.
 
 *Stage 2d, Vendor Tags*
 
@@ -242,42 +206,21 @@ Note: the substantiveness definitions for the adoption classifier and the risk c
 
 All classifiers use **schema-constrained outputs**, preventing the model from returning labels outside the defined taxonomy and eliminating free-text hallucination of novel categories. All classification was performed using **Gemini Flash 3** (Google). Prompt definitions for all classifiers are reproduced in full in Appendix A.
 
-### 5.5 Quality Assurance and Validation
+### 3.5 Validation
 
-**Golden set construction.** Classifier accuracy was evaluated against a human-annotated golden set of 474 chunks drawn from 30 reports (two consecutive annual reports, 2023 and 2024, for each of 15 companies) selected to provide coverage across all 13 CNI sectors. The full list of golden set companies and their sector assignments is reproduced in Appendix C. Human annotation was performed independently across all classifier dimensions (mention type, adoption type, risk category, and vendor tag) by the lead researcher, who reviewed all reports manually and cross-checked the generated chunks against the original filings to confirm recall. This process took approximately four hours and confirmed that all genuine AI mentions were captured, with a small number of false positives (subsequently classified as `none` by Stage 1). The golden set is intentionally small relative to the full corpus; it is designed as a targeted calibration instrument for design decisions rather than a production-scale evaluation.
-
-**Model selection.** Before committing to a production classifier, six models from three families were compared on the same 20-chunk sample drawn from the golden set: Gemini Flash 3, Gemini 2 Flash, Claude Sonnet 4.5, Claude Haiku 4.5, GPT-4o mini, and GPT-5 nano. Given the small test sample, results should be read as indicative rather than statistically decisive. Gemini Flash 3 and Claude Sonnet 4.5 produced the highest exact-match rates (50% each), with Gemini Flash 3 selected as the production model on grounds of combined accuracy, cost-efficiency, and structured-output reliability. GPT-5 nano was disqualified from consideration due to consistent structured output failures on this test. The comparison cost approximately $0.60 in API credits across all six models.
-
-**Consistency testing.** A single model was run repeatedly on the same chunks to verify output stability (the equivalent of a blank-taxonomy sanity check). At temperature 0 (the setting used in all production runs) the model produced identical outputs across all runs: 100% consistency. At temperature 0.7 (a more creative setting not used in production), average consistency across ten chunks tested ten times each was 95%. The 5% of divergent outputs were predominantly cases where the model added `general_ambiguous` alongside `adoption` on a second pass; on review these additions were assessed to be correct, indicating that even the inconsistent outputs were improvements rather than errors.
-
-**Agreement with the human baseline.** LLM outputs were compared against the human annotation using report-level Jaccard similarity (the intersection divided by the union of assigned labels). The results by category, measured on the 30-report golden set, are shown in Table 2.
-
-**Table 2: Report-level Jaccard similarity, LLM vs human baseline (30-report golden set)**
-
-| Classifier dimension | Jaccard (all years) | Jaccard (2023) | Jaccard (2024) |
-|---|---|---|---|
-| Mention type | 0.75 | 0.74 | 0.76 |
-| Adoption type | 0.47 | 0.39 | 0.55 |
-| Risk taxonomy | 0.23 | 0.18 | 0.29 |
-| Vendor tags | 0.40 | — | — |
-
-The risk taxonomy score of 0.23 warrants explanation. The primary driver is not classifier error but systematic differences in labelling comprehensiveness: the LLM assigned an average of 4.77 mention-type labels per report against the human annotator's 3.77, a pattern that repeats across all dimensions. Detailed review of disagreements confirmed that the majority of LLM-only labels, where the model assigned a category the human did not, were assessed on inspection to be accurate. The LLM was identifying signals the human annotator missed rather than hallucinating signals that were not present. The human baseline is accordingly better understood as a conservative lower bound than as a gold standard, and the low Jaccard on risk taxonomy reflects human under-labelling at least as much as LLM over-labelling. The year-on-year improvement (risk Jaccard 0.18 in 2023 → 0.29 in 2024) is consistent with the classifier performing better on more recent, more explicit AI-risk language, a pattern expected given that 2023 and 2024 reports use more standardised AI terminology than earlier years.
-
-**False positive rate.** Approximately 29% of chunks passing the keyword gate are classified as `none` by Stage 1: genuine false positives from the regex search (place names, abbreviations, and adjacent technology language). This rate was reduced substantially during development through chunking algorithm optimisation, including filtering of false-positive substrings such as "ml" in "html" or "ai" in "repair," which alone reduced the false positive rate by 31%. The current false positive rate is treated as acceptable given the design preference for high recall at the keyword stage: it is preferable to pass a false positive to the classifier for rejection than to miss a genuine AI mention at the filtering step.
-
-**Traceability.** Every annotation in the dataset is fully traceable from raw source filing to final label. Each record stores the model name, classifier version, prompt key, confidence scores for each assigned label, and a reasoning trace where available. Chunks where the classifier returned confidence below threshold or where multiple plausible labels were in close contention are flagged in the dataset. Where low-confidence outputs would materially affect a headline statistic, they are excluded from that calculation and noted.
+The pipeline was validated against a human-annotated golden set of 474 chunks drawn from 30 reports (two consecutive years, 2023 and 2024, for each of 15 companies covering all 13 CNI sectors; see Appendix C). Six models were evaluated before selecting Gemini Flash 3 as the production classifier on the basis of accuracy, structured-output reliability, and cost. At temperature 0, the model produces 100% consistent outputs across repeated runs. Report-level Jaccard similarity against the human baseline was 0.75 for mention type and 0.40 for vendor tags; agreement on the risk taxonomy was lower (0.23), driven primarily by the LLM assigning more labels per report than the human annotator rather than by systematic misclassification — on review, the majority of LLM-only labels were assessed to be correct. The false positive rate at the keyword gate is approximately 29%, all of which are filtered by Stage 1 before any label is assigned. Every annotation is fully traceable from source filing to final label, with model name, classifier version, and confidence scores stored per record.
 
 ---
 
-## 6. Findings
+## 4. Findings
 
 *All figures cover publication years 2020 to 2025 unless otherwise stated. 2026 data is partial (339 reports) and is noted where referenced but not used for trend conclusions. Report-level counts reflect unique company-year filings containing at least one signal of the relevant type; a single report may contribute to multiple signal categories. Risk-category and adoption-type counts are label assignments and may exceed unique report counts.*
 
-### 6.1 The Disclosure Surge: Overall Trends
+### 4.1 The Disclosure Surge: Overall Trends
 
-The most striking finding in the corpus is the scale and speed of growth in AI-related disclosure. In 2020, 196 of 1,007 processed reports (19.5%) contained any AI mention at all. By 2025, that figure had risen to 1,023 of 1,561 reports, or 65.5%. Risk disclosure grew even faster from a much smaller base: in 2020, just 32 reports (3.2%) named AI as a material risk. By 2025, 674 reports did (43.2% of the annual cohort), a 21-fold increase in absolute terms. Table 1 provides the full year-by-year breakdown.
+The most striking finding in the corpus is the scale and speed of growth in AI-related disclosure. In 2020, 196 of 1,007 processed reports (19.5%) contained any AI mention at all. By 2025, that figure had risen to 1,023 of 1,561 reports, or 65.5%. Risk disclosure grew even faster from a much smaller base: in 2020, just 32 reports (3.2%) named AI as a material risk. By 2025, 674 reports did (43.2% of the annual cohort), a 21-fold increase in absolute terms. Table 2 provides the full year-by-year breakdown.
 
-**Table 1: Annual disclosure prevalence by signal type (% of all reports that year)**
+**Table 2: Annual disclosure prevalence by signal type (% of all reports that year)**
 
 | Year | Reports | Any AI | Adoption | Risk | Gen. ambiguous | Vendor | Adoption–risk gap |
 |---|---|---|---|---|---|---|---|
@@ -294,11 +237,11 @@ Growth across the full period falls into three broadly distinct phases. Between 
 
 Despite this growth, the disclosure gap remains substantial in absolute terms. In 2025, 887 of 1,561 annual reports (56.8%) contained no AI risk mention. The surge in headline statistics is concentrated among larger, better-resourced, and more closely scrutinised companies.
 
-### 6.2 Adoption Patterns
+### 4.2 Adoption Patterns
 
 Adoption disclosure appeared in 3,012 unique company-year filings across the full corpus. Its composition has shifted significantly over time as the balance between AI types has reordered.
 
-**Table 2: Adoption type disclosure rates (% of all reports), 2024–2025**
+**Table 3: Adoption type disclosure rates (% of all reports), 2024–2025**
 
 | Adoption type | 2024 | 2025 | YoY change |
 |---|---|---|---|
@@ -314,11 +257,11 @@ Agentic AI (autonomous systems that execute tasks without continuous human overs
 
 The *general_ambiguous* category grew from 11.1% of reports in 2020 to 54.6% in 2025, overtaking adoption as the largest single-year category. It represents companies acknowledging AI without providing operational specificity, and its sustained growth reflects a reporting environment where mentioning AI has become normative but concrete characterisation has not.
 
-### 6.3 Risk Disclosure Patterns
+### 4.3 Risk Disclosure Patterns
 
 AI risk disclosure not only grew in volume but broadened substantially in scope. In 2020, the risk profile was narrow: strategic/competitive and operational/technical together accounted for most signals. By 2025, all ten taxonomy categories are materially represented, the risk profile has diversified, and companies reporting risk are reporting more of it, average risk labels per risk-reporting company rose from 3.28 in 2024 to 3.63 in 2025.
 
-**Table 3: Risk category disclosure rates (label assignments as % of all 2025 reports), 2024–2025**
+**Table 4: Risk category disclosure rates (label assignments as % of all 2025 reports), 2024–2025**
 
 | Risk category | 2025 assignments | 2025 % of reports | 2024 % of reports | YoY change |
 |---|---|---|---|---|
@@ -341,11 +284,17 @@ Two categories show exceptional growth from near-zero bases. Information integri
 
 Critically, the *directness* of risk attribution has not improved. The distribution of signal strength (the classifier's rating of how explicitly AI is attributed as the risk source) was essentially flat year-on-year: explicit (signal 3) signals were 31.6% in 2024 and 31.2% in 2025; strong implicit (signal 2) was 30.7% and 30.3%; weak implicit (signal 1) rose from 37.7% to 38.5%. Companies are disclosing more risk categories, but not attributing them to AI with greater directness or specificity.
 
-### 6.4 The Vendor Landscape
+### 4.4 Harm Classifications
+
+The pipeline includes a `harm` label for AI described as having caused a past, specific incident — misinformation spread, fraud enabled by AI, a safety failure, or a discriminatory outcome — as distinct from prospective risk. Across the full 9,821-report corpus, harm classifications are almost entirely absent: three harm-tagged chunks were identified across two company-year filings, both in 2025 (Gear4Music Holdings PLC, two chunks; Trifast PLC, one chunk). Neither company is a CNI-sector operator.
+
+This near-absence is most likely a genuine feature of the annual report as a disclosure format. Companies have strong legal and reputational incentives to avoid admitting past AI-related harms in a board-accountable document, and will typically frame incidents as risks managed or lessons learned rather than harms caused. The annual report is therefore not a reliable surface for detecting realised AI incidents, and other data sources — regulatory enforcement records, incident databases, litigation filings — would be needed to complement the Observatory's signals on this dimension.
+
+### 4.5 The Vendor Landscape
 
 Vendor references appeared in 877 unique company-year filings. The distribution is heavily skewed, and its most important feature is not which vendors are named but how many are not.
 
-**Table 4: Vendor reference rates (label assignments as % of all 2025 reports), 2024–2025**
+**Table 5: Vendor reference rates (label assignments as % of all 2025 reports), 2024–2025**
 
 | Vendor | 2025 assignments | 2025 % of reports | 2024 % of reports | YoY change |
 |---|---|---|---|---|
@@ -363,36 +312,43 @@ Vendor references appeared in 877 unique company-year filings. The distribution 
 
 Two findings stand out. First, *other* and *undisclosed* together (references to external AI capabilities without identifying the provider) account for 198 of 464 total 2025 vendor assignments, or **42.7% of all vendor references**. Among only the explicitly named vendors, the three largest (Microsoft, Google, OpenAI) account for 75.7% of named-vendor assignments, revealing extreme concentration in the named portion of the landscape. Second, **OpenAI is the only named vendor declining** year-on-year (−1.0 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft. This structural opacity means that concentration at the foundation-model layer is larger than the named-vendor data suggests.
 
-Dependency is growing faster than disclosure: companies are acquiring AI capabilities from a small number of providers but not yet treating those dependencies as material disclosure items.
+Vendor disclosures are comparatively concrete when the provider is named. The remaining policy problem is incomplete dependency mapping: companies are acquiring AI capabilities from a small number of providers but not consistently identifying those dependencies as material disclosure items.
 
-### 6.5 Disclosure Quality: The Substantiveness Gap
+### 4.6 Disclosure Quality: The Substantiveness Gap
 
-*Note: Substantiveness scoring applies to risk-classified chunks only. The following analysis covers 674 risk-signal reports in 2025. Adoption and vendor quality remain unassessed and represent a priority for future work.*
+Substantiveness scoring covers the three main Phase 2 outputs. The 2025 distribution shows a clear hierarchy: vendor disclosures are usually concrete, adoption disclosures are mostly moderate, and risk disclosures remain overwhelmingly moderate.
 
-The central quality finding is not a plateau, it is a **structural decline in substantive share relative to disclosure volume**. As risk disclosure has grown from 3.2% of reports in 2020 to 43.2% in 2025, the fraction of risk-disclosing companies producing substantive disclosure has fallen from 15.6% to 9.5%. The quality gap, the difference between the risk mention rate and the substantive risk rate, has widened from 2.7 percentage points in 2020 to **39.1 percentage points in 2025**.
+**Table 6: 2025 disclosure substantiveness by classifier**
 
-**Table 5: Quality-gap analysis, risk mention rate vs substantive risk rate**
+| Disclosure type | Scored reports | Substantive | Moderate | Boilerplate |
+|---|---:|---:|---:|---:|
+| Adoption | 721 | 195 (27.0%) | 431 (59.8%) | 95 (13.2%) |
+| Risk | 674 | 65 (9.6%) | 538 (79.8%) | 71 (10.5%) |
+| Vendor | 271 | 161 (59.4%) | 70 (25.8%) | 40 (14.8%) |
 
-| Year | Risk reports | Risk rate | Substantive reports | Substantive rate | Substantive share of risk reports | Quality gap |
-|---|---|---|---|---|---|---|
-| 2020 | 32 | 3.2% | 5 | 0.5% | 15.6% | 2.7 pp |
-| 2021 | 59 | 4.4% | 9 | 0.7% | 15.3% | 3.8 pp |
-| 2022 | 93 | 5.0% | 17 | 0.9% | 18.3% | 4.1 pp |
-| 2023 | 194 | 10.2% | 27 | 1.4% | 13.9% | 8.8 pp |
-| 2024 | 582 | 31.8% | 60 | 3.3% | 10.3% | 28.6 pp |
-| 2025 | 674 | 43.2% | 64 | 4.1% | 9.5% | 39.1 pp |
+Pure boilerplate is not the dominant disclosure mode in 2025. The larger problem is moderate disclosure: companies name an AI use, risk, or provider, but usually do not explain the mechanism, operational context, mitigation, scale, or outcome.
 
-[Figure 5: Dual-axis chart, risk mention rate (left axis) and substantive risk rate (left axis) as lines, quality gap (right axis, shaded area) by year, 2020–2025]
+Risk remains the central policy concern because it is the disclosure type most directly tied to board-level controls. Table 7 shows risk mention rates rising far faster than substantive risk rates through the core 2021-2025 window.
 
-The substantiveness distribution in 2025 breaks down as follows: 9.5% substantive (64 reports), 80.7% moderate (544 reports), and 9.8% boilerplate (66 reports). The moderate category has grown most, from 78.0% in 2024. This is the dominant disclosure pattern: companies have moved beyond pure boilerplate, generic one-line AI risk statements, but have not reached the specificity needed to be decision-useful. A typical moderate disclosure identifies a risk category (regulatory compliance, cybersecurity) and attributes it to AI, but describes a monitoring or watching-brief posture rather than a concrete governance response.
+**Table 7: Quality-gap analysis, risk mention rate vs substantive risk rate**
 
-Signal strength data corroborates this independently: the share of explicit risk signals (signal 3) was 31.6% in 2024 and 31.2% in 2025, while weak-implicit signals rose from 37.7% to 38.5%. Companies are acknowledging more risk categories without attributing them to AI with greater directness. The absolute number of substantive disclosures grew from 5 in 2020 to 64 in 2025, but the substantive share has fallen every year since 2022. Whether the FY2026 cohort reverses this trend is the single most important empirical question the Observatory is positioned to answer.
+| Year | Risk reports | Risk rate | Substantive risk reports | Substantive risk rate | Quality gap |
+|---|---:|---:|---:|---:|---:|
+| 2021 | 59 | 4.4% | 9 | 0.7% | 3.8 pp |
+| 2022 | 93 | 5.0% | 16 | 0.9% | 4.2 pp |
+| 2023 | 194 | 10.2% | 19 | 1.0% | 9.2 pp |
+| 2024 | 582 | 31.8% | 63 | 3.4% | 28.4 pp |
+| 2025 | 674 | 43.2% | 65 | 4.2% | 39.0 pp |
 
-### 6.6 Sector and CNI Patterns
+[Figure 5: Dual-axis chart, risk mention rate and substantive risk rate as lines, quality gap as shaded area, 2021–2025]
 
-Sector-level findings reveal sharp variation in both disclosure intensity and disclosure depth across the UK's Critical National Infrastructure framework. Table 6 provides the full 2025 breakdown.
+Signal strength data corroborates this independently: the share of explicit risk signals (signal 3) was 31.6% in 2024 and 31.2% in 2025, while weak-implicit signals rose from 37.7% to 38.5%. Companies are acknowledging more risk categories without attributing them to AI with greater directness. Whether the FY2026 cohort changes this pattern is the single most important empirical question the Observatory is positioned to answer.
 
-**Table 6: CNI sector disclosure summary (2025)**
+### 4.7 Sector and CNI Patterns
+
+Sector-level findings reveal sharp variation in both disclosure intensity and disclosure depth across the UK's Critical National Infrastructure framework. Table 8 provides the full 2025 breakdown.
+
+**Table 8: CNI sector disclosure summary (2025)**
 
 | Sector | Companies | 2025 reports | AI mention % | AI risk % | No AI-risk % | Risk YoY change |
 |---|---|---|---|---|---|---|
@@ -407,7 +363,7 @@ Sector-level findings reveal sharp variation in both disclosure intensity and di
 | Health | 111 | 100 | 50.0% | 37.0% | 63.0% | +7.3 pp |
 | Energy | 141 | 140 | 30.7% | 20.7% | **79.3%** | +5.3 pp |
 | Data Infrastructure | 22 | 20 | 60.0% | 15.0% | **85.0%** | +5.0 pp |
-| Civil Nuclear | 2 | 3 | 0.0% | 0.0% | 100.0% | — |
+| Civil Nuclear | 2 | 3 | 0.0% | 0.0% | 100.0% | n/a |
 
 [Figure 6: Horizontal bar chart, CNI sector AI-risk disclosure rate and no-AI-risk rate (blind spot) side by side, 2025, sorted by risk rate]
 
@@ -421,13 +377,13 @@ Water, by contrast, reached 52.9% AI risk disclosure in 2025 (up from 33.3% in 2
 
 Defence presents the most distinctive adoption profile. Of its 97 lifetime adoption signals, agentic signals (31) outnumber LLM signals (15), making it the only sector where this is true. This is consistent with defence sector language around autonomous systems and unmanned platforms, and it suggests AI deployment patterns that differ structurally from the commercial sector.
 
-### 6.7 Market Segment Patterns
+### 4.8 Market Segment Patterns
 
 [Figure 8: Side-by-side bar chart, 2025 AI mention rate, adoption rate, and risk rate by market segment (FTSE 100, FTSE 350, Main Market, AIM)]
 
-The gap between Main Market and AIM disclosure is one of the most structurally significant findings in the corpus. Table 7 presents 2025-specific rates, which are materially higher than lifetime rates and provide the clearest picture of the current state.
+The gap between Main Market and AIM disclosure is one of the most structurally significant findings in the corpus. Table 8 presents 2025-specific rates, which are materially higher than lifetime rates and provide the clearest picture of the current state.
 
-**Table 7: Market segment disclosure summary (2025)**
+**Table 9: Market segment disclosure summary (2025)**
 
 | Market segment | Lifetime reports | 2025 reports | 2025 AI mention % | 2025 Adoption % | 2025 Risk % | 2025 Vendor % |
 |---|---|---|---|---|---|---|
@@ -443,11 +399,11 @@ AIM is in a different category. A 7.0% AI risk rate in 2025, against 60.9% for t
 For sectors where AIM-listed companies operate in CNI-adjacent industries, smaller energy producers, specialist communications firms, health technology businesses, the absence of AI risk disclosure should not be interpreted as an absence of AI exposure.
 ---
 
-## 7. Limitations
+## 5. Limitations
 
 Every large-scale empirical study of corporate disclosure carries inherited constraints that qualify the strength of its conclusions. We organise ours into three categories: coverage gaps that affect the completeness of the corpus, classification validity issues that bear on the accuracy of the signals we extract, and causal and inferential limits that govern how findings should be interpreted.
 
-### 7.1 Coverage Gaps
+### 5.1 Coverage Gaps
 
 The corpus covers 9,821 reports across 1,362 companies and six publication years, but it does not cover the full universe of UK-listed companies. The irreducible gap is approximately 6.7% of target company-year slots, attributable primarily to shell companies, special-purpose acquisition vehicles (SPACs), and micro-caps that have never filed electronically in a machine-parseable format. This segment is structurally unlikely to contain material AI disclosure, so its exclusion is not expected to bias aggregate trend findings, but the gap cannot be reduced without manual document retrieval.
 
@@ -457,17 +413,17 @@ Two years at the edges of the time window are structurally partial. Publication 
 
 Finally, 178 companies have zero coverage from financialreports.eu despite appearing in that source's filing index, in some cases because the source misclassifies non-annual-report documents (for example, Jet2 PLC's prospectus and share-buyback notices were returned as annual-report candidates). The Companies House gap-fill reduces but does not fully resolve this exposure, and any systematic pattern in which companies are missed, if, for example, certain industry registrants are more likely to file in non-standard formats, could introduce a modest sector-level bias.
 
-### 7.2 Classification Validity
+### 5.2 Classification Validity
 
 The primary validation instrument is a human-annotated golden set of 474 chunks reviewed against the full two-stage classifier pipeline. This is a larger evaluation corpus than many comparable studies in financial-NLP research, but it remains a constraint on our ability to estimate sub-category precision independently. In particular, rare signal types, agentic adoption, national security risk, and sector-specific vendor mentions, appear infrequently enough in the golden set that sub-category confidence intervals remain wide.
 
 The pipeline's conservative prompting strategy is a deliberate design choice that creates a known recall trade-off. By requiring explicit AI language at Stage 1 and refusing to infer adoption from intent or strategy statements alone, the classifier excludes some passages that a human annotator might reasonably flag. Companies that describe AI capabilities obliquely, through references to "intelligent systems," "predictive tools," or proprietary platform features without explicit AI attribution, will not be captured. The pipeline therefore produces a conservative lower bound on AI disclosure activity rather than an upper bound.
 
-Substantiveness classification is inherently judgement-dependent in a way that the mention-type and risk-category classifiers are not. The three-band scale (boilerplate / moderate / substantive) requires the classifier to distinguish passages that are highly similar in surface form but differ in specificity, concreteness, and operational grounding. Inter-rater agreement at the boundary between *moderate* and *substantive* is lower than agreement on coarser distinctions such as adoption versus risk. The substantiveness scores reported here, and particularly the finding that the substantive share of risk-classified chunks remains below 10% in 2025, should be read as an approximate signal of disclosure quality rather than a precise measurement. A further methodological limitation is that substantiveness classification has only been applied to risk-classified chunks (5,178 chunks in total); adoption and vendor chunks do not yet carry substantiveness scores. This means the finding of a quality plateau cannot currently be extended to the full disclosure picture, and the characterisation of adoption disclosure quality in particular remains an open empirical question for future work.
+Substantiveness classification is inherently judgement-dependent in a way that the mention-type and risk-category classifiers are not. The three-band scale (boilerplate / moderate / substantive) requires the classifier to distinguish passages that are highly similar in surface form but differ in specificity, concreteness, and operational grounding. Inter-rater agreement at the boundary between *moderate* and *substantive* is lower than agreement on coarser distinctions such as adoption versus risk. The substantiveness scores reported here should be read as directional indicators of disclosure quality rather than precise measurements. Adoption, risk, and vendor substantiveness also measure different disclosure tasks: concrete deployment evidence, concrete risk-and-control evidence, and concrete provider-dependency evidence respectively.
 
 Vendor tagging carries its own opacity. The "other" category captured 143 signals in 2025 alone, and "undisclosed" represents an additional substantial group of references where vendor identity cannot be inferred from the disclosure text. These categories mask real concentration patterns in AI supply chains. Until reporting practice improves, or until external supplementary data sources are integrated, vendor concentration analysis at the firm level will remain limited by the deliberate or inadvertent opacity of the source documents themselves.
 
-### 7.3 Causal and Inferential Limits
+### 5.3 Causal and Inferential Limits
 
 The most fundamental inferential limit is that disclosure does not equal exposure. A company that discusses AI risk at length in its annual report is not necessarily more exposed to AI-related harm than a company that says nothing. It may simply have more sophisticated governance processes, be operating in a more heavily scrutinised sector, or be responding to investor or regulatory pressure. Conversely, a company with thin or absent AI disclosure may face significant operational AI risk that it has not yet recognised, has chosen not to disclose, or has disclosed under language our keyword gate does not capture. The corpus measures what companies say, not what they experience.
 
@@ -480,19 +436,19 @@ Finally, annual reports are a lagging instrument. They reflect decisions, risks,
 
 ---
 
-## 8. Discussion
+## 6. Discussion
 
-### 8.1 Policy Implications
+### 6.1 Policy Implications
 
 The Observatory's findings point to three actionable policy concerns.
 
-First, regulatory frameworks that treat disclosure *presence* as the primary compliance signal will generate rising volumes without rising information content. The risk mention rate has grown 21-fold since 2020, yet the substantive share of risk disclosures has fallen from 15.6% in 2020 to 9.5% in 2025. The boilerplate problem documented in the financial NLP literature is replicating in AI disclosure before that domain has had time to mature. Provision 29's requirement for boards to assess the *effectiveness* of material controls is the right intervention design, shifting the obligation from mentioning risk to evidencing governance, but the FY2026 data will be the first real test.
+First, regulatory frameworks that treat disclosure *presence* as the primary compliance signal will generate rising volumes without rising information content. The AI disclosure problem is less pure boilerplate than moderate disclosure: companies are increasingly naming AI risks and uses, but not yet providing the operational detail, control evidence, or accountability signals that would make those disclosures decision-useful. Provision 29's requirement for boards to assess the *effectiveness* of material controls is the right intervention design, shifting the obligation from mentioning risk to evidencing governance, but the FY2026 data will be the first real test.
 
 Second, the CNI sector decomposition reveals disclosure gaps that aggregate statistics obscure. Data Infrastructure (85% of reports without an AI risk mention in 2025) and Energy (79.3%) are the largest blind spots, despite being high-AI-exposure sectors. The absence of disclosure more plausibly reflects the absence of regulatory and investor pressure than an absence of risk. These are where targeted AISI engagement or sectoral regulator guidance would be most additive. By contrast, Communications showed the largest single-year increase in AI risk disclosure in 2025 (+24.6 pp), suggesting that sector-specific scrutiny accelerates disclosure practice when it arrives.
 
 Third, vendor concentration is systematically underreported. Opaque references (the *other* and *undisclosed* categories) accounted for 42.7% of all vendor assignments in 2025. Among named providers, the top three (Microsoft, Google, OpenAI) account for 75.7% of named-vendor references. OpenAI is the only named vendor declining year-on-year (−1.0 pp), likely due to routing through Azure rather than a genuine reduction in dependency. Foundation-model concentration at the infrastructure layer is larger than the named-vendor data suggests.
 
-### 8.2 Applications and Use Cases
+### 6.2 Applications and Use Cases
 
 The Observatory was designed to be a reusable monitoring instrument rather than a one-time study. Several concrete applications follow directly from the current pipeline and corpus.
 
@@ -504,13 +460,13 @@ The Observatory was designed to be a reusable monitoring instrument rather than 
 
 **Annual report as a hard disclosure baseline.** Earnings calls, investor presentations, and corporate surveys are softer forms of AI disclosure: they are not audited, they are not legally mandated to discuss principal risks, and they are produced for audiences with very different information needs. Annual reports occupy a distinct position in the information ecosystem as the closest thing to a legally accountable, audited, structured statement of what a company believes its material risks and capabilities to be. The Observatory's signals can serve as ground truth against which softer disclosure channels are calibrated, confirming, for instance, whether what companies say in earnings calls about AI adoption appears in the harder disclosure record.
 
-### 8.3 Future Work
+### 6.3 Future Work
 
 Several extensions to the current pipeline are either technically straightforward or clearly motivated by the findings.
 
 **Provision 29 follow-through** is the highest-priority empirical next step. The 2024 surge in risk mentions may represent genuine governance improvement that will be consolidated in the first post-Provision-29 reporting cycle, or it may represent anticipatory disclosure volume that was not matched by underlying governance depth. Only the 2026 and 2027 report cohorts will resolve this. Annual re-running of the pipeline with a fixed methodology will produce the longitudinal series needed to answer the question.
 
-**Substantiveness extension to adoption and vendor chunks** is a methodological gap the current study acknowledges but does not close. The adoption-type and vendor classifiers do not yet produce substantiveness scores; only risk-classified chunks carry the three-band quality rating. Extending the substantiveness schema to adoption chunks in particular would allow a more complete assessment of whether companies that claim AI adoption are providing material operational detail or producing impressionistic statements. The classifier prompt architecture already defines the relevant output fields; the extension requires running the Stage 2 adoption classifier against the substantiveness scoring rule set and validating against the golden set.
+**Substantiveness integration by sector, segment, and company** is the next methodological step. Adoption, risk, and vendor substantiveness are now scored at annotation level; the remaining work is to roll those fields into stable dashboard artifacts for sector, market-segment, company-transition, and year-over-year persistence analysis.
 
 **Causal modelling** would connect disclosure signals to external data sources, cyber incident databases, AI-related regulatory enforcement actions, sector-level employment data, or company-level stock volatility around AI announcements, to test whether annual-report language predicts, follows, or is orthogonal to real-world AI-related outcomes. This requires merging the Observatory's structured disclosure signals with third-party event data, which is methodologically tractable but outside the current scope.
 
@@ -521,16 +477,14 @@ Several extensions to the current pipeline are either technically straightforwar
 
 ---
 
-## 9. Conclusion
+## 7. Conclusion
 
-The AI Risk Observatory documents a disclosure landscape defined by volume growth without equivalent quality growth. AI mention rates have risen from 19.5% of UK listed company reports in 2020 to 65.5% in 2025. Risk disclosure grew twenty-one-fold over the same period. Yet the substantive share of risk disclosures has fallen every year since 2022, sitting at 9.5% in 2025. More companies are mentioning AI risk; fewer, proportionally, are saying anything decision-useful about it.
+The AI Risk Observatory documents a disclosure landscape defined by volume growth without equivalent quality growth. AI disclosure is now a mainstream feature of UK annual reports, and risk disclosure has grown even faster. Across the broader quality picture, vendor disclosures are the most concrete, adoption disclosures are mostly moderate, and risk disclosures remain the weakest.
 
 The sector and market segment findings reinforce this picture. Finance and Health are active disclosers; Data Infrastructure and Energy are not, despite high plausible AI exposure. FTSE 100 companies are near-saturated on disclosure volume. AIM companies remain structurally underrepresented, reflecting lighter governance obligations rather than lower AI risk.
 
 The Observatory's most important near-term function is as a pre-intervention baseline for Provision 29 of the 2024 UK Corporate Governance Code, which takes effect for FY2026. If the Code is working as intended, the next annual cohort should show improvement in disclosure specificity and governance depth, not just mention rates. Annual reports are a lagging instrument, but they are the most systematic and legally accountable evidence base available for monitoring corporate AI governance at scale.
 
-
----
 ---
 
 ## Appendix A: Classifier Definitions
@@ -611,13 +565,13 @@ All ten categories are non-mutually exclusive. Each assigned category receives a
 
 ### A.5 Stage 2c: Substantiveness Definitions
 
-The substantiveness scale applies separately to risk chunks and (where implemented) adoption chunks. The definitions are functionally similar but operationally distinct because the disclosure tasks differ.
+The substantiveness scale applies separately to risk, adoption, and vendor chunks. The definitions are functionally similar but operationally distinct because the disclosure tasks differ.
 
 **Risk substantiveness:**
 
 - `boilerplate`: Generic risk or governance language with little concrete mechanism. Could appear unchanged in any company's report (e.g., *"AI poses risks to our business"*; *"We monitor AI-related developments"*).
 - `moderate`: Identifies a specific AI-risk area but provides limited mechanism or mitigation detail. The reader learns *what* risk area is relevant but not *how* the risk operates or *what* is being done about it (e.g., *"AI regulation may affect our compliance obligations"*; *"Cyberattacks using AI are increasing"*).
-- `substantive`: Describes a specific AI-risk mechanism **and** provides concrete mitigation actions, operational commitments, named systems, or causal pathways. The reader learns something specific about this company's situation that would not apply equally to every other company in the sector (e.g., *"We allocated £5M to reclassify three high-risk AI systems under the EU AI Act by Q3 2025"*; the Prudential PLC example in §5.4).
+- `substantive`: Describes a specific AI-risk mechanism **and** provides concrete mitigation actions, operational commitments, named systems, or measurable targets. The reader learns something specific about this company's situation that would not apply equally to every other company in the sector (e.g., *"We allocated £5M to reclassify three high-risk AI systems under the EU AI Act by Q3 2025"*).
 
 **Adoption substantiveness:**
 
@@ -625,7 +579,13 @@ The substantiveness scale applies separately to risk chunks and (where implement
 - `moderate`: Identifies a specific use case or domain but lacks concrete detail (e.g., *"We use AI in our underwriting process"*; *"We deployed AI in risk management"*).
 - `substantive`: Names specific systems, quantifies impact, or explains what/how/why with technical or operational detail (e.g., *"We deployed GPT-4 for document review, reducing processing time by 40%"*).
 
-The key difference: for risk, `substantive` requires both a specific mechanism **and** mitigation evidence; for adoption, it requires specificity in the description of *what* was deployed and *to what effect*.
+**Vendor substantiveness:**
+
+- `boilerplate`: Generic reference to AI tools, technology providers, or external platforms without identifying a specific vendor or model (e.g., *"We work with leading AI technology providers"*).
+- `moderate`: Names a specific vendor, model, or platform but provides no use case, scale, or outcome (e.g., *"We use Microsoft Copilot"*).
+- `substantive`: Names a specific vendor, model, or platform and links it to a concrete use case, deployment context, scale, or outcome (e.g., *"We use Azure OpenAI Service to power document summarisation for 8,000 employees"*).
+
+The key difference: for risk, `substantive` requires both a specific mechanism and mitigation evidence; for adoption, it requires specificity in the description of *what* was deployed and *to what effect*; for vendor disclosure, it requires both provider identity and deployment context.
 
 ---
 
@@ -647,6 +607,47 @@ The vendor classifier identifies the AI provider referenced in the chunk. Named 
 
 Multiple vendor tags may be assigned to a single chunk if more than one provider is named. The `internal` and `undisclosed` tags may co-occur with named-vendor tags only if the passage clearly refers to both.
 
+
+---
+
+## Appendix B: Corpus Coverage and CNI Mapping
+
+### B.1 Coverage Summary
+
+| Coverage item | Count / note |
+|---|---|
+| Starting LSE-listed company universe | 1,660 |
+| Excluded non-UK or no Companies House registration | 191 |
+| Target UK-incorporated universe | 1,469 |
+| Companies with processed reports | 1,362 |
+| Processed annual reports | 9,821 |
+| Primary analysis window | 2021-2025 |
+| Supplementary years | 2020 and partial 2026 |
+| Known companies without financialreports.eu coverage | 178 |
+
+financialreports.eu provides the primary iXBRL-derived markdown source and has strong Main Market coverage (approximately 95% of FTSE 350 company-year slots). Companies House provides the PDF gap-fill route, which is especially important for AIM because financialreports.eu covers only around 28% of AIM slots. The combined corpus still leaves a small irreducible gap, mostly among shell companies, SPACs, micro-caps, and companies whose annual reports are not reliably indexed as annual reports by the source systems.
+
+### B.2 CNI Sector Assignment
+
+Companies are mapped from International Standard Industrial Classification (ISIC) codes to the National Protective Security Authority CNI taxonomy. Where a company plausibly spans multiple sectors, the primary sector is used for aggregate reporting.
+
+| CNI sector | Companies | Share of companies |
+|---|---:|---:|
+| Finance | 461 | 33.8% |
+| Other | 392 | 28.8% |
+| Energy | 141 | 10.4% |
+| Health | 111 | 8.1% |
+| Transport | 61 | 4.5% |
+| Food | 52 | 3.8% |
+| Chemicals | 34 | 2.5% |
+| Communications | 28 | 2.1% |
+| Data Infrastructure | 22 | 1.6% |
+| Government | 20 | 1.5% |
+| Defence | 20 | 1.5% |
+| Water | 18 | 1.3% |
+| Civil Nuclear | 2 | 0.1% |
+
+The low public-company representation of Civil Nuclear, Water, Defence, Government, Data Infrastructure, and Communications means sector-level percentages for these categories should be read as screening signals rather than precise population estimates.
 
 ---
 
@@ -673,4 +674,3 @@ The golden set comprises 474 AI-mention chunks drawn from 30 annual reports, two
 | Clarkson plc | Shipping | 2023, 2024 |
 
 The 15 companies are all large-cap or mid-cap listed firms with well-resourced investor relations and governance functions. This was deliberate: the golden set was designed to contain substantive, nuanced AI language rather than thin or absent disclosure, so that the classifier could be evaluated on the full range of signal types. The trade-off is that golden set agreement rates, measured against these more complex, multi-signal reports, may be slightly pessimistic relative to what the classifier achieves on simpler filings with single-label AI mentions. The golden set does not include AIM companies or reports from 2020–2022; agreement performance on these cohorts has not been independently validated.
-
