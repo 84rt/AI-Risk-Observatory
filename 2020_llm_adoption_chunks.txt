@@ -1,0 +1,90 @@
+2020 LLM adoption chunks
+========================
+
+Note: these 2020 examples are tagged in the dataset with adoption_types including "llm", but several read more like early NLP/chatbot/speech-model adoption than explicit modern LLM usage.
+
+1. ALBION VENTURE CAPITAL TST PLC
+Source: dashboard/data/annotations.jsonl line 564
+Chunk ID: chunk-ae2450a83934
+
+![img-0.jpeg](img-0.jpeg)
+
+## 10. Cantab Research Limited (T/A Speechmatics)
+
+Speechmatics provides advanced speech recognition software. Their technology can automatically transcribe any voice or audio assets from any live or recorded media and convert it into text in real time with leading accuracy across a wide range of languages. The software can be deployed using small footprint language models, which allow the speech to text processing to be performed at high accuracy both on premise and on device, as well as in the cloud. Albion funds invested alongside existing investors (IQ Capital and leading Cambridge angels) to accelerate growth.
+
+|  Filleted audited results: year to 31 December 2018 | GBP'000 | Investment information | GBP'000  |
+| --- | --- | --- | --- |
+|  Net assets | 2,148 | Income recognised in the year | -  |
+|  Basis of valuation: | Cost and price of recent investment (reviewed for impairment or uplift) | Total cost | 1,144  |
+|   |  | Total valuation | 1,144  |
+|   |  | Voting rights | 2.8 per cent.  |
+|   |  | Voting rights of all Albion managed companies | 12.9 per cent.  |
+
+Website: www.speechmatics.com
+
+
+2. AO WORLD PLC
+Source: dashboard/data/annotations.jsonl line 1268
+Chunk ID: chunk-3522ded34401
+
+The foundation of our business is providing a combination of leading customer service, with best-in-class propositional execution. Our customer base not only includes our core retail customers who shop via ao.com, ao.de, mobilephonesdirect.co.uk and our marketplaces, but customers from our white label sites, our B2B customers, other retailers (for our logistics services) and clients of our recycling business. Our customers are at the core of what we do and drive our thinking and innovation. During the period, we have continued to develop our proposition, launching a number of new initiatives.
+
+Progress over the year
+
+- Launched AO Finance, a market-leading rolling credit facility operated in partnership with NewDay, offering our customers additional purchasing flexibility, providing them with access to essential products and us a large share of their wallet, though affordable finance.
+- Expanded our accepted payment methods, making checkout easier.
+- Invested further in our customer proposition including the development of personalisation functionality and a chatbot sales assistant, to improve customer service and efficiencies.
+- Jointly invested with our brand partners in more initiatives to improve the online journey increasingly with our content as the destination of choice for the best product information.
+- Improved the ao.de customer proposition as we build towards an offer comparable to the UK, for example, through the introduction of dynamic timeslots and installation services.
+- Made significant improvements in our German e-commerce abilities and execution through the One AO approach, allowing us to better engage with our customers.
+- Built on the foundations of our MobilePhonesDirect business by launching ao-mobile.com in August 2019, our AO-branded mobile online retail platform.
+- Improved our customer proposition by directly integrating with some of our key network partners.
+- Continued to grow our B2B division making deliveries to tenants and beneficiaries, on behalf of our larger business clients, who are supported by a dedicated account management team, providing specialist support and advice.
+- Leveraged our logistics and recycling infrastructure into B2B to improve customer proposition, for example, launch of next day and nationwide seven-day delivery for housebuilders.
+- As part of our AO Innovation Labs initiative we trialled two new innovative solutions as we look to further advance our proposition for customers.
+
+Future plans
+
+- Continue to focus on our brand and proposition enhancements for both our retail and B2B customers to drive conversion and efficiencies.
+- Review our third-party logistics offering to ensure it is aligned with not only the needs of our retail customers but those of our third-party logistics clients to attract additional volumes.
+- Expand our recycling services through our new plastics recycling facility, allowing us to process the plastics from around 2.5 million fridges per annum.
+- Explore the possibility of refining the processed material from our new plastics recycling facilities for use directly in the production of new appliances.
+
+
+3. Hays PLC
+Source: dashboard/data/annotations.jsonl line 8931
+Chunk ID: chunk-a91edf8b9645
+
+Continuous innovation
+
+Our expert Hays Innovation team constantly monitors the technology landscape, identifying new trends, opportunities and threats and building relationships with key players. In FY20, we made excellent progress, notably with our Temp platform Hays Hub, which had great success in the UK Education sector pre-lockdown, and which we have rolled out to Social Care and also our Australian business. Our collaborations with Mya and Stack Overflow also had very good second years.
+
+We have introduced integrated AI chatbots to further automate our interaction with candidates. In tandem with our programmatic advertising initiatives, VideoMyJob roll-out and extensive use of social media, we can find niche talent pools across any digital channel. This includes specific targeting of passive candidates via automatically distributed content.
+
+"When we promise a client we can meet their requirements, however niche, we have all the tools to do so. I have never been failed by our technology in helping me deliver on a brief.
+
+"During Covid-19, Hays technology has enabled us to work 100% effectively from home. The connectivity has been seamless, and we have made full use of Skype and Microsoft Teams to maintain a team culture, sharing of documents and free-flowing communication."
+
+
+4. Balfour Beatty PLC
+Source: dashboard/data/annotations.jsonl line 2610
+Chunk ID: chunk-893dba29e07a
+
+The increasing ubiquity of mobile computer power, coupled with improved connectivity and acceptance by the workforce will lead to the wholesale replacement of traditional paper-based processes with digital capture of granular operational data at source.
+
+Augmented intelligence
+
+As inputs to processes become more standardised and data becomes an output generated from operations, the scope for applying advancements in Machine Learning and Artificial Intelligence to construction domain problems emerges. Whether through use of generative algorithms in the design process or the application of advanced models to risk analysis, expect the impact to be profound and augment experts in the field. Balfour Beatty is already seeing meaningful examples from its Omnicom Balfour Beatty business, read more on page 19.
+
+System and stakeholder integration
+
+With the maturity improvement of available operational datasets expect to see an increasing level of digital process integration in the supply chain leading to automation between enterprises and less wastage as a result.
+
+A smarter edge
+
+The combination of Digital Reality Capture; Pervasive Connectivity; Accessible Compute; and Systems Integration, will lead to the rise of a true, rich Digital Twin that is representative at all times of the current state of the asset, irrespective of position in the lifecycle. These assets and construction sites will have the ability to make controlled automated decisions within a specified framework, from autonomous plant and equipment operations through to predictive maintenance.
+
+Industrialising construction and Operation and Maintenance (O&M)
+
+Balfour Beatty continues to develop, embrace and embed new technology across the business.

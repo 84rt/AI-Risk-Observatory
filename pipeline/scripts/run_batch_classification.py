@@ -133,6 +133,9 @@ from src.classifiers.schemas import (
     AdoptionTypeResponse,
     RiskResponse,
     VendorResponse,
+    AdoptionSubstantivenessResponse,
+    RiskSubstantivenessResponse,
+    VendorSubstantivenessResponse,
 )
 from src.classifiers.base_classifier import _clean_schema_for_gemini
 from pydantic import BaseModel
@@ -218,9 +221,12 @@ def prepare_phase2_batch(
 
 p2_run_id = f"{RUN_ID}-phase2"
 
-adoption_input = prepare_phase2_batch(f"{p2_run_id}-adoption", adoption_chunks, "adoption_type", AdoptionTypeResponse)
-risk_input     = prepare_phase2_batch(f"{p2_run_id}-risk",     risk_chunks,     "risk_v5",       RiskResponse)
-vendor_input   = prepare_phase2_batch(f"{p2_run_id}-vendor",   vendor_chunks,   "vendor",        VendorResponse)
+adoption_input  = prepare_phase2_batch(f"{p2_run_id}-adoption",       adoption_chunks, "adoption_type",            AdoptionTypeResponse)
+risk_input      = prepare_phase2_batch(f"{p2_run_id}-risk",           risk_chunks,     "risk_v5",                  RiskResponse)
+vendor_input    = prepare_phase2_batch(f"{p2_run_id}-vendor",         vendor_chunks,   "vendor",                   VendorResponse)
+adoption_sub_input = prepare_phase2_batch(f"{p2_run_id}-adoption-sub", adoption_chunks, "adoption_substantiveness_v1", AdoptionSubstantivenessResponse)
+risk_sub_input     = prepare_phase2_batch(f"{p2_run_id}-risk-sub",     risk_chunks,     "risk_substantiveness_v1",    RiskSubstantivenessResponse)
+vendor_sub_input   = prepare_phase2_batch(f"{p2_run_id}-vendor-sub",   vendor_chunks,   "vendor_substantiveness_v1",  VendorSubstantivenessResponse)
 
 
 # %% ─── PHASE 2: SUBMIT ───────────────────────────────────────────────────────
@@ -228,11 +234,14 @@ vendor_input   = prepare_phase2_batch(f"{p2_run_id}-vendor",   vendor_chunks,   
 p2_jobs: dict[str, str] = {}
 
 if adoption_chunks:
-    p2_jobs["adoption"] = batch.submit(f"{p2_run_id}-adoption", adoption_input, model_name=MODEL)
+    p2_jobs["adoption"]     = batch.submit(f"{p2_run_id}-adoption",     adoption_input,     model_name=MODEL)
+    p2_jobs["adoption-sub"] = batch.submit(f"{p2_run_id}-adoption-sub", adoption_sub_input, model_name=MODEL)
 if risk_chunks:
-    p2_jobs["risk"]     = batch.submit(f"{p2_run_id}-risk",     risk_input,     model_name=MODEL)
+    p2_jobs["risk"]         = batch.submit(f"{p2_run_id}-risk",         risk_input,         model_name=MODEL)
+    p2_jobs["risk-sub"]     = batch.submit(f"{p2_run_id}-risk-sub",     risk_sub_input,     model_name=MODEL)
 if vendor_chunks:
-    p2_jobs["vendor"]   = batch.submit(f"{p2_run_id}-vendor",   vendor_input,   model_name=MODEL)
+    p2_jobs["vendor"]       = batch.submit(f"{p2_run_id}-vendor",       vendor_input,       model_name=MODEL)
+    p2_jobs["vendor-sub"]   = batch.submit(f"{p2_run_id}-vendor-sub",   vendor_sub_input,   model_name=MODEL)
 
 # Persist job names
 (RUNS_DIR / f"{p2_run_id}.jobs.json").write_text(json.dumps(p2_jobs, indent=2))
@@ -289,9 +298,12 @@ def get_p2_raw(label: str, job_name: str, p2_chunks: list[dict]) -> list[dict]:
     return results
 
 
-adoption_results = get_p2_raw("adoption", p2_jobs.get("adoption", ""), adoption_chunks)
-risk_results     = get_p2_raw("risk",     p2_jobs.get("risk",     ""), risk_chunks)
-vendor_results   = get_p2_raw("vendor",   p2_jobs.get("vendor",   ""), vendor_chunks)
+adoption_results     = get_p2_raw("adoption",     p2_jobs.get("adoption",     ""), adoption_chunks)
+risk_results         = get_p2_raw("risk",         p2_jobs.get("risk",         ""), risk_chunks)
+vendor_results       = get_p2_raw("vendor",       p2_jobs.get("vendor",       ""), vendor_chunks)
+adoption_sub_results = get_p2_raw("adoption-sub", p2_jobs.get("adoption-sub", ""), adoption_chunks)
+risk_sub_results     = get_p2_raw("risk-sub",     p2_jobs.get("risk-sub",     ""), risk_chunks)
+vendor_sub_results   = get_p2_raw("vendor-sub",   p2_jobs.get("vendor-sub",   ""), vendor_chunks)
 
 # Merge all results keyed by chunk_id
 merged: dict[str, dict] = {}
@@ -309,10 +321,13 @@ for chunk in confirmed_chunks:
         "chunk_text":     chunk.get("chunk_text"),
         "word_count":     chunk.get("word_count"),
         "matched_keywords": chunk.get("matched_keywords"),
-        "mention_types":  chunk.get("mention_types", []),
-        "adoption_types": [],
-        "risk_types":     [],
-        "vendor_tags":    [],
+        "mention_types":            chunk.get("mention_types", []),
+        "adoption_types":           [],
+        "risk_types":               [],
+        "vendor_tags":              [],
+        "adoption_substantiveness": None,
+        "risk_substantiveness":     None,
+        "vendor_substantiveness":   None,
     }
 
 for r in adoption_results:
@@ -337,6 +352,18 @@ for r in vendor_results:
         if p.get("other_vendor"):
             vendor_tags.append(f"other:{p['other_vendor']}")
         merged[r["chunk_id"]]["vendor_tags"] = vendor_tags
+
+for r in adoption_sub_results:
+    if r["chunk_id"] in merged and "parsed" in r:
+        merged[r["chunk_id"]]["adoption_substantiveness"] = r["parsed"].get("substantiveness")
+
+for r in risk_sub_results:
+    if r["chunk_id"] in merged and "parsed" in r:
+        merged[r["chunk_id"]]["risk_substantiveness"] = r["parsed"].get("substantiveness")
+
+for r in vendor_sub_results:
+    if r["chunk_id"] in merged and "parsed" in r:
+        merged[r["chunk_id"]]["vendor_substantiveness"] = r["parsed"].get("substantiveness")
 
 # Save final merged output
 final_out = RUNS_DIR / f"{p2_run_id}.classified_chunks.jsonl"

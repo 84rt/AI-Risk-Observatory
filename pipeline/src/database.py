@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker, Session, relationship
 
 from .config import get_settings
 from .utils.normalization import (
+    normalize_substantiveness as _normalize_substantiveness,
     normalize_risk_substantiveness as _normalize_risk_substantiveness_shared,
     risk_signals_from_payload,
 )
@@ -285,19 +286,26 @@ class Mention(Base):
     risk_evidence = Column(Text, default="{}")  # JSON dict
     risk_key_snippets = Column(Text, default="{}")  # JSON dict
     # Canonical categorical enum: boilerplate | moderate | substantive
+    # risk_substantiveness: scored inline by risk_v5 classifier
+    # risk_sub_substantiveness: scored by standalone risk_substantiveness_v1 classifier (for comparison)
     risk_substantiveness = Column(String)
+    risk_sub_substantiveness = Column(String)
     risk_reasoning = Column(Text)
 
     # Adoption Classification
     adoption_confidences = Column(Text, default="{}")  # JSON dict
     adoption_evidence = Column(Text, default="{}")  # JSON dict
     adoption_reasoning = Column(Text)
+    # Canonical categorical enum: boilerplate | moderate | substantive
+    adoption_substantiveness = Column(String)
 
     # Vendor Classification
     vendor_confidences = Column(Text, default="{}")  # JSON dict
     vendor_other = Column(String)
     vendor_evidence = Column(Text, default="{}")  # JSON dict
     vendor_reasoning = Column(Text)
+    # Canonical categorical enum: boilerplate | moderate | substantive
+    vendor_substantiveness = Column(String)
 
     # Harm / General
     harm_confidence = Column(Float)
@@ -832,6 +840,9 @@ class Database:
         adoption_result: Optional[dict] = None,
         risk_result: Optional[dict] = None,
         vendor_result: Optional[dict] = None,
+        adoption_sub_result: Optional[dict] = None,
+        risk_sub_result: Optional[dict] = None,
+        vendor_sub_result: Optional[dict] = None,
     ) -> Mention:
         """Save a mention record with multi-stage classification output."""
         mention_types = mention_type_result.get("mention_types", [])
@@ -841,6 +852,9 @@ class Database:
         adoption_result = adoption_result or {}
         risk_result = risk_result or {}
         vendor_result = vendor_result or {}
+        adoption_sub_result = adoption_sub_result or {}
+        risk_sub_result = risk_sub_result or {}
+        vendor_sub_result = vendor_sub_result or {}
 
         mention = Mention(
             mention_id=candidate.span_id,
@@ -862,10 +876,13 @@ class Database:
             risk_confidences=json.dumps(_normalize_risk_signals(risk_result)),
             risk_evidence=json.dumps(risk_result.get("evidence", {})),
             risk_key_snippets=json.dumps(risk_result.get("key_snippets", {})),
-            risk_substantiveness=_normalize_risk_substantiveness(
+            risk_substantiveness=_normalize_substantiveness(
                 risk_result.get("substantiveness")
                 or risk_result.get("risk_substantiveness")
                 or risk_result.get("substantiveness_score")
+            ),
+            risk_sub_substantiveness=_normalize_substantiveness(
+                risk_sub_result.get("substantiveness")
             ),
             risk_reasoning=risk_result.get("reasoning", ""),
             adoption_confidences=json.dumps(
@@ -873,6 +890,9 @@ class Database:
             ),
             adoption_evidence=json.dumps(adoption_result.get("evidence", {})),
             adoption_reasoning=adoption_result.get("reasoning", ""),
+            adoption_substantiveness=_normalize_substantiveness(
+                adoption_sub_result.get("substantiveness")
+            ),
             vendor_confidences=json.dumps(
                 {v["vendor"]: v["signal"] for v in vendor_result.get("vendors", [])}
                 if vendor_result.get("vendors") else {}
@@ -880,6 +900,9 @@ class Database:
             vendor_other=vendor_result.get("other_vendor", ""),
             vendor_evidence=json.dumps(vendor_result.get("evidence", {})),
             vendor_reasoning=vendor_result.get("reasoning", ""),
+            vendor_substantiveness=_normalize_substantiveness(
+                vendor_sub_result.get("substantiveness")
+            ),
             harm_confidence=mention_confidences.get("harm"),
             general_ambiguous_confidence=mention_confidences.get("general_ambiguous"),
             confidence_score=_max_confidence(mention_confidences),

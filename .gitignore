@@ -81,5 +81,7 @@ next-env.d.ts
 /context/reference/
 aqse.csv
 
+report/nonessential/
+
 OCR_test/
 OCR_test/*

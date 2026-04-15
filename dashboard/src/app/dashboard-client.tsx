@@ -1755,7 +1755,7 @@ function DashboardContent({
 
       return {
         title: riskBreakdownMode === 'phase1'
-          ? 'AI Risk Mentioned by Sector and Year'
+          ? 'Percentage of Companies Mentioning AI as a Risk by Sector and Year'
           : riskFilter === 'all'
             ? 'Risk Distribution by Sector'
             : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`,
@@ -3378,7 +3378,7 @@ function DashboardContent({
                   showBlindSpots={true}
                   title={
                     riskBreakdownMode === 'phase1'
-                      ? 'AI Risk Mentioned by Sector and Year'
+                      ? 'Percentage of Companies Mentioning AI as a Risk by Sector and Year'
                       : riskFilter === 'all'
                         ? 'Risk Distribution by Sector'
                         : `${formatLabel(riskFilter)} Risk Mentions by Sector and Year`

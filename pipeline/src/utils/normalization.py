@@ -38,18 +38,15 @@ def normalize_risk_labels(values: Iterable[str]) -> list[str]:
     return [normalize_risk_label(v) for v in values]
 
 
-def normalize_risk_substantiveness(value: Any) -> Optional[str]:
-    """Normalize risk substantiveness to canonical categorical labels.
+SUBSTANTIVENESS_LEVELS = {"boilerplate", "moderate", "substantive"}
+SUBSTANTIVENESS_ALIASES = {"contextual": "moderate"}
 
-    Accepted canonical values:
-    - boilerplate
-    - moderate
-    - substantive
 
-    Legacy compatible inputs:
-    - "contextual" -> "moderate"
-    - numeric 0-1 bucketized by thirds
-    - numeric 0-3 rounded then mapped to categories
+def normalize_substantiveness(value: Any) -> Optional[str]:
+    """Normalize any substantiveness value to canonical categorical labels.
+
+    Canonical values: boilerplate | moderate | substantive
+    Legacy compatible: "contextual" -> "moderate", numeric 0-1 or 0-3.
     """
     if value is None:
         return None
@@ -70,10 +67,19 @@ def normalize_risk_substantiveness(value: Any) -> Optional[str]:
         return "boilerplate"
 
     token = str(value).strip().lower()
-    token = RISK_SUBSTANTIVENESS_ALIASES.get(token, token)
-    if token in RISK_SUBSTANTIVENESS_LEVELS:
+    token = SUBSTANTIVENESS_ALIASES.get(token, token)
+    if token in SUBSTANTIVENESS_LEVELS:
         return token
-    return None
+
+    try:
+        return normalize_substantiveness(float(token))
+    except ValueError:
+        return None
+
+
+def normalize_risk_substantiveness(value: Any) -> Optional[str]:
+    """Normalize risk substantiveness. Delegates to normalize_substantiveness."""
+    return normalize_substantiveness(value)
 
 
 def normalize_signal_to_unit_interval(score: float, max_signal: float = 3.0) -> float:

@@ -681,6 +681,106 @@ class SubstantivenessResponseV2(BaseModel):
 
 
 # =============================================================================
+# Risk Substantiveness Classifier (standalone)
+# =============================================================================
+
+
+class RiskSubstantivenessResponse(BaseModel):
+    """Standalone substantiveness classifier for AI risk disclosures.
+
+    Scores on two dimensions: specificity of the risk mechanism and
+    tangibility of the company's response (mitigations, commitments, resources).
+    Both must be present for substantive; either alone is moderate.
+    """
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI risk disclosure? "
+            "'boilerplate': generic risk language, no specific mechanism or action; interchangeable across companies. "
+            "'moderate': names a specific risk area or mechanism but lacks concrete mitigation, commitment, or timeline. "
+            "'substantive': specific risk mechanism AND at least one tangible mitigation action, resource, or commitment."
+        )
+    )
+    confidence: float = Field(
+        description="Classification confidence (0.0-1.0).",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="1-2 sentences citing the key evidence for the classification.",
+    )
+
+
+# =============================================================================
+# Adoption Substantiveness Classifier
+# =============================================================================
+
+
+class AdoptionSubstantivenessResponse(BaseModel):
+    """Standalone substantiveness classifier for AI adoption disclosures.
+
+    Scores how much actionable, company-specific information an excerpt
+    conveys about what AI is used, how, at what scale, and to what effect.
+    """
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI adoption disclosure? "
+            "'boilerplate': generic language, interchangeable across companies; no named systems, use cases, or outcomes. "
+            "'moderate': names a specific domain or application but lacks system name, metric, or deployment context. "
+            "'substantive': names a specific system or vendor AND links it to a concrete use case, outcome, or deployment detail."
+        )
+    )
+    confidence: float = Field(
+        description="Classification confidence (0.0-1.0).",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="1-2 sentences citing the key evidence for the classification.",
+    )
+
+
+# =============================================================================
+# Vendor Substantiveness Classifier
+# =============================================================================
+
+
+class VendorSubstantivenessResponse(BaseModel):
+    """Standalone substantiveness classifier for AI vendor disclosures.
+
+    Scores how much actionable, company-specific information an excerpt
+    conveys about which AI vendors or platforms the company uses and how.
+    """
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    substantiveness: SubstantivenessLevel = Field(
+        description=(
+            "How tangible is the AI vendor disclosure? "
+            "'boilerplate': no specific vendor named; only generic references to 'AI tools' or 'technology partners'. "
+            "'moderate': names a specific vendor or model but provides no use case, scale, or outcome. "
+            "'substantive': names a specific vendor or model AND describes a concrete use case, deployment context, or outcome."
+        )
+    )
+    confidence: float = Field(
+        description="Classification confidence (0.0-1.0).",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="1-2 sentences citing the key evidence for the classification.",
+    )
+
+
+# =============================================================================
 # Harms Classifier
 # =============================================================================
 
