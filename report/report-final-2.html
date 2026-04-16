@@ -9,24 +9,28 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --accent:        #9f5c00;
-      --accent-dark:   #5f3700;
-      --accent-soft:   #f8ead2;
-      --ink:           #171717;
-      --ink-muted:     #525252;
-      --ink-light:     #737373;
-      --line:          #d7d3cc;
-      --line-strong:   #a8a29a;
-      --paper:         #fffdfa;
-      --canvas:        #e8e3da;
-      --panel:         #f7f3ec;
-      --shadow-page:   0 24px 70px rgba(41, 37, 36, .16);
-      --shadow-sm:     0 1px 3px rgba(41, 37, 36, .08);
+      --accent:        #e63946;
+      --accent-dark:   #b91c1c;
+      --accent-soft:   #fee2e2;
+      --accent-pale:   #fff1f2;
+      --blue:          #1d4ed8;
+      --blue-soft:     #dbeafe;
+      --ink:           #0b0c0c;
+      --ink-muted:     #505a5f;
+      --ink-light:     #6f777b;
+      --line:          #b1b4b6;
+      --line-soft:     #d9dcde;
+      --line-strong:   #6f777b;
+      --paper:         #ffffff;
+      --canvas:        #f3f2f1;
+      --panel:         #f8f9fa;
+      --shadow-page:   0 24px 70px rgba(15, 23, 42, .16);
+      --shadow-sm:     0 1px 3px rgba(15, 23, 42, .08);
       --radius:        4px;
       --page-width:    210mm;
       --page-pad-x:    21mm;
       --page-pad-y:    22mm;
-      --font-body:     'Georgia', 'Times New Roman', serif;
+      --font-body:     -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
       --font-sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
       --font-mono:     'SF Mono', 'Fira Code', 'Consolas', monospace;
     }
@@ -40,7 +44,7 @@
       color: var(--ink);
       background: var(--canvas);
       -webkit-font-smoothing: antialiased;
-      font-variant-numeric: oldstyle-nums;
+      font-variant-numeric: tabular-nums;
     }
 
     /* -- Layout ------------------------------------------------------ */
@@ -66,13 +70,31 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 8mm 0 0;
+      position: relative;
+      overflow: hidden;
+      padding: 12mm;
       margin: 0 0 18mm;
       border: 0;
       border-radius: 0;
       box-shadow: none;
+      background:
+        linear-gradient(90deg, rgba(11, 12, 12, .88) 0%, rgba(11, 12, 12, .64) 45%, rgba(11, 12, 12, .16) 100%),
+        url("report-bg.png") center / cover no-repeat;
       page-break-after: always;
       break-after: page;
+    }
+
+    .cover::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-top: 8px solid var(--accent);
+      pointer-events: none;
+    }
+
+    .cover > * {
+      position: relative;
+      z-index: 1;
     }
 
     .cover .label {
@@ -81,17 +103,17 @@
       font-weight: 700;
       letter-spacing: .16em;
       text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 24mm;
+      color: #ffffff;
+      margin-bottom: 18mm;
     }
 
     .cover h1 {
       max-width: 150mm;
-      font-size: 29pt;
-      font-weight: 700;
-      line-height: 1.14;
+      font-size: 31pt;
+      font-weight: 800;
+      line-height: 1.08;
       letter-spacing: 0;
-      color: var(--ink);
+      color: #ffffff;
       margin-bottom: 10mm;
     }
 
@@ -101,13 +123,14 @@
       gap: 8mm;
       font-family: var(--font-sans);
       font-size: 9pt;
-      color: var(--ink-muted);
-      border-top: 2px solid var(--ink);
+      color: rgba(255, 255, 255, .82);
+      border-top: 2px solid rgba(255, 255, 255, .78);
       padding-top: 5mm;
       margin-top: auto;
     }
 
-    .cover .meta a { color: var(--accent); text-decoration: none; }
+    .cover .meta strong { color: #ffffff; }
+    .cover .meta a { color: #ffffff; text-decoration: none; }
     .cover .meta a:hover { text-decoration: underline; }
 
     /* -- Contents ---------------------------------------------------- */
@@ -120,6 +143,7 @@
 
     .report-toc h2 {
       margin-top: 0;
+      border-bottom-color: var(--accent);
     }
 
     .report-toc ol {
@@ -138,6 +162,7 @@
       border-bottom: 1px solid var(--line);
       font-family: var(--font-sans);
       font-size: 10pt;
+      font-weight: 600;
       line-height: 1.3;
     }
 
@@ -160,7 +185,7 @@
       color: var(--ink);
       margin: 18mm 0 6mm;
       padding-bottom: 3mm;
-      border-bottom: 1.5px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
       break-after: avoid;
     }
 
@@ -173,6 +198,8 @@
       color: var(--ink);
       margin: 10mm 0 3mm;
       break-after: avoid;
+      border-left: 4px solid var(--accent);
+      padding-left: 3mm;
     }
 
     h4 {
@@ -230,6 +257,7 @@
       border-radius: var(--radius);
       box-shadow: none;
       break-inside: avoid;
+      background: var(--paper);
     }
 
     table {
@@ -264,7 +292,7 @@
       white-space: nowrap;
     }
 
-    tbody tr:nth-child(even) { background: #f5f1ea; }
+    tbody tr:nth-child(even) { background: var(--panel); }
     tbody tr:hover { background: var(--accent-soft); }
 
     td {
@@ -277,15 +305,17 @@
     td:first-child { font-weight: 500; }
 
     /* highlight negative values */
-    .neg { color: #dc2626; font-weight: 600; }
+    .neg { color: var(--accent-dark); font-weight: 600; }
     .pos { color: #16a34a; font-weight: 600; }
-    .warn { color: var(--accent); font-weight: 700; }
+    .warn { color: #d97706; font-weight: 700; }
 
     /* -- Figure Placeholders ---------------------------------------- */
     .figure-placeholder {
       border: 1px solid var(--line-strong);
       border-radius: var(--radius);
-      background: var(--panel);
+      background:
+        linear-gradient(135deg, rgba(219, 234, 254, .55), rgba(254, 226, 226, .48)),
+        var(--panel);
       padding: 9mm 7mm;
       margin: 6mm 0 8mm;
       text-align: center;
@@ -344,7 +374,8 @@
 
     .stat-card {
       background: #fffaf2;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
+      border-top: 4px solid var(--accent);
       border-radius: var(--radius);
       padding: 5mm 4mm;
       box-shadow: none;
@@ -383,6 +414,11 @@
         margin: 18mm 18mm 20mm;
       }
 
+      @page cover {
+        size: A4;
+        margin: 0;
+      }
+
       * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
@@ -407,10 +443,13 @@
         box-shadow: none;
       }
       .cover {
+        page: cover;
         min-height: auto;
-        height: 246mm;
-        padding-top: 0;
+        height: 297mm;
+        margin: 0;
+        padding: 22mm;
         margin-bottom: 0;
+        z-index: 40;
       }
       .cover .meta {
         grid-template-columns: 1fr;
@@ -425,11 +464,13 @@
       h2 {
         break-before: page;
         page-break-before: always;
+        margin-top: 0;
       }
       .report-toc h2,
       h2:first-of-type {
         break-before: auto;
         page-break-before: auto;
+        margin-top: 0;
       }
       h3,
       h4,
@@ -457,7 +498,7 @@
     }
 
     /* -- Responsive -------------------------------------------------- */
-    @media (max-width: 860px) {
+    @media screen and (max-width: 860px) {
       .layout {
         padding: 0;
       }

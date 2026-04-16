@@ -305,7 +305,7 @@ type TrendTimeAxis = 'year' | 'month';
 type RiskBreakdownMode = 'categories' | 'phase1';
 type RiskSectorView = 'cni' | 'isic';
 type SignalQualityMode = 'explicitness' | 'substantiveness';
-type MetricMode = 'count' | 'pct_reports';
+type MetricMode = 'count' | 'pct_reports' | 'pct_ai_reports';
 type SignalQualityMetricMode = 'count' | 'pct_year_total';
 type DashboardPreset = 'ai-risk-line' | 'llm-adoption-line' | 'cyber-risk-line';
 type ChartRow = Record<string, string | number | null | undefined>;
@@ -1059,7 +1059,15 @@ function DashboardContent({
   const canShowReportShare =
     !isSignalQualityOpen && datasetKey === 'perReport';
   const effectiveMetricMode: MetricMode = canShowReportShare ? metricMode : 'count';
-  const isReportShareMode = effectiveMetricMode === 'pct_reports';
+  const isAllReportsShareMode = effectiveMetricMode === 'pct_reports';
+  const isAiMentionShareMode = effectiveMetricMode === 'pct_ai_reports';
+  const isPercentageMetricMode = isAllReportsShareMode || isAiMentionShareMode;
+  const percentageDenominatorLongLabel = isAiMentionShareMode
+    ? 'AI-reporting annual reports'
+    : 'annual reports';
+  const percentageDenominatorShortLabel = isAiMentionShareMode
+    ? 'AI-reporting reports'
+    : 'reports';
   const availableYears = activeData.years;
   const maxYearIndex = Math.max(availableYears.length - 1, 0);
   const fullDatasetYearSpan = reportBaselineData.years.length > 0
@@ -1488,6 +1496,30 @@ function DashboardContent({
     [reportBaselineData.blindSpotTrendMonthly]
   );
 
+  const aiMentionReportTotalsByYear = useMemo(
+    () =>
+      new Map(
+        reportBaselineData.blindSpotTrend.map(row => {
+          const totalReports = Number(row.total_reports) || 0;
+          const aiMentionReports = Number(row.ai_mention) || Math.max(totalReports - (Number(row.no_ai_mention) || 0), 0);
+          return [Number(row.year), aiMentionReports];
+        })
+      ),
+    [reportBaselineData.blindSpotTrend]
+  );
+
+  const aiMentionReportTotalsByMonth = useMemo(
+    () =>
+      new Map(
+        reportBaselineData.blindSpotTrendMonthly.map(row => {
+          const totalReports = Number(row.total_reports) || 0;
+          const aiMentionReports = Math.max(totalReports - (Number(row.no_ai_mention) || 0), 0);
+          return [String(row.month), aiMentionReports];
+        })
+      ),
+    [reportBaselineData.blindSpotTrendMonthly]
+  );
+
   const reportTotalsBySectorYearInRange = useMemo(
     () =>
       reportBaselineData.reportCountBySectorYear.filter(
@@ -1602,59 +1634,74 @@ function DashboardContent({
 
   const displayRiskTrend = useMemo(() => {
     const source = trendTimeAxis === 'month' ? filteredMonthlyRiskTrend : filteredRiskTrend;
-    if (!isReportShareMode) return source;
+    if (!isPercentageMetricMode) return source;
     return convertTrendRowsToPercent(
       source,
       trendTimeAxis === 'month' ? 'month' : 'year',
       riskChartStackKeys,
-      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+      trendTimeAxis === 'month'
+        ? (isAiMentionShareMode ? aiMentionReportTotalsByMonth : reportTotalsByMonth)
+        : (isAiMentionShareMode ? aiMentionReportTotalsByYear : reportTotalsByYear)
     );
   }, [
     trendTimeAxis,
     filteredMonthlyRiskTrend,
     filteredRiskTrend,
-    isReportShareMode,
+    isPercentageMetricMode,
+    isAiMentionShareMode,
     riskChartStackKeys,
+    aiMentionReportTotalsByMonth,
+    aiMentionReportTotalsByYear,
     reportTotalsByMonth,
     reportTotalsByYear,
   ]);
 
   const displayAdoptionTrend = useMemo(() => {
     const source = trendTimeAxis === 'month' ? filteredMonthlyAdoptionTrend : filteredAdoptionTrend;
-    if (!isReportShareMode) return source;
+    if (!isPercentageMetricMode) return source;
     return convertTrendRowsToPercent(
       source,
       trendTimeAxis === 'month' ? 'month' : 'year',
       adoptionFilter === 'all' ? adoptionStackKeys : [adoptionFilter],
-      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+      trendTimeAxis === 'month'
+        ? (isAiMentionShareMode ? aiMentionReportTotalsByMonth : reportTotalsByMonth)
+        : (isAiMentionShareMode ? aiMentionReportTotalsByYear : reportTotalsByYear)
     );
   }, [
     trendTimeAxis,
     filteredMonthlyAdoptionTrend,
     filteredAdoptionTrend,
-    isReportShareMode,
+    isPercentageMetricMode,
+    isAiMentionShareMode,
     adoptionFilter,
     adoptionStackKeys,
+    aiMentionReportTotalsByMonth,
+    aiMentionReportTotalsByYear,
     reportTotalsByMonth,
     reportTotalsByYear,
   ]);
 
   const displayVendorTrend = useMemo(() => {
     const source = trendTimeAxis === 'month' ? filteredMonthlyVendorTrend : filteredVendorTrend;
-    if (!isReportShareMode) return source;
+    if (!isPercentageMetricMode) return source;
     return convertTrendRowsToPercent(
       source,
       trendTimeAxis === 'month' ? 'month' : 'year',
       effectiveVendorFilter === 'all' ? vendorStackKeys : [effectiveVendorFilter],
-      trendTimeAxis === 'month' ? reportTotalsByMonth : reportTotalsByYear
+      trendTimeAxis === 'month'
+        ? (isAiMentionShareMode ? aiMentionReportTotalsByMonth : reportTotalsByMonth)
+        : (isAiMentionShareMode ? aiMentionReportTotalsByYear : reportTotalsByYear)
     );
   }, [
     trendTimeAxis,
     filteredMonthlyVendorTrend,
     filteredVendorTrend,
-    isReportShareMode,
+    isPercentageMetricMode,
+    isAiMentionShareMode,
     effectiveVendorFilter,
     vendorStackKeys,
+    aiMentionReportTotalsByMonth,
+    aiMentionReportTotalsByYear,
     reportTotalsByMonth,
     reportTotalsByYear,
   ]);
@@ -2053,11 +2100,11 @@ function DashboardContent({
   const riskSelectedYearSpan = filteredYears.length > 0
     ? `${selectedStartYear}–${selectedEndYear}`
     : 'N/A';
-  const stackedChartYAxisFormatter = isReportShareMode
+  const stackedChartYAxisFormatter = isPercentageMetricMode
     ? (value: number) => `${Math.round(value)}%`
     : undefined;
   const stackedChartTooltipFormatter = (value: number) =>
-    isReportShareMode ? formatPercent(value) : formatNumber(value);
+    isPercentageMetricMode ? formatPercent(value) : formatNumber(value);
   const riskHeatmapValueFormatter = (value: number) => formatPercent(value);
   const dashboardUpdatedLabel = 'Dataset updated 3 Apr 2026';
   const currentVisualizationExport = useMemo<VisualizationExport>(() => {
@@ -2283,35 +2330,24 @@ function DashboardContent({
     </div>
   );
 
+  const handleMetricModeChange = (nextMode: MetricMode) => {
+    if (nextMode !== 'count') {
+      setDatasetKey('perReport');
+    }
+    setMetricMode(nextMode);
+  };
+
   const metricModeToggle = (
-    <div className="inline-flex items-center overflow-hidden rounded border border-border bg-white p-1">
-      <button
-        type="button"
-        onClick={() => {
-          if (!canShowReportShare) return;
-          setMetricMode('pct_reports');
-        }}
-        disabled={!canShowReportShare}
-        className={`${segmentedButtonClass} ${
-          effectiveMetricMode === 'pct_reports'
-            ? 'bg-primary text-white'
-            : 'text-muted-foreground hover:bg-secondary'
-        } ${!canShowReportShare ? 'cursor-not-allowed opacity-40 hover:bg-white' : ''}`}
-      >
-        % of reports with a given AI mention
-      </button>
-      <button
-        type="button"
-        onClick={() => setMetricMode('count')}
-        className={`${segmentedButtonClass} ${
-          effectiveMetricMode === 'count'
-            ? 'bg-primary text-white'
-            : 'text-muted-foreground hover:bg-secondary'
-        }`}
-      >
-        {datasetKey === 'perChunk' ? 'Number of AI mentions (total)' : 'Number of reports (total)'}
-      </button>
-    </div>
+    <select
+      id="metric-mode"
+      value={effectiveMetricMode}
+      onChange={event => handleMetricModeChange(event.target.value as MetricMode)}
+      className="w-full aisi-select"
+    >
+      <option value="pct_reports">% of all reports</option>
+      <option value="pct_ai_reports">% of AI-reporting reports</option>
+      <option value="count">{datasetKey === 'perChunk' ? 'Number of AI mentions (total)' : 'Number of reports (total)'}</option>
+    </select>
   );
 
   const signalQualityMetricModeToggle = (
@@ -2764,7 +2800,7 @@ function DashboardContent({
               <div className="space-y-3">
                 {renderSettingsSectionHeading(
                   'Y-Axis Metric',
-                  'Choose what the Y-axis shows. % of reports with a given AI mention shows the share of annual filings that contain the selected label in each period. Number of reports (total) shows the raw number of matching annual reports. Number of AI mentions (total) shows the raw number of matching AI mentions.'
+                  'Choose what the Y-axis shows. % of all reports shows the share of all annual filings in each period that contain the selected label. % of AI-reporting reports shows the share among only the filings that mention AI at all. Number of reports (total) shows the raw number of matching annual reports. Number of AI mentions (total) shows the raw number of matching AI mentions. Percentage modes always use Per Report aggregation.'
                 )}
                 {metricModeToggle}
               </div>
@@ -3018,10 +3054,11 @@ function DashboardContent({
           for the full rubric.
         </CollapsibleSection>
         <CollapsibleSection variant="faq" title="What is the most conservative way to read the data?" open={openFaqIndex === 2} onToggle={() => setOpenFaqIndex(openFaqIndex === 2 ? null : 2)}>
-          Use the <strong className="text-slate-800">% of reports with a given AI mention</strong> metric with the{' '}
+          Use the <strong className="text-slate-800">% of all reports</strong> metric with the{' '}
           <strong className="text-slate-800">Per Report</strong> aggregation. Both avoid double-counting and give
           the most conservative reading of prevalence — each annual filing counts as one data point regardless of
-          how many AI mentions it contains.
+          how many AI mentions it contains. The <strong className="text-slate-800">% of AI-reporting reports</strong>{' '}
+          option is useful for comparing the mix of labels within the AI-reporting subset, but it is not a whole-dataset prevalence measure.
         </CollapsibleSection>
         <CollapsibleSection variant="faq" title="What does 'publication year' mean?" open={openFaqIndex === 3} onToggle={() => setOpenFaqIndex(openFaqIndex === 3 ? null : 3)}>
           Years on the x-axis reflect when the report was filed or published, not the end of the company&apos;s
@@ -3623,7 +3660,7 @@ function DashboardContent({
                   colors={riskChartColors}
                   yAxisTickFormatter={stackedChartYAxisFormatter}
                   tooltipValueFormatter={stackedChartTooltipFormatter}
-                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  yAxisDomain={isPercentageMetricMode ? [0, 100] : undefined}
                   allowLineChart={trendTimeAxis === 'year'}
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
@@ -3642,11 +3679,11 @@ function DashboardContent({
                   title={riskBreakdownMode === 'phase1' ? 'AI Risk Mentioned Over Time' : 'AI Risk Categories Mentioned Over Time'}
                   subtitle={
                     riskBreakdownMode === 'phase1'
-                      ? isReportShareMode
-                        ? `Bar chart showing the percentage of annual reports with a phase 1 AI-risk signal (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis).`
+                      ? isPercentageMetricMode
+                        ? `Bar chart showing the percentage of ${percentageDenominatorLongLabel} with a phase 1 AI-risk signal (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis).`
                         : `Bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} with a phase 1 AI-risk signal (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis).`
-                      : isReportShareMode
-                      ? `Stacked bar chart showing the percentage of annual reports mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each coloured segment is the share of reports in that period tagged with the category.`
+                      : isPercentageMetricMode
+                      ? `Stacked bar chart showing the percentage of ${percentageDenominatorLongLabel} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each coloured segment is the share of ${percentageDenominatorShortLabel} in that period tagged with the category.`
                       : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} mentioning each AI risk category (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). Each colour represents one risk category; bars are additive because a single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} can be tagged with multiple categories. The y-axis scale adjusts dynamically to the data shown.`
                   }
                   tooltip={
@@ -3657,8 +3694,8 @@ function DashboardContent({
                         </>
                       : <>
                           <p>
-                            {isReportShareMode
-                              ? 'Each segment shows the share of reports in that period tagged with the risk category.'
+                            {isPercentageMetricMode
+                              ? `Each segment shows the share of ${percentageDenominatorShortLabel} in that period tagged with the risk category.`
                               : 'Each bar is stacked by risk category: the total height is the sum of all risk-category mentions that year, and each colour represents one category.'}
                           </p>
                           <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'AI mention'} can be tagged with multiple risk categories and therefore contribute to several coloured segments within the same year&apos;s bar; segments are not mutually exclusive.</p>
@@ -3749,7 +3786,7 @@ function DashboardContent({
                   colors={adoptionColors}
                   yAxisTickFormatter={stackedChartYAxisFormatter}
                   tooltipValueFormatter={stackedChartTooltipFormatter}
-                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  yAxisDomain={isPercentageMetricMode ? [0, 100] : undefined}
                   allowLineChart={trendTimeAxis === 'year'}
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
@@ -3763,13 +3800,13 @@ function DashboardContent({
                   footerExtra={visualizationFooter}
                   title="AI Adoption Mentioned Over Time"
                   subtitle={
-                    isReportShareMode
-                      ? `Stacked bar chart showing the percentage of annual reports referencing each AI adoption maturity level — Traditional AI (non-LLM), LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
+                    isPercentageMetricMode
+                      ? `Stacked bar chart showing the percentage of ${percentageDenominatorLongLabel} referencing each AI adoption maturity level — Traditional AI (non-LLM), LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
                       : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} referencing each AI adoption maturity level — Traditional AI (non-LLM), LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
                   }
                   tooltip={
                     <>
-                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the adoption type.' : 'Each bar is stacked by adoption type: Traditional AI (non-LLM), LLM, and Agentic.'}</p>
+                      <p>{isPercentageMetricMode ? `Each segment shows the share of ${percentageDenominatorShortLabel} in that period tagged with the adoption type.` : 'Each bar is stacked by adoption type: Traditional AI (non-LLM), LLM, and Agentic.'}</p>
                       <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'AI mention'} can be tagged with multiple adoption types and can therefore contribute to more than one segment within the same year.</p>
                       <p className="mt-2">Click a legend item to isolate one adoption type.</p>
                     </>
@@ -3843,7 +3880,7 @@ function DashboardContent({
                   colors={vendorColors}
                   yAxisTickFormatter={stackedChartYAxisFormatter}
                   tooltipValueFormatter={stackedChartTooltipFormatter}
-                  yAxisDomain={isReportShareMode ? [0, 100] : undefined}
+                  yAxisDomain={isPercentageMetricMode ? [0, 100] : undefined}
                   allowLineChart={trendTimeAxis === 'year'}
                   showChartTypeToggle={false}
                   chartType={activeChartDisplayType}
@@ -3857,13 +3894,13 @@ function DashboardContent({
                   footerExtra={visualizationFooter}
                   title="AI Vendors Mentioned Over Time"
                   subtitle={
-                    isReportShareMode
-                      ? `Stacked bar chart showing the percentage of annual reports referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
+                    isPercentageMetricMode
+                      ? `Stacked bar chart showing the percentage of ${percentageDenominatorLongLabel} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may reference multiple vendors, so stacked totals can exceed 100%.`
                       : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} referencing each AI vendor or provider tag (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} may reference multiple vendors. The y-axis scale adjusts dynamically to the data shown.`
                   }
                   tooltip={
                     <>
-                      <p>{isReportShareMode ? 'Each segment shows the share of reports in that period tagged with the vendor reference.' : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Amazon / AWS, Meta, Anthropic, Internal, Other).'}</p>
+                      <p>{isPercentageMetricMode ? `Each segment shows the share of ${percentageDenominatorShortLabel} in that period tagged with the vendor reference.` : 'Each bar is stacked by vendor tag (OpenAI, Microsoft, Google, Amazon / AWS, Meta, Anthropic, Internal, Other).'}</p>
                       <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'AI mention'} can include multiple vendor tags, so one item may contribute to more than one segment.</p>
                       <p className="mt-2"><span className="font-medium">Internal</span> means in-house AI development.</p>
                       <p className="mt-2">Click a legend item to isolate one vendor tag.</p>
