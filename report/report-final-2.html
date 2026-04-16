@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tracking AI Risk and Adoption in UK Public-Company Annual Reports</title>
+  <title>AI Risk Observatory: Tracking AI Risk and Adoption in UK Public-Company Annual Reports</title>
   <style>
     /* -- Base -------------------------------------------------------- */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,7 +79,7 @@
       box-shadow: none;
       background:
         linear-gradient(90deg, rgba(11, 12, 12, .88) 0%, rgba(11, 12, 12, .64) 45%, rgba(11, 12, 12, .16) 100%),
-        url("report-bg.png") center / cover no-repeat;
+        url("report-bg.jpg") center / cover no-repeat;
       page-break-after: always;
       break-after: page;
     }
@@ -94,7 +94,7 @@
 
     .cover > * {
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
 
     .cover .label {
@@ -309,42 +309,28 @@
     .pos { color: #16a34a; font-weight: 600; }
     .warn { color: #d97706; font-weight: 700; }
 
-    /* -- Figure Placeholders ---------------------------------------- */
-    .figure-placeholder {
-      border: 1px solid var(--line-strong);
-      border-radius: var(--radius);
-      background:
-        linear-gradient(135deg, rgba(219, 234, 254, .55), rgba(254, 226, 226, .48)),
-        var(--panel);
-      padding: 9mm 7mm;
-      margin: 6mm 0 8mm;
-      text-align: center;
+    /* -- Figures ---------------------------------------------------- */
+    .report-figure {
+      margin: 5mm 0 3.5mm;
       break-inside: avoid;
     }
 
-    .figure-placeholder .fig-icon {
-      font-size: 20pt;
-      margin-bottom: 8px;
-      opacity: .4;
+    .report-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
     }
 
-    .figure-placeholder .fig-label {
-      font-family: var(--font-sans);
-      font-size: 7.5pt;
-      font-weight: 700;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 2mm;
+    .report-figure figcaption {
+      display: none;
     }
 
-    .figure-placeholder .fig-desc {
-      font-family: var(--font-sans);
-      font-size: 8.5pt;
-      color: var(--ink-muted);
-      max-width: 120mm;
-      margin: 0 auto;
-      line-height: 1.5;
+    .report-figure .fig-label {
+      display: none;
+    }
+
+    .report-figure .fig-desc {
+      display: none;
     }
 
     /* -- Callout / Pull-quote --------------------------------------- */
@@ -362,6 +348,35 @@
     }
 
     .callout strong { color: var(--accent-dark); }
+
+    .callout-side {
+      float: right;
+      clear: right;
+      width: 72mm;
+      max-width: 42%;
+      margin: 1mm 0 5mm 6mm;
+      padding: 4.5mm 5mm;
+      background: var(--canvas);
+      border-left: 3px solid var(--line-strong);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+      font-size: 8.4pt;
+      line-height: 1.52;
+      color: var(--ink-muted);
+    }
+
+    .callout-side strong {
+      color: var(--ink);
+    }
+
+    .callout-side em {
+      color: var(--ink);
+    }
+
+    .float-clear {
+      clear: both;
+      height: 0;
+    }
 
     /* -- Key Number Cards ------------------------------------------- */
     .stats-row {
@@ -518,6 +533,12 @@
       .cover h1 { font-size: 28px; }
       .cover .meta { grid-template-columns: 1fr; gap: 12px; }
       .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .callout-side {
+        float: none;
+        width: auto;
+        max-width: none;
+        margin: 6mm 0 8mm;
+      }
     }
   </style>
 </head>
@@ -530,8 +551,8 @@
 
     <!-- Cover -->
     <div class="cover">
-      <div class="label">AI Risk Observatory &nbsp;·&nbsp; Research Report</div>
-      <h1>Tracking AI Risk and Adoption in UK Public-Company Annual Reports: Evidence from the AI Risk Observatory (2020–2025)</h1>
+      <div class="label">Research Report</div>
+      <h1>AI Risk Observatory:<br />Tracking AI Risk and<br />Adoption in UK Public-<br />Company Annual Reports</h1>
       <div class="meta">
         <span><strong>Author</strong> &nbsp;<a href="mailto:bart.jaworski.00@gmail.com">Bart Jaworski</a></span>
         <span><strong>Date</strong> &nbsp;15 Apr 2026</span>
@@ -618,11 +639,13 @@
 
     <p>Third, <strong>are the AI disclosures substantive rather than boilerplate?</strong> The concern here is not merely whether companies mention AI risk — they increasingly do — but whether those mentions contain the specific operational detail, named systems, and governance evidence that would make them informative to investors, regulators, and researchers. A disclosure regime in which mention rates grow while quality stagnates is formally responsive but substantively hollow.</p>
 
-    <div class="callout">
+    <div class="callout callout-side">
       <strong>Regulatory context — FRC 2024 UK Corporate Governance Code, Provision 29:</strong> Applying from financial years beginning on or after 1 January 2026, Provision 29 requires boards to make a formal declaration on the effectiveness of all <em>material controls</em> — including financial, operational, reporting, and compliance controls — and to describe any failures, their root causes, and corrective actions. AI governance is a form of material control under this framing, giving the substantiveness question direct regulatory urgency.
     </div>
 
     <p>Fourth, <strong>which CNI sectors and market segments show the greatest disclosure gaps relative to their plausible AI exposure?</strong> This question is motivated by the Observatory's Critical National Infrastructure focus. The UK's CNI framework designates thirteen sectors whose disruption would cause catastrophic consequences for public safety, economic stability, or national security: Energy, Finance, Transport, Health, Communications, Water, Food, Government, Defence, Civil Nuclear, Chemicals, Data Infrastructure, and Space. These sectors are defined and maintained by the National Protective Security Authority (NPSA). AI is deeply embedded across CNI: Energy faces OT/IT convergence risks; Finance relies on AI for trading, credit, and fraud detection; Health is deploying AI in clinical pathways; Communications mediates content at infrastructure scale. Two features make CNI disclosure monitoring particularly important: sector interdependence means AI failures can cascade across boundaries, and most CNI rely on AI from a small number of third-party providers, creating vendor concentration risk that may not be visible in public disclosures. Sectors whose disruption would have cascading national consequences may therefore present AI exposure patterns that are underrepresented in the disclosure record.</p>
+
+    <div class="float-clear" aria-hidden="true"></div>
 
     <span id="s1-3" class="section-anchor"></span>
     <h3>1.3 Scope and Contribution</h3>
@@ -812,10 +835,13 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 1</div>
-      <div class="fig-desc">Line chart — annual disclosure rates for Adoption, Risk, General/Ambiguous, and Vendor, 2020–2025, with adoption-risk gap shaded</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure1.png" alt="Figure 1. Annual disclosure rates for Adoption, Risk, General or Ambiguous, and Vendor from 2020 to 2025, with the adoption-risk gap shaded." />
+      <figcaption>
+        <div class="fig-label">Figure 1</div>
+        <div class="fig-desc">Line chart — annual disclosure rates for Adoption, Risk, General/Ambiguous, and Vendor, 2020–2025, with adoption-risk gap shaded</div>
+      </figcaption>
+    </figure>
 
     <p>Growth across the full period falls into three broadly distinct phases. Between 2020 and 2022, adoption disclosure grew steadily — from 13.9% to 23.4% of reports — while risk disclosure lagged, reaching only 5.0% by 2022. The adoption-to-risk gap actually widened over this phase, peaking at 18.4 percentage points in 2022, as companies began describing their AI use without yet framing it as a governance concern. The second phase opens in 2023: risk mentions more than doubled in a single year (5.0% → 10.2%), and general strategy language surged, as ChatGPT reached mass awareness and AI moved rapidly from a technology consideration to a board-level agenda item. The third phase, 2024 onwards, is defined by the risk disclosure surge: risk reports grew 200% in a single year (10.2% → 31.8%), compressing the adoption-risk gap from 16.6 to 6.6 percentage points. By 2025, the gap had narrowed to 3.0 pp; risk disclosure is now nearly at parity with adoption disclosure. In the partial 2026 data, risk reports (66.7%) marginally exceed adoption reports (64.3%) for the first time, suggesting the two signals may have crossed.</p>
 
@@ -838,10 +864,13 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 2</div>
-      <div class="fig-desc">Stacked area chart — non-LLM, LLM, and agentic adoption report counts by year, 2020–2025</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure2.png" alt="Figure 2. Stacked area chart of non-LLM, LLM, and agentic adoption report counts by year from 2020 to 2025." />
+      <figcaption>
+        <div class="fig-label">Figure 2</div>
+        <div class="fig-desc">Stacked area chart — non-LLM, LLM, and agentic adoption report counts by year, 2020–2025</div>
+      </figcaption>
+    </figure>
 
     <p>Non-LLM adoption (traditional machine learning, computer vision, predictive analytics, fraud detection) remains the numerically dominant category, growing from 136 reports in 2020 to 672 in 2025. But LLM and generative AI adoption has grown far faster — 14-fold versus five-fold for non-LLM — and by 2025 LLM adoption appears in 35.7% of all reports, narrowing fast on non-LLM at 43.0%. LLM adoption was essentially invisible before 2022; its acceleration is the clearest signal in the corpus of the ChatGPT diffusion effect translating into formal corporate disclosure.</p>
 
@@ -873,10 +902,13 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 3</div>
-      <div class="fig-desc">Horizontal bar chart — risk category YoY percentage-point changes, 2024→2025, sorted by magnitude</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure3.png" alt="Figure 3. Horizontal bar chart of risk category year-over-year percentage-point changes from 2024 to 2025, sorted by magnitude." />
+      <figcaption>
+        <div class="fig-label">Figure 3</div>
+        <div class="fig-desc">Horizontal bar chart — risk category YoY percentage-point changes, 2024→2025, sorted by magnitude</div>
+      </figcaption>
+    </figure>
 
     <p>Strategic/competitive risk remains the leading category (29.3%), but the most consequential compositional shift is the rise of cybersecurity: from 11 reports in 2020 to 405 in 2025, it has moved from a peripheral concern to the second-largest category. This represents a reframing of AI in corporate risk language — from a strategic threat (competitive obsolescence) to an operational one (AI-enabled attacks, adversarial exploitation, AI-accelerated fraud) — consistent with NCSC guidance on AI as a force multiplier for hostile actors.</p>
 
@@ -914,10 +946,13 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 4</div>
-      <div class="fig-desc">Treemap — 2025 vendor reference distribution, sized by assignment count, with named vs opaque grouping highlighted</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure4.png" alt="Figure 4. Treemap of 2025 vendor reference distribution sized by assignment count, including named vendors, opaque references, and internal or proprietary systems." />
+      <figcaption>
+        <div class="fig-label">Figure 4</div>
+        <div class="fig-desc">Treemap — 2025 vendor reference distribution, sized by assignment count, with named vs opaque grouping highlighted</div>
+      </figcaption>
+    </figure>
 
     <p>Two findings stand out. First, <em>other</em> and <em>undisclosed</em> together (references to external AI capabilities without identifying the provider) account for 198 of 464 total 2025 vendor assignments, or <strong>42.7% of all vendor references</strong>. Among only the explicitly named vendors, the three largest (Microsoft, Google, OpenAI) account for 75.7% of named-vendor assignments, revealing extreme concentration in the named portion of the landscape. Second, <strong>OpenAI is the only named vendor declining</strong> year-on-year (−1.0 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft. This structural opacity means that concentration at the foundation-model layer is larger than the named-vendor data suggests.</p>
 
@@ -958,10 +993,13 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 5</div>
-      <div class="fig-desc">Dual-axis chart — risk mention rate and substantive risk rate as lines, quality gap as shaded area, 2021–2025</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure5.png" alt="Figure 5. Dual-axis chart showing risk mention rate and substantive risk rate as lines, with the quality gap shaded from 2021 to 2025." />
+      <figcaption>
+        <div class="fig-label">Figure 5</div>
+        <div class="fig-desc">Dual-axis chart — risk mention rate and substantive risk rate as lines, quality gap as shaded area, 2021–2025</div>
+      </figcaption>
+    </figure>
 
     <p>Signal strength data corroborates this independently: the share of explicit risk signals (signal 3) was 31.6% in 2024 and 31.2% in 2025, while weak-implicit signals rose from 37.7% to 38.5%. Companies are acknowledging more risk categories without attributing them to AI with greater directness. Whether the FY2026 cohort changes this pattern is the single most important empirical question the Observatory is positioned to answer.</p>
 
@@ -991,15 +1029,21 @@
       </table>
     </div>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 6</div>
-      <div class="fig-desc">Horizontal bar chart — CNI sector AI-risk disclosure rate and no-AI-risk rate (blind spot) side by side, 2025, sorted by risk rate</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure6.png" alt="Figure 6. Horizontal bar chart comparing CNI sector AI-risk disclosure rate and no-AI-risk rate in 2025, sorted by risk rate." />
+      <figcaption>
+        <div class="fig-label">Figure 6</div>
+        <div class="fig-desc">Horizontal bar chart — CNI sector AI-risk disclosure rate and no-AI-risk rate (blind spot) side by side, 2025, sorted by risk rate</div>
+      </figcaption>
+    </figure>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 7</div>
-      <div class="fig-desc">Heatmap — AI-risk YoY percentage-point change by CNI sector, 2021–2025, sectors as rows, years as columns</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure7.png" alt="Figure 7. Heatmap of AI-risk year-over-year percentage-point change by CNI sector from 2021 to 2025, with sectors as rows and years as columns." />
+      <figcaption>
+        <div class="fig-label">Figure 7</div>
+        <div class="fig-desc">Heatmap — AI-risk YoY percentage-point change by CNI sector, 2021–2025, sectors as rows, years as columns</div>
+      </figcaption>
+    </figure>
 
     <p>Finance dominates in absolute volume (461 companies, all ten risk categories materially represented), and its disclosure depth reflects genuine AI embeddedness across trading, credit, fraud detection, and compliance. Communications had the largest single-year rise in risk disclosure in 2025 (+24.6 pp), consistent with the sector's exposure to both AI-enabled content moderation and information integrity risks. Government leads on AI mention rate (87.0%), with workforce impacts its most prominent risk category, consistent with the public policy debate around AI in public services.</p>
 
@@ -1012,10 +1056,13 @@
     <span id="s3-8" class="section-anchor"></span>
     <h3>3.8 Market Segment Patterns</h3>
 
-    <div class="figure-placeholder">
-      <div class="fig-label">Figure 8</div>
-      <div class="fig-desc">Side-by-side bar chart — 2025 AI mention rate, adoption rate, and risk rate by market segment (FTSE 100, FTSE 350, Main Market, AIM)</div>
-    </div>
+    <figure class="report-figure">
+      <img src="figures/figure8.png" alt="Figure 8. Side-by-side bar chart of 2025 AI mention rate, adoption rate, and risk rate by market segment for FTSE 100, FTSE 350, Main Market, and AIM." />
+      <figcaption>
+        <div class="fig-label">Figure 8</div>
+        <div class="fig-desc">Side-by-side bar chart — 2025 AI mention rate, adoption rate, and risk rate by market segment (FTSE 100, FTSE 350, Main Market, AIM)</div>
+      </figcaption>
+    </figure>
 
     <p>The gap between Main Market and AIM disclosure is one of the most structurally significant findings in the corpus. Table 9 presents 2025-specific rates, which are materially higher than lifetime rates and provide the clearest picture of the current state.</p>
 

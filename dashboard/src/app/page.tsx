@@ -118,9 +118,14 @@ export default function HomePage() {
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4">
-              <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground cursor-not-allowed">
-                Full Report Coming Soon
-              </span>
+              <a
+                href="/reports/report-final-2.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded border border-accent bg-accent px-6 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-[0_12px_28px_rgba(230,57,70,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#c92f3b] hover:shadow-[0_16px_34px_rgba(230,57,70,0.28)]"
+              >
+                View Full Report
+              </a>
               <Link
                 href="/data"
                 className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"

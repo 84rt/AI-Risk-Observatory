@@ -38,8 +38,9 @@ const resourceLinks: FooterLink[] = [
     external: true,
   },
   {
-    href: '/about',
-    label: 'Report (WIP)',
+    href: '/reports/report-final-2.pdf',
+    label: 'Full Report',
+    external: true,
   },
 ];
 
@@ -82,6 +83,11 @@ function FooterLinkList({
 
 export function SiteFooter() {
   const pathname = usePathname();
+  const isReportFigureRoute = pathname.startsWith('/report-figures');
+
+  if (isReportFigureRoute) {
+    return null;
+  }
 
   const pageSectionLinks = pathname === '/about'
     ? aboutSectionLinks

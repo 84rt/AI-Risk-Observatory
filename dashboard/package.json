@@ -9,7 +9,9 @@
     "lint": "eslint",
     "sync:data": "./scripts/sync-dashboard-data.sh",
     "build:data": "node ./scripts/build-dashboard-data.mjs",
-    "build:findings": "node ./scripts/generate-dashboard-findings.mjs"
+    "build:findings": "node ./scripts/generate-dashboard-findings.mjs",
+    "build:report-figures": "node ./scripts/build-report-figures.mjs",
+    "export:report-figures": "node ./scripts/export-report-figures.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

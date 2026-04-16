@@ -27,6 +27,7 @@ data/annotations/
 *.parquet
 *.jsonl
 *.pdf
+!dashboard/public/reports/report-final-2.pdf
 *.xhtml
 !data/golden_set/**/*.jsonl
 !dashboard/data/**/*.jsonl

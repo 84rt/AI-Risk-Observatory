@@ -1,4 +1,4 @@
-# **Tracking AI Risk and Adoption in UK Public-Company Annual Reports: Evidence from the AI Risk Observatory (2020–2025)**
+# **AI Risk Observatory:<br>Tracking AI Risk and<br>Adoption in UK Public-<br>Company Annual Reports**
 
 *https://www.riskobservatory.ai* 
 

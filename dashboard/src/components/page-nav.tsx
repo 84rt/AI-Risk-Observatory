@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 
 export function PageNav() {
   const pathname = usePathname();
+  const isReportFigureRoute = pathname.startsWith('/report-figures');
   const navRef = useRef<HTMLElement | null>(null);
   const lastScrollYRef = useRef(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -53,6 +54,10 @@ export function PageNav() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, [navHeight]);
+
+  if (isReportFigureRoute) {
+    return null;
+  }
 
   return (
     <>

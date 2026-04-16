@@ -1,0 +1,1154 @@
+{
+  "generatedAt": "2026-04-16T11:22:22.636Z",
+  "source": {
+    "dashboardDataPath": "/Users/84rt/Projects/AI Risk Observatory/dashboard/data/dashboard-data.json",
+    "maxReportYear": 2025,
+    "baseDataset": "perReport",
+    "cniSectorScope": "byCompanyScope.cniOnly.perReport"
+  },
+  "figures": {
+    "figure1": {
+      "id": "figure1",
+      "title": "Annual disclosure rates by signal type",
+      "chartType": "line",
+      "domain": {
+        "years": [
+          2020,
+          2025
+        ],
+        "measure": "share of all reports in year (%)"
+      },
+      "series": [
+        {
+          "key": "adoption_rate_pct",
+          "label": "Adoption",
+          "color": "#64748b"
+        },
+        {
+          "key": "risk_rate_pct",
+          "label": "Risk",
+          "color": "#e63946"
+        },
+        {
+          "key": "general_ambiguous_rate_pct",
+          "label": "General / Ambiguous",
+          "color": "#9ca3af"
+        },
+        {
+          "key": "vendor_rate_pct",
+          "label": "Vendor",
+          "color": "#3b82f6"
+        }
+      ],
+      "shading": {
+        "label": "Adoption-risk gap",
+        "lowerKey": "risk_rate_pct",
+        "upperKey": "adoption_rate_pct"
+      },
+      "data": [
+        {
+          "year": 2020,
+          "total_reports": 1007,
+          "adoption_count": 140,
+          "risk_count": 32,
+          "vendor_count": 28,
+          "general_ambiguous_count": 112,
+          "adoption_rate_pct": 13.9,
+          "risk_rate_pct": 3.2,
+          "vendor_rate_pct": 2.8,
+          "general_ambiguous_rate_pct": 11.1,
+          "adoption_minus_risk_gap_pp": 10.7
+        },
+        {
+          "year": 2021,
+          "total_reports": 1328,
+          "adoption_count": 285,
+          "risk_count": 59,
+          "vendor_count": 41,
+          "general_ambiguous_count": 195,
+          "adoption_rate_pct": 21.5,
+          "risk_rate_pct": 4.4,
+          "vendor_rate_pct": 3.1,
+          "general_ambiguous_rate_pct": 14.7,
+          "adoption_minus_risk_gap_pp": 17
+        },
+        {
+          "year": 2022,
+          "total_reports": 1853,
+          "adoption_count": 434,
+          "risk_count": 93,
+          "vendor_count": 83,
+          "general_ambiguous_count": 282,
+          "adoption_rate_pct": 23.4,
+          "risk_rate_pct": 5,
+          "vendor_rate_pct": 4.5,
+          "general_ambiguous_rate_pct": 15.2,
+          "adoption_minus_risk_gap_pp": 18.4
+        },
+        {
+          "year": 2023,
+          "total_reports": 1905,
+          "adoption_count": 511,
+          "risk_count": 194,
+          "vendor_count": 119,
+          "general_ambiguous_count": 427,
+          "adoption_rate_pct": 26.8,
+          "risk_rate_pct": 10.2,
+          "vendor_rate_pct": 6.2,
+          "general_ambiguous_rate_pct": 22.4,
+          "adoption_minus_risk_gap_pp": 16.6
+        },
+        {
+          "year": 2024,
+          "total_reports": 1828,
+          "adoption_count": 703,
+          "risk_count": 582,
+          "vendor_count": 244,
+          "general_ambiguous_count": 785,
+          "adoption_rate_pct": 38.5,
+          "risk_rate_pct": 31.8,
+          "vendor_rate_pct": 13.3,
+          "general_ambiguous_rate_pct": 42.9,
+          "adoption_minus_risk_gap_pp": 6.6
+        },
+        {
+          "year": 2025,
+          "total_reports": 1561,
+          "adoption_count": 721,
+          "risk_count": 674,
+          "vendor_count": 271,
+          "general_ambiguous_count": 853,
+          "adoption_rate_pct": 46.2,
+          "risk_rate_pct": 43.2,
+          "vendor_rate_pct": 17.4,
+          "general_ambiguous_rate_pct": 54.6,
+          "adoption_minus_risk_gap_pp": 3
+        }
+      ],
+      "notes": [
+        "Base dataset: datasets.perReport.",
+        "Percentages are report-level counts divided by total reports in the publication year.",
+        "2026 partial data is excluded."
+      ]
+    },
+    "figure2": {
+      "id": "figure2",
+      "title": "Adoption type report counts by year",
+      "chartType": "stacked-area",
+      "domain": {
+        "years": [
+          2020,
+          2025
+        ],
+        "measure": "report count"
+      },
+      "series": [
+        {
+          "key": "non_llm",
+          "label": "Traditional AI (non-LLM)",
+          "color": "#64748b"
+        },
+        {
+          "key": "llm",
+          "label": "LLM / Generative AI",
+          "color": "#3b82f6"
+        },
+        {
+          "key": "agentic",
+          "label": "Agentic AI",
+          "color": "#f59e0b"
+        }
+      ],
+      "data": [
+        {
+          "year": 2020,
+          "non_llm": 136,
+          "llm": 39,
+          "agentic": 27
+        },
+        {
+          "year": 2021,
+          "non_llm": 281,
+          "llm": 61,
+          "agentic": 52
+        },
+        {
+          "year": 2022,
+          "non_llm": 424,
+          "llm": 108,
+          "agentic": 71
+        },
+        {
+          "year": 2023,
+          "non_llm": 495,
+          "llm": 230,
+          "agentic": 102
+        },
+        {
+          "year": 2024,
+          "non_llm": 663,
+          "llm": 450,
+          "agentic": 126
+        },
+        {
+          "year": 2025,
+          "non_llm": 672,
+          "llm": 557,
+          "agentic": 172
+        }
+      ],
+      "notes": [
+        "Base dataset: datasets.perReport.",
+        "Adoption labels are not mutually exclusive, so stacked totals may exceed the number of unique reports.",
+        "2026 partial data is excluded."
+      ]
+    },
+    "figure3": {
+      "id": "figure3",
+      "title": "Risk-category YoY rate change",
+      "chartType": "horizontal-bar",
+      "comparison": {
+        "fromYear": 2024,
+        "toYear": 2025,
+        "measure": "percentage-point change in share of all reports"
+      },
+      "data": [
+        {
+          "key": "strategic_competitive",
+          "label": "Strategic / Competitive",
+          "color": "#1d4ed8",
+          "count_2024": 376,
+          "count_2025": 458,
+          "rate_2024_pct": 20.6,
+          "rate_2025_pct": 29.3,
+          "delta_pp": 8.8
+        },
+        {
+          "key": "cybersecurity",
+          "label": "Cybersecurity",
+          "color": "#3b82f6",
+          "count_2024": 327,
+          "count_2025": 405,
+          "rate_2024_pct": 17.9,
+          "rate_2025_pct": 25.9,
+          "delta_pp": 8.1
+        },
+        {
+          "key": "operational_technical",
+          "label": "Operational / Technical",
+          "color": "#93c5fd",
+          "count_2024": 291,
+          "count_2025": 352,
+          "rate_2024_pct": 15.9,
+          "rate_2025_pct": 22.5,
+          "delta_pp": 6.6
+        },
+        {
+          "key": "workforce_impacts",
+          "label": "Workforce Impacts",
+          "color": "#f87171",
+          "count_2024": 106,
+          "count_2025": 176,
+          "rate_2024_pct": 5.8,
+          "rate_2025_pct": 11.3,
+          "delta_pp": 5.5
+        },
+        {
+          "key": "regulatory_compliance",
+          "label": "Regulatory / Compliance",
+          "color": "#dbeafe",
+          "count_2024": 279,
+          "count_2025": 322,
+          "rate_2024_pct": 15.3,
+          "rate_2025_pct": 20.6,
+          "delta_pp": 5.4
+        },
+        {
+          "key": "reputational_ethical",
+          "label": "Reputational / Ethical",
+          "color": "#fecdd3",
+          "count_2024": 200,
+          "count_2025": 252,
+          "rate_2024_pct": 10.9,
+          "rate_2025_pct": 16.1,
+          "delta_pp": 5.2
+        },
+        {
+          "key": "third_party_supply_chain",
+          "label": "Third-Party / Supply Chain",
+          "color": "#fca5a5",
+          "count_2024": 136,
+          "count_2025": 197,
+          "rate_2024_pct": 7.4,
+          "rate_2025_pct": 12.6,
+          "delta_pp": 5.2
+        },
+        {
+          "key": "information_integrity",
+          "label": "Information Integrity",
+          "color": "#ef4444",
+          "count_2024": 145,
+          "count_2025": 184,
+          "rate_2024_pct": 7.9,
+          "rate_2025_pct": 11.8,
+          "delta_pp": 3.9
+        },
+        {
+          "key": "environmental_impact",
+          "label": "Environmental Impact",
+          "color": "#7f1d1d",
+          "count_2024": 20,
+          "count_2025": 52,
+          "rate_2024_pct": 1.1,
+          "rate_2025_pct": 3.3,
+          "delta_pp": 2.2
+        },
+        {
+          "key": "national_security",
+          "label": "National Security",
+          "color": "#b91c1c",
+          "count_2024": 31,
+          "count_2025": 49,
+          "rate_2024_pct": 1.7,
+          "rate_2025_pct": 3.1,
+          "delta_pp": 1.4
+        }
+      ],
+      "notes": [
+        "Base dataset: datasets.perReport.",
+        "Rates are risk-category report counts divided by total reports in the year.",
+        "Risk labels are not mutually exclusive."
+      ]
+    },
+    "figure4": {
+      "id": "figure4",
+      "title": "Vendor reference distribution in 2025",
+      "chartType": "treemap",
+      "measure": "vendor-tag assignments",
+      "total_assignments_2025": 464,
+      "groupedTotals": {
+        "named_tracked_assignments": 218,
+        "opaque_or_untracked_assignments": 198,
+        "internal_assignments": 48,
+        "named_tracked_share_pct": 47,
+        "opaque_or_untracked_share_pct": 42.7,
+        "internal_share_pct": 10.3
+      },
+      "data": [
+        {
+          "key": "other",
+          "label": "Other (named, unlisted)",
+          "color": "#64748b",
+          "group": "opaque_or_untracked",
+          "assignments_2025": 143,
+          "share_pct": 30.8
+        },
+        {
+          "key": "microsoft",
+          "label": "Microsoft",
+          "color": "#3b82f6",
+          "group": "named_tracked",
+          "assignments_2025": 87,
+          "share_pct": 18.8
+        },
+        {
+          "key": "undisclosed",
+          "label": "Undisclosed",
+          "color": "#e2e8f0",
+          "group": "opaque_or_untracked",
+          "assignments_2025": 55,
+          "share_pct": 11.9
+        },
+        {
+          "key": "internal",
+          "label": "Internal / proprietary",
+          "color": "#0b0c0c",
+          "group": "internal",
+          "assignments_2025": 48,
+          "share_pct": 10.3
+        },
+        {
+          "key": "google",
+          "label": "Google",
+          "color": "#16a34a",
+          "group": "named_tracked",
+          "assignments_2025": 42,
+          "share_pct": 9.1
+        },
+        {
+          "key": "openai",
+          "label": "OpenAI",
+          "color": "#e63946",
+          "group": "named_tracked",
+          "assignments_2025": 36,
+          "share_pct": 7.8
+        },
+        {
+          "key": "amazon",
+          "label": "Amazon / AWS",
+          "color": "#f59e0b",
+          "group": "named_tracked",
+          "assignments_2025": 31,
+          "share_pct": 6.7
+        },
+        {
+          "key": "meta",
+          "label": "Meta",
+          "color": "#1e3a8a",
+          "group": "named_tracked",
+          "assignments_2025": 18,
+          "share_pct": 3.9
+        },
+        {
+          "key": "anthropic",
+          "label": "Anthropic",
+          "color": "#d97706",
+          "group": "named_tracked",
+          "assignments_2025": 4,
+          "share_pct": 0.9
+        }
+      ],
+      "notes": [
+        "Base dataset: datasets.perReport.",
+        "Values are vendor-tag assignments in 2025, not unique reports.",
+        "A single report may contribute multiple vendor tags."
+      ]
+    },
+    "figure5": {
+      "id": "figure5",
+      "title": "Risk mention rate vs substantive risk rate",
+      "chartType": "dual-axis-line-area",
+      "domain": {
+        "years": [
+          2021,
+          2025
+        ],
+        "measure": "share of all reports in year (%)"
+      },
+      "series": [
+        {
+          "key": "risk_mention_rate_pct",
+          "label": "Risk mention rate",
+          "color": "#e63946"
+        },
+        {
+          "key": "substantive_risk_rate_pct",
+          "label": "Substantive risk rate",
+          "color": "#3b82f6"
+        }
+      ],
+      "shading": {
+        "key": "quality_gap_pp",
+        "label": "Quality gap",
+        "color": "#fecdd3"
+      },
+      "data": [
+        {
+          "year": 2021,
+          "total_reports": 1328,
+          "risk_reports": 59,
+          "substantive_risk_reports": 9,
+          "risk_mention_rate_pct": 4.4,
+          "substantive_risk_rate_pct": 0.7,
+          "quality_gap_pp": 3.8
+        },
+        {
+          "year": 2022,
+          "total_reports": 1853,
+          "risk_reports": 93,
+          "substantive_risk_reports": 16,
+          "risk_mention_rate_pct": 5,
+          "substantive_risk_rate_pct": 0.9,
+          "quality_gap_pp": 4.2
+        },
+        {
+          "year": 2023,
+          "total_reports": 1905,
+          "risk_reports": 194,
+          "substantive_risk_reports": 19,
+          "risk_mention_rate_pct": 10.2,
+          "substantive_risk_rate_pct": 1,
+          "quality_gap_pp": 9.2
+        },
+        {
+          "year": 2024,
+          "total_reports": 1828,
+          "risk_reports": 582,
+          "substantive_risk_reports": 63,
+          "risk_mention_rate_pct": 31.8,
+          "substantive_risk_rate_pct": 3.4,
+          "quality_gap_pp": 28.4
+        },
+        {
+          "year": 2025,
+          "total_reports": 1561,
+          "risk_reports": 674,
+          "substantive_risk_reports": 65,
+          "risk_mention_rate_pct": 43.2,
+          "substantive_risk_rate_pct": 4.2,
+          "quality_gap_pp": 39
+        }
+      ],
+      "notes": [
+        "Base dataset: datasets.perReport.",
+        "Substantive risk rate uses the \"substantive\" band from substantivenessHeatmap.",
+        "2026 partial data is excluded."
+      ]
+    },
+    "figure6": {
+      "id": "figure6",
+      "title": "CNI sector AI-risk disclosure rate vs blind spot",
+      "chartType": "grouped-horizontal-bar",
+      "year": 2025,
+      "series": [
+        {
+          "key": "risk_rate_pct",
+          "label": "AI-risk disclosure rate",
+          "color": "#e63946"
+        },
+        {
+          "key": "no_ai_risk_rate_pct",
+          "label": "No AI-risk mention rate",
+          "color": "#cbd5e1"
+        }
+      ],
+      "data": [
+        {
+          "sector": "Government",
+          "total_reports": 23,
+          "risk_reports": 14,
+          "no_ai_risk_reports": 9,
+          "risk_rate_pct": 60.9,
+          "no_ai_risk_rate_pct": 39.1
+        },
+        {
+          "sector": "Communications",
+          "total_reports": 29,
+          "risk_reports": 16,
+          "no_ai_risk_reports": 13,
+          "risk_rate_pct": 55.2,
+          "no_ai_risk_rate_pct": 44.8
+        },
+        {
+          "sector": "Water",
+          "total_reports": 17,
+          "risk_reports": 9,
+          "no_ai_risk_reports": 8,
+          "risk_rate_pct": 52.9,
+          "no_ai_risk_rate_pct": 47.1
+        },
+        {
+          "sector": "Chemicals",
+          "total_reports": 24,
+          "risk_reports": 12,
+          "no_ai_risk_reports": 12,
+          "risk_rate_pct": 50,
+          "no_ai_risk_rate_pct": 50
+        },
+        {
+          "sector": "Finance",
+          "total_reports": 657,
+          "risk_reports": 325,
+          "no_ai_risk_reports": 332,
+          "risk_rate_pct": 49.5,
+          "no_ai_risk_rate_pct": 50.5
+        },
+        {
+          "sector": "Food",
+          "total_reports": 70,
+          "risk_reports": 31,
+          "no_ai_risk_reports": 39,
+          "risk_rate_pct": 44.3,
+          "no_ai_risk_rate_pct": 55.7
+        },
+        {
+          "sector": "Transport",
+          "total_reports": 67,
+          "risk_reports": 28,
+          "no_ai_risk_reports": 39,
+          "risk_rate_pct": 41.8,
+          "no_ai_risk_rate_pct": 58.2
+        },
+        {
+          "sector": "Defence",
+          "total_reports": 22,
+          "risk_reports": 9,
+          "no_ai_risk_reports": 13,
+          "risk_rate_pct": 40.9,
+          "no_ai_risk_rate_pct": 59.1
+        },
+        {
+          "sector": "Health",
+          "total_reports": 100,
+          "risk_reports": 37,
+          "no_ai_risk_reports": 63,
+          "risk_rate_pct": 37,
+          "no_ai_risk_rate_pct": 63
+        },
+        {
+          "sector": "Energy",
+          "total_reports": 140,
+          "risk_reports": 29,
+          "no_ai_risk_reports": 111,
+          "risk_rate_pct": 20.7,
+          "no_ai_risk_rate_pct": 79.3
+        },
+        {
+          "sector": "Data Infrastructure",
+          "total_reports": 20,
+          "risk_reports": 3,
+          "no_ai_risk_reports": 17,
+          "risk_rate_pct": 15,
+          "no_ai_risk_rate_pct": 85
+        },
+        {
+          "sector": "Civil Nuclear",
+          "total_reports": 3,
+          "risk_reports": 0,
+          "no_ai_risk_reports": 3,
+          "risk_rate_pct": 0,
+          "no_ai_risk_rate_pct": 100
+        }
+      ],
+      "notes": [
+        "Base dataset: byCompanyScope.cniOnly.perReport.",
+        "Sector \"Other\" is excluded.",
+        "Rates are report counts divided by total reports for the sector-year."
+      ]
+    },
+    "figure7": {
+      "id": "figure7",
+      "title": "CNI sector AI-risk YoY rate change heatmap",
+      "chartType": "heatmap",
+      "domain": {
+        "years": [
+          2021,
+          2025
+        ],
+        "measure": "percentage-point change vs previous year"
+      },
+      "sectors": [
+        "Government",
+        "Finance",
+        "Health",
+        "Transport",
+        "Energy",
+        "Communications",
+        "Data Infrastructure",
+        "Water",
+        "Food",
+        "Chemicals",
+        "Defence",
+        "Civil Nuclear"
+      ],
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "cells": [
+        {
+          "sector": "Government",
+          "year": 2021,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Government",
+          "year": 2022,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Government",
+          "year": 2023,
+          "current_risk_rate_pct": 9.1,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 9.1
+        },
+        {
+          "sector": "Government",
+          "year": 2024,
+          "current_risk_rate_pct": 54.2,
+          "previous_risk_rate_pct": 9.1,
+          "delta_pp": 45.1
+        },
+        {
+          "sector": "Government",
+          "year": 2025,
+          "current_risk_rate_pct": 60.9,
+          "previous_risk_rate_pct": 54.2,
+          "delta_pp": 6.7
+        },
+        {
+          "sector": "Finance",
+          "year": 2021,
+          "current_risk_rate_pct": 5.8,
+          "previous_risk_rate_pct": 4.1,
+          "delta_pp": 1.7
+        },
+        {
+          "sector": "Finance",
+          "year": 2022,
+          "current_risk_rate_pct": 6.7,
+          "previous_risk_rate_pct": 5.8,
+          "delta_pp": 0.9
+        },
+        {
+          "sector": "Finance",
+          "year": 2023,
+          "current_risk_rate_pct": 12.3,
+          "previous_risk_rate_pct": 6.7,
+          "delta_pp": 5.5
+        },
+        {
+          "sector": "Finance",
+          "year": 2024,
+          "current_risk_rate_pct": 39.1,
+          "previous_risk_rate_pct": 12.3,
+          "delta_pp": 26.8
+        },
+        {
+          "sector": "Finance",
+          "year": 2025,
+          "current_risk_rate_pct": 49.5,
+          "previous_risk_rate_pct": 39.1,
+          "delta_pp": 10.4
+        },
+        {
+          "sector": "Health",
+          "year": 2021,
+          "current_risk_rate_pct": 8.9,
+          "previous_risk_rate_pct": 2,
+          "delta_pp": 6.9
+        },
+        {
+          "sector": "Health",
+          "year": 2022,
+          "current_risk_rate_pct": 5.6,
+          "previous_risk_rate_pct": 8.9,
+          "delta_pp": -3.2
+        },
+        {
+          "sector": "Health",
+          "year": 2023,
+          "current_risk_rate_pct": 10.2,
+          "previous_risk_rate_pct": 5.6,
+          "delta_pp": 4.5
+        },
+        {
+          "sector": "Health",
+          "year": 2024,
+          "current_risk_rate_pct": 29.7,
+          "previous_risk_rate_pct": 10.2,
+          "delta_pp": 19.5
+        },
+        {
+          "sector": "Health",
+          "year": 2025,
+          "current_risk_rate_pct": 37,
+          "previous_risk_rate_pct": 29.7,
+          "delta_pp": 7.3
+        },
+        {
+          "sector": "Transport",
+          "year": 2021,
+          "current_risk_rate_pct": 1.6,
+          "previous_risk_rate_pct": 1.9,
+          "delta_pp": -0.3
+        },
+        {
+          "sector": "Transport",
+          "year": 2022,
+          "current_risk_rate_pct": 4.7,
+          "previous_risk_rate_pct": 1.6,
+          "delta_pp": 3.1
+        },
+        {
+          "sector": "Transport",
+          "year": 2023,
+          "current_risk_rate_pct": 4.8,
+          "previous_risk_rate_pct": 4.7,
+          "delta_pp": 0.2
+        },
+        {
+          "sector": "Transport",
+          "year": 2024,
+          "current_risk_rate_pct": 26.5,
+          "previous_risk_rate_pct": 4.8,
+          "delta_pp": 21.7
+        },
+        {
+          "sector": "Transport",
+          "year": 2025,
+          "current_risk_rate_pct": 41.8,
+          "previous_risk_rate_pct": 26.5,
+          "delta_pp": 15.3
+        },
+        {
+          "sector": "Energy",
+          "year": 2021,
+          "current_risk_rate_pct": 2,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 2
+        },
+        {
+          "sector": "Energy",
+          "year": 2022,
+          "current_risk_rate_pct": 1.3,
+          "previous_risk_rate_pct": 2,
+          "delta_pp": -0.6
+        },
+        {
+          "sector": "Energy",
+          "year": 2023,
+          "current_risk_rate_pct": 1.3,
+          "previous_risk_rate_pct": 1.3,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Energy",
+          "year": 2024,
+          "current_risk_rate_pct": 15.4,
+          "previous_risk_rate_pct": 1.3,
+          "delta_pp": 14.1
+        },
+        {
+          "sector": "Energy",
+          "year": 2025,
+          "current_risk_rate_pct": 20.7,
+          "previous_risk_rate_pct": 15.4,
+          "delta_pp": 5.3
+        },
+        {
+          "sector": "Communications",
+          "year": 2021,
+          "current_risk_rate_pct": 16.7,
+          "previous_risk_rate_pct": 17.6,
+          "delta_pp": -1
+        },
+        {
+          "sector": "Communications",
+          "year": 2022,
+          "current_risk_rate_pct": 13.3,
+          "previous_risk_rate_pct": 16.7,
+          "delta_pp": -3.3
+        },
+        {
+          "sector": "Communications",
+          "year": 2023,
+          "current_risk_rate_pct": 18.2,
+          "previous_risk_rate_pct": 13.3,
+          "delta_pp": 4.8
+        },
+        {
+          "sector": "Communications",
+          "year": 2024,
+          "current_risk_rate_pct": 30.6,
+          "previous_risk_rate_pct": 18.2,
+          "delta_pp": 12.4
+        },
+        {
+          "sector": "Communications",
+          "year": 2025,
+          "current_risk_rate_pct": 55.2,
+          "previous_risk_rate_pct": 30.6,
+          "delta_pp": 24.6
+        },
+        {
+          "sector": "Data Infrastructure",
+          "year": 2021,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 11.1,
+          "delta_pp": -11.1
+        },
+        {
+          "sector": "Data Infrastructure",
+          "year": 2022,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Data Infrastructure",
+          "year": 2023,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Data Infrastructure",
+          "year": 2024,
+          "current_risk_rate_pct": 10,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 10
+        },
+        {
+          "sector": "Data Infrastructure",
+          "year": 2025,
+          "current_risk_rate_pct": 15,
+          "previous_risk_rate_pct": 10,
+          "delta_pp": 5
+        },
+        {
+          "sector": "Water",
+          "year": 2021,
+          "current_risk_rate_pct": 7.1,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 7.1
+        },
+        {
+          "sector": "Water",
+          "year": 2022,
+          "current_risk_rate_pct": 10.5,
+          "previous_risk_rate_pct": 7.1,
+          "delta_pp": 3.4
+        },
+        {
+          "sector": "Water",
+          "year": 2023,
+          "current_risk_rate_pct": 35.3,
+          "previous_risk_rate_pct": 10.5,
+          "delta_pp": 24.8
+        },
+        {
+          "sector": "Water",
+          "year": 2024,
+          "current_risk_rate_pct": 33.3,
+          "previous_risk_rate_pct": 35.3,
+          "delta_pp": -2
+        },
+        {
+          "sector": "Water",
+          "year": 2025,
+          "current_risk_rate_pct": 52.9,
+          "previous_risk_rate_pct": 33.3,
+          "delta_pp": 19.6
+        },
+        {
+          "sector": "Food",
+          "year": 2021,
+          "current_risk_rate_pct": 3.5,
+          "previous_risk_rate_pct": 4.3,
+          "delta_pp": -0.8
+        },
+        {
+          "sector": "Food",
+          "year": 2022,
+          "current_risk_rate_pct": 1.7,
+          "previous_risk_rate_pct": 3.5,
+          "delta_pp": -1.8
+        },
+        {
+          "sector": "Food",
+          "year": 2023,
+          "current_risk_rate_pct": 12.2,
+          "previous_risk_rate_pct": 1.7,
+          "delta_pp": 10.5
+        },
+        {
+          "sector": "Food",
+          "year": 2024,
+          "current_risk_rate_pct": 31.6,
+          "previous_risk_rate_pct": 12.2,
+          "delta_pp": 19.5
+        },
+        {
+          "sector": "Food",
+          "year": 2025,
+          "current_risk_rate_pct": 44.3,
+          "previous_risk_rate_pct": 31.6,
+          "delta_pp": 12.6
+        },
+        {
+          "sector": "Chemicals",
+          "year": 2021,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Chemicals",
+          "year": 2022,
+          "current_risk_rate_pct": 6.7,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 6.7
+        },
+        {
+          "sector": "Chemicals",
+          "year": 2023,
+          "current_risk_rate_pct": 2.9,
+          "previous_risk_rate_pct": 6.7,
+          "delta_pp": -3.7
+        },
+        {
+          "sector": "Chemicals",
+          "year": 2024,
+          "current_risk_rate_pct": 28.9,
+          "previous_risk_rate_pct": 2.9,
+          "delta_pp": 26
+        },
+        {
+          "sector": "Chemicals",
+          "year": 2025,
+          "current_risk_rate_pct": 50,
+          "previous_risk_rate_pct": 28.9,
+          "delta_pp": 21.1
+        },
+        {
+          "sector": "Defence",
+          "year": 2021,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Defence",
+          "year": 2022,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Defence",
+          "year": 2023,
+          "current_risk_rate_pct": 6.9,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 6.9
+        },
+        {
+          "sector": "Defence",
+          "year": 2024,
+          "current_risk_rate_pct": 26.9,
+          "previous_risk_rate_pct": 6.9,
+          "delta_pp": 20
+        },
+        {
+          "sector": "Defence",
+          "year": 2025,
+          "current_risk_rate_pct": 40.9,
+          "previous_risk_rate_pct": 26.9,
+          "delta_pp": 14
+        },
+        {
+          "sector": "Civil Nuclear",
+          "year": 2021,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Civil Nuclear",
+          "year": 2022,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Civil Nuclear",
+          "year": 2023,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Civil Nuclear",
+          "year": 2024,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        },
+        {
+          "sector": "Civil Nuclear",
+          "year": 2025,
+          "current_risk_rate_pct": 0,
+          "previous_risk_rate_pct": 0,
+          "delta_pp": 0
+        }
+      ],
+      "notes": [
+        "Base dataset: byCompanyScope.cniOnly.perReport.",
+        "Sector \"Other\" is excluded.",
+        "Each cell is the current year risk rate minus the previous year risk rate."
+      ]
+    },
+    "figure8": {
+      "id": "figure8",
+      "title": "2025 AI disclosure rates by market segment",
+      "chartType": "grouped-bar",
+      "year": 2025,
+      "series": [
+        {
+          "key": "ai_mention_rate_pct",
+          "label": "AI mention rate",
+          "color": "#9ca3af"
+        },
+        {
+          "key": "adoption_rate_pct",
+          "label": "Adoption rate",
+          "color": "#64748b"
+        },
+        {
+          "key": "risk_rate_pct",
+          "label": "Risk rate",
+          "color": "#e63946"
+        }
+      ],
+      "data": [
+        {
+          "segment_key": "Main Market (FTSE 100 only)",
+          "segment_label": "FTSE 100",
+          "total_reports": 223,
+          "ai_mention_reports": 189,
+          "adoption_reports": 178,
+          "risk_reports": 159,
+          "ai_mention_rate_pct": 84.8,
+          "adoption_rate_pct": 79.8,
+          "risk_rate_pct": 71.3
+        },
+        {
+          "segment_key": "Main Market (FTSE 350 only)",
+          "segment_label": "FTSE 350",
+          "total_reports": 606,
+          "ai_mention_reports": 502,
+          "adoption_reports": 383,
+          "risk_reports": 403,
+          "ai_mention_rate_pct": 82.8,
+          "adoption_rate_pct": 63.2,
+          "risk_rate_pct": 66.5
+        },
+        {
+          "segment_key": "Main Market",
+          "segment_label": "Main Market",
+          "total_reports": 703,
+          "ai_mention_reports": 545,
+          "adoption_reports": 401,
+          "risk_reports": 428,
+          "ai_mention_rate_pct": 77.5,
+          "adoption_rate_pct": 57,
+          "risk_rate_pct": 60.9
+        },
+        {
+          "segment_key": "AIM",
+          "segment_label": "AIM",
+          "total_reports": 171,
+          "ai_mention_reports": 63,
+          "adoption_reports": 53,
+          "risk_reports": 12,
+          "ai_mention_rate_pct": 36.8,
+          "adoption_rate_pct": 31,
+          "risk_rate_pct": 7
+        }
+      ],
+      "notes": [
+        "Base dataset: byMarketSegment[*].perReport.",
+        "Rates are report counts divided by total reports in the segment for 2025.",
+        "FTSE 100 and FTSE 350 are the dashboard slices named \"Main Market (FTSE 100 only)\" and \"Main Market (FTSE 350 only)\"."
+      ]
+    }
+  }
+}

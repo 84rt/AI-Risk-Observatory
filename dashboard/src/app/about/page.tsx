@@ -243,7 +243,14 @@ export default function AboutPage() {
             This page explains how we turn annual reports from UK-listed public companies into the data
             powering the dashboard, and the decisions behind each step in the pipeline.
             For a deeper dive,{' '}
-            <a href="about:blank" className="underline underline-offset-2 hover:text-primary transition-colors">read our full technical report</a>.
+            <a
+              href="/reports/report-final-2.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-primary transition-colors"
+            >
+              read our full technical report
+            </a>.
           </p>
         </div>
 
