@@ -244,7 +244,7 @@ export default function AboutPage() {
             powering the dashboard, and the decisions behind each step in the pipeline.
             For a deeper dive,{' '}
             <a
-              href="/reports/report-final-2.pdf"
+              href="https://drive.google.com/file/d/16ZtQ1yU67asvGjuuQ5nQXIXPD-KFANI1/view?usp=sharing"
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 hover:text-primary transition-colors"

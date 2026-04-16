@@ -38,7 +38,7 @@ const resourceLinks: FooterLink[] = [
     external: true,
   },
   {
-    href: '/reports/report-final-2.pdf',
+    href: 'https://drive.google.com/file/d/16ZtQ1yU67asvGjuuQ5nQXIXPD-KFANI1/view?usp=sharing',
     label: 'Full Report',
     external: true,
   },
