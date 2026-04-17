@@ -758,10 +758,7 @@ function DashboardLoadingState({
       <main className="relative mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
         <div className="w-full rounded-2xl border border-border bg-white p-8 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:p-10">
           <div className="mb-6 h-2 w-24 rounded-full bg-accent/80" />
-          <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-            AI Risk Observatory Data Explorer
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
+          <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">
             {message}
           </p>
           {action ? <div className="mt-6">{action}</div> : null}

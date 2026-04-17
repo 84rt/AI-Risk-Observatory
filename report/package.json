@@ -1,0 +1,8 @@
+{
+  "name": "ai-risk-observatory-report",
+  "private": true,
+  "scripts": {
+    "pdf": "node scripts/export-pdf.mjs",
+    "pdf:report-final-2": "node scripts/export-pdf.mjs report-final-2.html report-final-2.clean.pdf"
+  }
+}

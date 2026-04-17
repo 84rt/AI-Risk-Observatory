@@ -38,8 +38,8 @@ const resourceLinks: FooterLink[] = [
     external: true,
   },
   {
-    href: 'https://drive.google.com/file/d/16ZtQ1yU67asvGjuuQ5nQXIXPD-KFANI1/view?usp=sharing',
-    label: 'Full Report',
+    href: 'https://drive.google.com/file/d/1pCjrUEh52RNqDPGiDfbpxvTUvkWMzpl7/view?usp=sharing',
+    label: 'Read The Report',
     external: true,
   },
 ];
@@ -113,7 +113,7 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} AI Risk Observatory
           </p>
           <div className="mt-6 space-y-1 text-[11px] leading-tight text-muted-foreground">
-            <p>Last updated 12 April 2026</p>
+            <p>Last updated 17 April 2026</p>
             <p>
               Currently in public beta.{' '}
               <a

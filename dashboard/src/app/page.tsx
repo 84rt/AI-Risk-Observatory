@@ -118,20 +118,20 @@ export default function HomePage() {
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4">
-              <a
-                href="https://drive.google.com/file/d/16ZtQ1yU67asvGjuuQ5nQXIXPD-KFANI1/view?usp=sharing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded border border-accent bg-accent px-6 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-[0_12px_28px_rgba(230,57,70,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#c92f3b] hover:shadow-[0_16px_34px_rgba(230,57,70,0.28)]"
-              >
-                View Full Report
-              </a>
               <Link
                 href="/data"
-                className="inline-flex items-center gap-2 rounded border border-border bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary hover:bg-secondary transition-colors"
+                className="inline-flex items-center gap-2 rounded border border-accent bg-accent px-6 py-3 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#c92f3b]"
               >
                 Explore Data
               </Link>
+              <a
+                href="https://drive.google.com/file/d/1pCjrUEh52RNqDPGiDfbpxvTUvkWMzpl7/view?usp=sharing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded border border-accent bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-accent transition-colors hover:bg-red-50"
+              >
+                Read The Report
+              </a>
             </div>
           </div>
         </div>
