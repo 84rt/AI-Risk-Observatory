@@ -59,7 +59,7 @@ function FooterLinkList({
           <li key={link.href ?? link.label}>
             {link.unavailable ? (
               <span className="text-sm text-muted">Coming Soon</span>
-            ) : link.external ? (
+            ) : link.external && link.href ? (
               <a
                 href={link.href}
                 target="_blank"
@@ -68,13 +68,15 @@ function FooterLinkList({
               >
                 {link.label}
               </a>
-            ) : (
+            ) : link.href ? (
               <Link
                 href={link.href}
                 className="text-sm text-muted-foreground transition-colors hover:text-primary"
               >
                 {link.label}
               </Link>
+            ) : (
+              <span className="text-sm text-muted">{link.label}</span>
             )}
           </li>
         ))}
