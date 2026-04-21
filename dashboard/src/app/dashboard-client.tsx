@@ -88,15 +88,26 @@ const adoptionColors: Record<string, string> = {
 };
 
 const vendorColors: Record<string, string> = {
-  openai: '#e63946',      // AISI red
-  microsoft: '#3b82f6',   // blue-500
-  google: '#16a34a',      // green-600
-  amazon: '#f59e0b',      // amber-500
-  meta: '#1e3a8a',        // blue-900
-  anthropic: '#d97706',   // amber-600
-  internal: '#0b0c0c',    // near-black
-  other: '#64748b',       // slate-500
-  undisclosed: '#e2e8f0', // slate-200
+  openai: '#e63946',        // AISI red
+  microsoft: '#3b82f6',     // blue-500
+  google: '#16a34a',        // green-600
+  amazon: '#f59e0b',        // amber-500
+  nvidia: '#76b900',        // nvidia green
+  salesforce: '#00a1e0',    // salesforce blue
+  databricks: '#ff3621',    // databricks orange-red
+  ibm: '#1f70c1',           // ibm blue
+  snowflake: '#29b5e8',     // snowflake cyan
+  meta: '#1e3a8a',          // blue-900
+  anthropic: '#d97706',     // amber-600
+  xai: '#000000',           // black
+  palantir: '#374151',      // gray-700
+  arm: '#0091bd',           // arm blue
+  mistral: '#f97316',       // orange-500
+  uk_ai: '#6d28d9',         // violet-700
+  open_source_model: '#059669', // emerald-600
+  internal: '#0b0c0c',      // near-black
+  other: '#64748b',         // slate-500
+  undisclosed: '#e2e8f0',   // slate-200
 };
 
 const riskColors: Record<string, string> = {
@@ -192,12 +203,56 @@ const vendorTagDefinitions = [
     definition: 'Amazon or AWS is explicitly named in the source disclosure.',
   },
   {
+    label: 'Nvidia',
+    definition: 'Nvidia is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Salesforce',
+    definition: 'Salesforce is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Databricks',
+    definition: 'Databricks is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'IBM',
+    definition: 'IBM is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Snowflake',
+    definition: 'Snowflake is explicitly named in the source disclosure.',
+  },
+  {
     label: 'Meta',
     definition: 'Meta is explicitly named in the source disclosure.',
   },
   {
     label: 'Anthropic',
     definition: 'Anthropic is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'xAI / Grok',
+    definition: 'xAI or Grok is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Palantir',
+    definition: 'Palantir is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Arm',
+    definition: 'Arm is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'Mistral',
+    definition: 'Mistral is explicitly named in the source disclosure.',
+  },
+  {
+    label: 'UK AI Institutions',
+    definition: 'A UK government AI body (e.g. DSIT, AISI, Alan Turing Institute) is referenced.',
+  },
+  {
+    label: 'Open-Source Model',
+    definition: 'An open-source model or framework is referenced without a named commercial vendor.',
   },
   {
     label: 'Internal',

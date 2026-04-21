@@ -409,7 +409,7 @@ export function StackedBarChart({
           )}
         </div>
         {showSideLegend && (
-          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:w-56">
+          <div className="w-full rounded border border-border bg-secondary/35 p-3 lg:w-56 lg:max-h-[420px] lg:overflow-y-auto lg:self-start lg:shrink-0">
             <div className="space-y-1">{renderLegendItems()}</div>
           </div>
         )}

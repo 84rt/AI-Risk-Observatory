@@ -172,15 +172,26 @@ export default function AboutPage() {
     national_security: 'National security',
     environmental_impact: 'Environmental impact',
     // Vendor
-    microsoft: 'Microsoft',
     openai: 'OpenAI',
+    microsoft: 'Microsoft',
     google: 'Google',
-    amazon: 'Amazon',
-    anthropic: 'Anthropic',
+    amazon: 'Amazon / AWS',
+    nvidia: 'Nvidia',
+    salesforce: 'Salesforce',
+    databricks: 'Databricks',
+    ibm: 'IBM',
+    snowflake: 'Snowflake',
     meta: 'Meta',
+    anthropic: 'Anthropic',
+    xai: 'xAI / Grok',
+    palantir: 'Palantir',
+    arm: 'Arm',
+    mistral: 'Mistral',
+    uk_ai: 'UK AI Institutions',
+    open_source_model: 'Open-Source Model',
     internal: 'Internal',
-    undisclosed: 'Undisclosed',
     other: 'Other',
+    undisclosed: 'Undisclosed',
   };
   const phase1Cards = ['general_ambiguous', 'none', 'harm', 'adoption', 'risk', 'vendor'].flatMap(id => {
     if (id === 'none') {
@@ -702,10 +713,13 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                 {/* Vendor */}
                 <h4 className="text-sm font-bold uppercase tracking-widest text-primary pt-4">Vendor Taxonomy</h4>
                 <p>
-                  Vendors are tagged against a predefined list: Amazon, Google, Microsoft,
-                  OpenAI, Anthropic, Meta, internal (in-house), undisclosed (implied but
-                  unnamed), and other (named provider outside the predefined list, captured
-                  as free text).
+                  Vendors are tagged against a predefined list of named providers: OpenAI, Microsoft,
+                  Google, Amazon / AWS, Nvidia, Salesforce, Databricks, IBM, Snowflake, Meta,
+                  Anthropic, xAI / Grok, Palantir, Arm, Mistral, and UK AI institutions (e.g. DSIT,
+                  AISI, Alan Turing Institute). Additional categories cover open-source models
+                  (named frameworks without a commercial vendor), internal (in-house AI development),
+                  undisclosed (implied but unnamed provider), and other (any named provider outside
+                  the predefined list, captured as free text).
                 </p>
 
                 {/* Substantiveness */}
