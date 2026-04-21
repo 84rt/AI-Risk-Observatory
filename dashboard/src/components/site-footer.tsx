@@ -39,7 +39,7 @@ const resourceLinks: FooterLink[] = [
     external: true,
   },
   {
-    label: 'Coming Soon',
+    label: 'Report Coming Soon',
     unavailable: true,
   },
 ];
@@ -58,7 +58,7 @@ function FooterLinkList({
         {links.map(link => (
           <li key={link.href ?? link.label}>
             {link.unavailable ? (
-              <span className="text-sm text-muted">Coming Soon</span>
+              <span className="text-sm text-muted">Report Coming Soon</span>
             ) : link.external && link.href ? (
               <a
                 href={link.href}
