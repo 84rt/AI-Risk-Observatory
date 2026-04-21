@@ -118,7 +118,7 @@ mention_type_v3: |
   1. AI EXPLICITNESS GATE: If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision), assign the tag "none". Terms like "data analytics" or "digital tools" generally are NOT considered AI under our definition. The tag "none" is used when there is no AI mention, a false positive, or unrelated automation not clearly AI. Only consider terms like "autonomus or virtual assistant" as AI if it can be clearly attributed to AI. Otherwise, use the following tags in a non-mutually exclusive manner: adoption (the current usage of AI technology by the company), risk (AI as a risk: risks that are directly coming from AI), harm (past harms that were caused by AI), vendor (any mention of a provider of AI technology), general_ambiguous (any statement about AI that does not fit into the other tags). Here are more details on each tag:
     - adoption: must directly describe real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients. Generic statements about intent/strategy/roadmaps/plans (adoption in the future) are NOT considered adoption. Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when it refers to initiative currently underway (e.g. "current trail resulted in..."). Delivering AI systems directly or indirectly for clients does count as adoption; pure consulting/advice without deployment does NOT.
     - risk: must directly attribute AI as the source of a risk or downside (i.e. strategic & competitive, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirecty way, these should be classified as risk from AI.
-    - harm: must describe past harms that were caused by AI (misinformation, fraud, abuse, safety incidents).
+    - harm: must describe past harms that were caused by AI (such as: misinformation, fraud, abuse, safety incidents etc.).
     - vendor: must explicitly name a third-party AI vendor/platform that provices the AI technology (i.e. Microsoft, Google, OpenAI, AWS, or explicitly developed in-house). We primarely want to tag text that mentions any information about what AI models are used by the comapny (i.e. GPT or Google Gemini).
     - general_ambiguous: vague AI strategy, high-level plans, or AI mentions that don't have enough context or are not specific enough. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_ambiguous. The tag general_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
   2. Assign confidence scores to each tag. Confidence scores always indicate how likely the label applies (including "none").
@@ -796,6 +796,111 @@ vendor: |
 
   ## OUTPUT CONSTRAINTS
   - If no AI vendor/model provider is detected, vendors must be an empty list. Make sure to do this in the case of false positives, where the excerpt has falsly been classified as having AI / AI vendor mentions.
+  - Each entry in vendors must have a vendor tag and a signal score (1, 2, or 3).
+  - No duplicate vendor tags in the vendors list.
+  - Set other_vendor only if "other" is included as a vendor tag in the vendors list.
+
+  ## EXCERPT CONTEXT
+  Company: {firm_name} | Sector: {sector} | Report Year: {report_year}
+
+vendor_v2: |
+
+  ## UPDATED PROMPT
+  You are an expert analyst extracting AI vendor mentions from company annual reports.
+
+  ## TASK
+  The excerpt has already been classified with the following mention types: {mention_types}.
+  Identify which AI vendors/providers are used by the company to deploy AI capabilities.
+  The objective is to detect the underlying AI model (LLM or agentic AI) or model platform (if any).
+  Tags are NOT mutually exclusive.
+  Make sure to assign an appropriate signal strength to each vendor mentioned.
+  {reasoning_instruction}
+
+  ## VENDOR TAGS
+
+  #foundation_models
+  - openai: OpenAI, GPT, ChatGPT
+  - anthropic: Anthropic, Claude
+  - meta: Meta AI, Llama
+  - xai: xAI, Grok
+  - mistral: Mistral, Mixtral
+  - cohere: Cohere, Command
+
+  #hyperscalers
+  - amazon: Amazon, AWS, Bedrock, SageMaker, Amazon Q, CodeWhisperer, Titan
+  - google: Google, Vertex AI, Gemini, DeepMind, Google Cloud AI
+  - microsoft: Microsoft Azure AI, Copilot, Azure OpenAI Service, GitHub Copilot, Azure AI Studio
+    (note: "Microsoft Teams" or "Microsoft Office" alone is NOT an AI vendor mention)
+
+  #data_ai_platforms
+  - databricks: Databricks
+  - snowflake: Snowflake
+  - palantir: Palantir
+  - ibm: IBM, Watson, WatsonX
+
+  #infrastructure
+  - nvidia: NVIDIA
+  - arm: Arm
+
+  #ml_ops_retrieval
+  - huggingface: Hugging Face
+  - pinecone: Pinecone
+
+  #enterprise_ai_apps
+  - salesforce: Salesforce, Einstein AI
+
+  #uk_ai_vendors
+  - uk_ai: Darktrace, Quantexa, Featurespace, Faculty AI, BenevolentAI
+
+  #special_tags
+  - internal: Explicitly stated in-house / proprietary AI development. Only use this tag if the company explicitly implies internal development or deployment of AI models.
+  - undisclosed: Third-party AI vendor clearly mentioned but the name is deliberately not mentioned.
+  - open_source_model: open-source LLM, open source model, open-source AI model
+  - other: Named AI vendor not in the above list (specify in other_vendor field).
+
+  ## RULES
+  1. Tag only vendors that provide AI models or AI model platforms to the company.
+    - Ignore name-drops in bios, industry commentary, or events.
+    - Ignore general cloud, productivity, or partnership mentions without AI model usage.
+  2. Model-name mentions count as vendor signals even if the company name is absent:
+    - GPT / ChatGPT: openai
+    - Claude: anthropic
+    - Gemini / Vertex: google
+    - Llama: meta
+    - Grok: xai
+    - Mixtral: mistral
+    - Command: cohere
+    - Bedrock / Titan / CodeWhisperer: amazon
+    - Watson / WatsonX: ibm
+    - Einstein AI: salesforce
+  3. If a product clearly involves two vendors (e.g., Azure OpenAI Service), tag both microsoft and openai.
+  4. If AI is used but the vendor is unnamed, tag "undisclosed".
+  5. If the company states it builds AI internally, tag "internal". Only use this tag if the company explicitly implies internal development of AI base models.
+  6. Use "open_source_model" when the excerpt refers to open-source LLMs without naming a specific vendor.
+  7. Use "uk_ai" for any of the listed UK AI vendors (Darktrace, Quantexa, Featurespace, Faculty AI, BenevolentAI).
+
+  ## SIGNAL GUIDANCE (integer: 1, 2, or 3)
+  Assign a signal strength for each vendor in vendor_tags:
+  - 1 (weak implicit): Requires interpretation
+    Example: "Our AI models are from a company that invented the AI transformer technology"
+  - 2 (strong implicit): Clearly about this vendor but not directly stated
+    Example: "We are enhancing operations with Copilot tools"
+  - 3 (explicit): Directly and factually evident
+    Example: "We deployed OpenAI's GPT-4 for document review"
+
+  ## EXAMPLES
+  - "We deployed OpenAI's GPT-4 for document review." -> vendors: [{{"vendor": "openai", "signal": 3}}]
+  - "We use Azure OpenAI Service for internal copilots." -> vendors: [{{"vendor": "microsoft", "signal": 3}}, {{"vendor": "openai", "signal": 3}}]
+  - "Our team built a proprietary ML platform in-house." -> vendors: [{{"vendor": "internal", "signal": 3}}]
+  - "We use a third-party AI solution for fraud detection." -> vendors: [{{"vendor": "undisclosed", "signal": 2}}]
+  - "We use Microsoft 365 for productivity." -> vendors: [] (not an AI vendor mention)
+  - "We integrated Llama 3 into our search pipeline." -> vendors: [{{"vendor": "meta", "signal": 3}}]
+  - "We run an open-source large language model on our own infrastructure." -> vendors: [{{"vendor": "open_source_model", "signal": 3}}]
+  - "We use Darktrace for cyber threat detection." -> vendors: [{{"vendor": "uk_ai", "signal": 3}}]
+  - "We use WatsonX to automate compliance workflows." -> vendors: [{{"vendor": "ibm", "signal": 3}}]
+
+  ## OUTPUT CONSTRAINTS
+  - If no AI vendor/model provider is detected, vendors must be an empty list. Make sure to do this in the case of false positives, where the excerpt has falsely been classified as having AI / AI vendor mentions.
   - Each entry in vendors must have a vendor tag and a signal score (1, 2, or 3).
   - No duplicate vendor tags in the vendors list.
   - Set other_vendor only if "other" is included as a vendor tag in the vendors list.

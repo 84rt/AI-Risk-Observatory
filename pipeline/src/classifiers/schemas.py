@@ -557,10 +557,53 @@ class VendorTag(str, Enum):
     other = "other"
 
 
+class VendorTagV2(str, Enum):
+    """Expanded AI vendor tags (v2)."""
+
+    # Foundation models
+    openai = "openai"
+    anthropic = "anthropic"
+    meta = "meta"
+    xai = "xai"
+    mistral = "mistral"
+    cohere = "cohere"
+    # Hyperscalers
+    amazon = "amazon"
+    google = "google"
+    microsoft = "microsoft"
+    # Data / AI platforms
+    databricks = "databricks"
+    snowflake = "snowflake"
+    palantir = "palantir"
+    ibm = "ibm"
+    # Infrastructure
+    nvidia = "nvidia"
+    arm = "arm"
+    # MLOps / retrieval
+    huggingface = "huggingface"
+    pinecone = "pinecone"
+    # Enterprise AI apps
+    salesforce = "salesforce"
+    # UK AI vendors (grouped under one tag)
+    uk_ai = "uk_ai"
+    # Special tags
+    internal = "internal"
+    undisclosed = "undisclosed"
+    open_source_model = "open_source_model"
+    other = "other"
+
+
 class VendorEntry(BaseModel):
     """A single vendor detection with its signal strength."""
 
     vendor: VendorTag = Field(description="Detected vendor tag.")
+    signal: int = Field(description="Signal strength: 1=weak implicit, 2=strong implicit, 3=explicit.")
+
+
+class VendorEntryV2(BaseModel):
+    """A single vendor detection with its signal strength (v2 expanded tags)."""
+
+    vendor: VendorTagV2 = Field(description="Detected vendor tag.")
     signal: int = Field(description="Signal strength: 1=weak implicit, 2=strong implicit, 3=explicit.")
 
 
@@ -596,6 +639,63 @@ class VendorResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_vendors(self) -> "VendorResponse":
+        seen = set()
+        has_other = False
+        for entry in self.vendors:
+            tag = entry.vendor.value if hasattr(entry.vendor, "value") else str(entry.vendor)
+            if tag in seen:
+                raise ValueError(f"Duplicate vendor: '{tag}'")
+            seen.add(tag)
+            if entry.signal not in (1, 2, 3):
+                raise ValueError(f"Signal for '{tag}' must be 1, 2, or 3")
+            if tag == "other":
+                has_other = True
+
+        if has_other and not self.other_vendor:
+            raise ValueError("other_vendor must be set when 'other' is in vendors")
+        if not has_other and self.other_vendor:
+            raise ValueError("other_vendor should only be set when 'other' is in vendors")
+        return self
+
+
+class VendorResponseV2(BaseModel):
+    """Response schema for vendor extraction (v2 — expanded vendor taxonomy)."""
+
+    chunk_id: Optional[str] = Field(
+        default=None,
+        description="Echoed chunk identifier when provided in the prompt.",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Brief explanation of classification rationale.",
+    )
+    vendors: List[VendorEntryV2] = Field(
+        description=(
+            "Detected vendors with signal strengths. "
+            "Foundation models — 'openai': OpenAI/GPT/ChatGPT; 'anthropic': Anthropic/Claude; "
+            "'meta': Meta AI/Llama; 'xai': xAI/Grok; 'mistral': Mistral/Mixtral; 'cohere': Cohere/Command. "
+            "Hyperscalers — 'amazon': Amazon/AWS/Bedrock/SageMaker/Titan; "
+            "'google': Google/Vertex AI/Gemini/DeepMind; "
+            "'microsoft': Azure AI/Copilot/Azure OpenAI/GitHub Copilot. "
+            "Data/AI platforms — 'databricks': Databricks; 'snowflake': Snowflake; "
+            "'palantir': Palantir; 'ibm': IBM/Watson/WatsonX. "
+            "Infrastructure — 'nvidia': NVIDIA; 'arm': Arm. "
+            "MLOps/retrieval — 'huggingface': Hugging Face; 'pinecone': Pinecone. "
+            "Enterprise AI apps — 'salesforce': Salesforce/Einstein AI. "
+            "UK AI vendors — 'uk_ai': Darktrace/Quantexa/Featurespace/Faculty AI/BenevolentAI. "
+            "Special — 'internal': in-house/proprietary AI models; "
+            "'undisclosed': third-party vendor not named; "
+            "'open_source_model': open-source LLM/model; "
+            "'other': named vendor not in the above list."
+        )
+    )
+    other_vendor: Optional[str] = Field(
+        default=None,
+        description="Name of vendor if 'other' is in vendors list.",
+    )
+
+    @model_validator(mode="after")
+    def validate_vendors(self) -> "VendorResponseV2":
         seen = set()
         has_other = False
         for entry in self.vendors:

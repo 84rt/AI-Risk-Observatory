@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 from pydantic import BaseModel
 
 from .base_classifier import BaseClassifier
-from .schemas import VendorResponse
+from .schemas import VendorResponse, VendorResponseV2
 from ..utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 
@@ -16,9 +16,9 @@ class VendorClassifier(BaseClassifier):
     """AI vendor/provider extraction classifier."""
 
     CLASSIFIER_TYPE = "vendor"
-    RESPONSE_MODEL = VendorResponse
-    PROMPT_KEY = "vendor"
-    SCHEMA_VERSION = "vendor_v2"
+    RESPONSE_MODEL = VendorResponseV2
+    PROMPT_KEY = "vendor_v2"
+    SCHEMA_VERSION = "vendor_v3"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
         """Generate the classification prompts for vendor extraction."""

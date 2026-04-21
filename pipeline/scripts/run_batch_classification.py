@@ -132,7 +132,7 @@ from src.utils.prompt_loader import get_prompt_messages
 from src.classifiers.schemas import (
     AdoptionTypeResponse,
     RiskResponse,
-    VendorResponse,
+    VendorResponseV2,
     AdoptionSubstantivenessResponse,
     RiskSubstantivenessResponse,
     VendorSubstantivenessResponse,
@@ -223,7 +223,7 @@ p2_run_id = f"{RUN_ID}-phase2"
 
 adoption_input  = prepare_phase2_batch(f"{p2_run_id}-adoption",       adoption_chunks, "adoption_type",            AdoptionTypeResponse)
 risk_input      = prepare_phase2_batch(f"{p2_run_id}-risk",           risk_chunks,     "risk_v5",                  RiskResponse)
-vendor_input    = prepare_phase2_batch(f"{p2_run_id}-vendor",         vendor_chunks,   "vendor",                   VendorResponse)
+vendor_input    = prepare_phase2_batch(f"{p2_run_id}-vendor",         vendor_chunks,   "vendor_v2",                VendorResponseV2)
 adoption_sub_input = prepare_phase2_batch(f"{p2_run_id}-adoption-sub", adoption_chunks, "adoption_substantiveness_v1", AdoptionSubstantivenessResponse)
 risk_sub_input     = prepare_phase2_batch(f"{p2_run_id}-risk-sub",     risk_chunks,     "risk_substantiveness_v1",    RiskSubstantivenessResponse)
 vendor_sub_input   = prepare_phase2_batch(f"{p2_run_id}-vendor-sub",   vendor_chunks,   "vendor_substantiveness_v1",  VendorSubstantivenessResponse)
@@ -348,9 +348,14 @@ for r in risk_results:
 for r in vendor_results:
     if r["chunk_id"] in merged and "parsed" in r:
         p = r["parsed"]
-        vendor_tags = list((p.get("vendor_confidences") or {}).keys())
-        if p.get("other_vendor"):
-            vendor_tags.append(f"other:{p['other_vendor']}")
+        vendors_list = p.get("vendors") or []
+        other_name = p.get("other_vendor")
+        vendor_tags = []
+        for entry in vendors_list:
+            tag = entry["vendor"] if isinstance(entry, dict) else str(entry)
+            if tag == "other" and other_name:
+                tag = f"other:{other_name}"
+            vendor_tags.append(tag)
         merged[r["chunk_id"]]["vendor_tags"] = vendor_tags
 
 for r in adoption_sub_results:
