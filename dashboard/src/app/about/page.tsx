@@ -242,15 +242,7 @@ export default function AboutPage() {
           <p className="mt-8 text-xl leading-relaxed text-muted">
             This page explains how we turn annual reports from UK-listed public companies into the data
             powering the dashboard, and the decisions behind each step in the pipeline.
-            For a deeper dive,{' '}
-            <a
-              href="https://drive.google.com/file/d/1pCjrUEh52RNqDPGiDfbpxvTUvkWMzpl7/view?usp=sharing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-primary transition-colors"
-            >
-              read our full technical report
-            </a>.
+            For a deeper dive, the full technical report is coming soon.
           </p>
         </div>
 

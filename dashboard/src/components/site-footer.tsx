@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 type FooterLink = {
-  href: string;
   label: string;
+  href?: string;
   external?: boolean;
+  unavailable?: boolean;
 };
 
 const primaryLinks: FooterLink[] = [
@@ -38,9 +39,8 @@ const resourceLinks: FooterLink[] = [
     external: true,
   },
   {
-    href: 'https://drive.google.com/file/d/1pCjrUEh52RNqDPGiDfbpxvTUvkWMzpl7/view?usp=sharing',
-    label: 'Read The Report',
-    external: true,
+    label: 'Coming Soon',
+    unavailable: true,
   },
 ];
 
@@ -56,8 +56,10 @@ function FooterLinkList({
       <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">{title}</h2>
       <ul className="mt-4 space-y-3">
         {links.map(link => (
-          <li key={link.href}>
-            {link.external ? (
+          <li key={link.href ?? link.label}>
+            {link.unavailable ? (
+              <span className="text-sm text-muted">Coming Soon</span>
+            ) : link.external ? (
               <a
                 href={link.href}
                 target="_blank"

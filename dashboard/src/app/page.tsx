@@ -124,14 +124,9 @@ export default function HomePage() {
               >
                 Explore Data
               </Link>
-              <a
-                href="https://drive.google.com/file/d/1pCjrUEh52RNqDPGiDfbpxvTUvkWMzpl7/view?usp=sharing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded border border-accent bg-white px-6 py-3 text-sm font-bold uppercase tracking-widest text-accent transition-colors hover:bg-red-50"
-              >
-                Read The Report
-              </a>
+              <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Coming Soon
+              </span>
             </div>
           </div>
         </div>
