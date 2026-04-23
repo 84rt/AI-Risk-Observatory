@@ -96,6 +96,7 @@ export default function AboutPage() {
   const breakdown = data.reportClassificationBreakdown;
   const summary = data.datasets.perReport.summary;
   const totalChunks = data.datasets.perChunk.summary.totalReports;
+  const marketSegmentCoverage = data.marketSegmentCoverage;
   const phaseCardStyles: Record<
     string,
     {
@@ -436,6 +437,27 @@ export default function AboutPage() {
                   Companies House, our working universe is approximately 1,362 companies. Each company
                   files, on average, one annual report per year.<sup className="text-xs align-super"><a href="#fn-1" className="hover:text-primary">1</a></sup>
                 </p>
+                <p>
+                  The current report universe breaks down across exchange segments as follows.
+                </p>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-border text-left">
+                      <th className="py-2 pr-4 font-bold text-primary">Segment</th>
+                      <th className="py-2 pr-4 font-bold text-primary text-right">Number of companies</th>
+                      <th className="py-2 font-bold text-primary text-right">Number of reports</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-muted">
+                    {marketSegmentCoverage.map(row => (
+                      <tr key={row.segment} className="border-b border-border/50">
+                        <td className="py-2 pr-4 font-medium text-primary">{row.segment}</td>
+                        <td className="py-2 pr-4 text-right">{row.companyCount.toLocaleString()}</td>
+                        <td className="py-2 text-right">{row.reportCount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div id="data-decisions" className="scroll-mt-20 space-y-6">

@@ -83,6 +83,9 @@ next-env.d.ts
 aqse.csv
 
 report/nonessential/
+report/node_modules/
+report/report-3-debug.txt
+report/report-3.md
 
 OCR_test/
 OCR_test/*

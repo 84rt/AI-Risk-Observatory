@@ -540,6 +540,35 @@
         margin: 6mm 0 8mm;
       }
     }
+
+    /* -- Footnotes --------------------------------------------------- */
+    .footnotes {
+      margin-top: 14mm;
+      padding-top: 5mm;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .footnotes ol {
+      padding-left: 1.4em;
+      font-size: 8.4pt;
+      line-height: 1.55;
+      color: var(--ink-muted);
+    }
+
+    .footnotes li {
+      margin-bottom: 3mm;
+    }
+
+    .footnotes a {
+      color: var(--ink-muted);
+    }
+
+    sup a {
+      font-size: 7.5pt;
+      text-decoration: none;
+      color: var(--accent-dark);
+      vertical-align: super;
+    }
   </style>
 </head>
 <body>
@@ -554,7 +583,7 @@
       <div class="label">Research Report</div>
       <h1>AI Risk Observatory:<br />Tracking AI Risk and<br />Adoption in UK Public-<br />Company Annual Reports</h1>
       <div class="meta">
-        <span><strong>Author</strong> &nbsp;<a href="mailto:bart.jaworski.00@gmail.com">Bart Jaworski</a></span>
+        <span><strong>Author</strong> &nbsp;<a href="https://www.linkedin.com/in/84rt/">Bart Jaworski</a></span>
         <span><strong>Date</strong> &nbsp;15 Apr 2026</span>
         <span><strong>Site</strong> &nbsp;<a href="https://www.riskobservatory.ai">riskobservatory.ai</a></span>
       </div>
@@ -582,9 +611,9 @@
     <span id="exec-summary" class="section-anchor"></span>
     <h2>Executive Summary</h2>
 
-    <p><strong>Context and motivation.</strong> Artificial intelligence is reshaping the risk and operational landscape of UK listed companies at a pace that has outrun the regulatory frameworks designed to monitor it. Annual reports — legally mandated, board-accountable, and audited artefacts — represent the most reliable systematic evidence base for tracking how companies understand, disclose, and govern their AI exposure. The AI Risk Observatory applies a reproducible, large-language-model-based classification pipeline to the full population of UK listed companies to produce, for the first time, a structured and longitudinal analysis of AI disclosure across the Main Market and AIM.</p>
-
-    <p><strong>What we studied.</strong> The corpus covers 9,821 annual reports from 1,362 companies, spanning publication years 2020 to 2026 (2026 partial). Reports are sourced from FinancialReports.eu and Companies House. Each report is processed through a two-stage classification pipeline using Gemini Flash 3 as the production model, assigning AI adoption type, risk category, vendor identity, and substantiveness level to all mentions of AI within the reports.</p>
+    <p><strong>Context and motivation.</strong> Artificial intelligence is reshaping the risk and operational landscape of UK listed companies at a rapid pace. Annual reports — legally mandated, board-accountable, and audited artefacts — represent a systematic evidence base for tracking how companies understand, disclose, and govern their AI exposure. The AI Risk Observatory applies a reproducible, large-language-model-based classification pipeline to the full population of UK listed companies to produce, for the first time, a structured and longitudinal analysis of AI disclosures, for all listed companies on the London Stock Exchange and the Aquis Exchange.</p>
+<!--Thought we seperate so you explain what you studiied first. mention later-->
+    <p><strong>What we studied.</strong> As at the report date, the corpus covers 9,821 annual reports from 1,362 companies, spanning publication years 2020 to 2026 (2026 partial). Across these we analysed the mentions of AI adoption, risk, harms, and vendors of AI technology. The classification pipeline was calibrated against a human judge, and achieved a higher accuracy than the initial humman annotated review. The annual reports were sourced from FinancialReports.eu and Companies House. Each report is processed through a two-stage classification pipeline using Gemini Flash 3 as the production model.</p>
 
     <div class="stats-row">
       <div class="stat-card">
@@ -597,7 +626,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-num">65.5%</div>
-        <div class="stat-label">AI mention rate in 2025<br><small>(up from 19.5% in 2020)</small></div>
+        <div class="stat-label">of reports mentioned AI in 2025<br><small>(up from 19.5% in 2020)</small></div>
       </div>
       <div class="stat-card">
         <div class="stat-num">21×</div>
@@ -605,13 +634,11 @@
       </div>
     </div>
 
-    <p><strong>Core Findings.</strong> First, AI mentions in disclosures have grown from a minority feature to a near-majority feature for UK public companies. In 2020, 19.5% of reports contained any AI signal; by 2025 that figure reached 65.5%. Risk-specific disclosure grew even faster from a much smaller base, rising from 3.2% of reports in 2020 to 43.2% in 2025; in count terms, risk-reporting reports increased from 32 to 674, a twenty-one-fold increase. The sharpest single-year inflection occurred between 2023 and 2024 (+200% in risk mentions), coinciding with mass-market generative AI adoption and early anticipatory compliance with the 2024 UK Corporate Governance Code.</p>
+    <p><strong>Core Findings.</strong> First, AI mentions in annual reports have grown rapidly. In 2020, 19.5% of reports contained any AI mention; by 2025 that figure reached 65.5%. Risk-specific mentions grew even faster from a much smaller base, rising from 3.2% of reports in 2020 to 43.2% in 2025. In count terms, annual reports mentioning AI risk increased from 32 to 674, a twenty-one-fold increase. The sharpest single-year increase occurred between 2023 and 2024 (388 more AI risk mentions), coinciding with mass-market generative AI adoption.</p>
 
-    <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. In 2025, only 9.6% of risk-reporting reports had substantive AI-risk disclosure, compared with 27.0% of adoption-reporting reports and 59.4% of vendor-reporting reports. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
-
-    <p>Third, sector and market segment gaps are substantial. Finance and Health dominate the active-disclosure picture while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies are near-saturated in 2025 (84.8% AI mention rate, 71.3% risk rate) while AIM companies remain dramatically underrepresented (36.8% signal rate, 7.0% risk rate). Vendor concentration is systematically underreported: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, masking growing infrastructure dependencies on a small number of hyperscalers.</p>
-
-    <p><strong>Policy implications.</strong> Regulatory frameworks that treat disclosure <em>presence</em> as the primary quality signal will generate rising volumes without rising information content. Sector-specific engagement — particularly for Data Infrastructure and Energy — is likely to be more additive than generic disclosure requirements. And the underreporting of vendor concentration represents a systemic risk monitoring gap that persists even when companies make good-faith efforts to describe their AI activities.</p>
+    <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. Our <i>substantiveness classification</i> (a measure of how elaborate a statement it), shows that in 2025, only 9.6% of AI risk mentions were classified as <i>substantive</i>, compared to 27.0% AI adoption mentions that year. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
+    
+    <p>Third, there are significent differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies - in 2025 (84.8% AI mention rate, 71.3% risk rate) while AIM companies reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
 
     <hr>
 
@@ -622,16 +649,23 @@
     <span id="s1-1" class="section-anchor"></span>
     <h3>1.1 Motivation</h3>
 
-    <p>We focus on annual reports as they are legally mandated, board-accountable artefacts under the Companies Act and the FCA's Disclosure Guidance and Transparency Rules. Unlike voluntary ESG disclosures or earnings presentations, they are produced under a legal accountability regime that creates strong incentives for accuracy. This makes them a qualitatively different evidence base from surveys, earnings calls, or press releases for tracking how companies understand and govern their AI exposure.</p>
+    <p>We study annual reports because they are legally mandated, board-accountable documents under the Companies Act and the FCA's Disclosure Guidance and Transparency Rules. They provide a large, sector-spanning dataset with a natural time series. Crucially, these reports are produced within a legal accountability framework that creates strong incentives for accuracy and follows a relatively stable year-to-year process, unlike more variable sources such as executive media appearances. This makes them particularly well suited, compared with surveys or press releases, for tracking how companies understand and govern their AI exposure.</p>
+    
+    <p>The main legal basis for narrative risk reporting sits in the <strong>Companies Act 2006</strong>. For companies required to prepare a strategic report, the report must include a fair review of the business and "a description of the principal risks and uncertainties facing the company" (ss. 414A–414C, subject to the small companies exemption in s. 414B). FRC guidance indicates that these disclosures should be company-specific and sufficiently specific for shareholders to understand why they matter to that company; where a risk is more generic, the description should explain how it affects the company specifically.<sup><a id="fnref1" href="#fn1">1</a></sup> At the market-disclosure layer, the FCA's <strong>Disclosure Guidance and Transparency Rules (DTR)</strong> 4.1 require issuers to publish annual financial reports within four months of the financial year end. AIM companies, governed primarily by the London Stock Exchange's <strong>AIM Rules for Companies</strong>, have a six-month deadline for annual audited accounts under Rule 19 and a more flexible governance-disclosure regime under Rule 26. That lighter AIM framework may help explain part of the disclosure gap identified in the findings, alongside differences in size, resources, and exposure.</p>
 
-    <p>The legal basis for narrative risk reporting sits in the Companies Act 2006, which requires UK-incorporated companies above certain thresholds to produce a strategic report including a description of principal risks and uncertainties. The FRC's guidance requires that these disclosures be entity-specific and material, not generic restatements of sector-wide concerns. At the market-disclosure layer, DTR 4.1 requires Main Market issuers to publish annual financial reports within four months of the financial year end. AIM companies face a less prescriptive six-month window and are not required to comply with the UK Corporate Governance Code. These lighter AIM obligations are directly relevant to the disclosure gap documented in the findings: the difference is regulatory in origin, not solely a function of company size or AI exposure.</p>
-
-    <p>By creating a data processing pipeline that automatically scans 9,821 annual reports from 1,362 UK-listed companies spanning publication years 2020 to 2026, we can identify, categorise, and quality-rate AI-related disclosures, producing structured signals across adoption type, risk category, vendor dependency, and disclosure substantiveness. This allows us to establish a replicable, longitudinal baseline for regulatory policy, supervisory prioritisation, and research on the evolution of corporate AI governance in the United Kingdom's Critical National Infrastructure (CNI).</p>
+    <p>By creating a data processing pipeline that automatically scans 9,821 annual reports from 1,362 UK-listed companies spanning publication years 2020 to 2026, we can identify, categorise, and quality-rate AI-related disclosures, producing structured signals across adoption type, risk category, vendor dependency, and disclosure substantiveness. This allows us to establish a replicable, longitudinal baseline intended to be useful for policy, supervisory prioritisation, and research on the evolution of corporate AI governance in the United Kingdom's Critical National Infrastructure (CNI). Our focus on CNI is motivated by the shared interests of our funder, the societal resilience team at the UK AISI.</p>
 
     <span id="s1-2" class="section-anchor"></span>
     <h3>1.2 Research Questions</h3>
 
-    <p>The Observatory addresses four explicit empirical questions.</p>
+    <p>This project began with three foundational questions:</p>
+    <ol>
+      <li><strong>Can large language models reliably extract structured AI-related signals from unstructured annual report text at scale?</strong> The answer, validated through our methodology, is yes: LLM-based classification produces consistent, auditable results across a corpus of this size.</li>
+      <li><strong>Does applying this method to UK listed companies yield statistically significant or otherwise noteworthy findings?</strong> Again yes: the patterns we observe in disclosure rates, substantiveness, and sector distribution are sufficiently robust to warrant attention.</li>
+      <li><strong>Is this kind of data useful to AISI or to policymakers more broadly?</strong> We believe it is, and the findings presented here are intended to support that case, though we are still actively working to determine the most effective ways to make this data actionable for regulators and policy teams.</li>
+    </ol>
+
+    <p>With those questions in view, this report organises its empirical findings around four themes.</p>
 
     <p>First, <strong>how has the prevalence of AI-related disclosure changed across UK listed companies between 2020 and 2025?</strong> This encompasses both the growth in the share of companies disclosing anything about AI.</p>
 
@@ -639,11 +673,8 @@
 
     <p>Third, <strong>are the AI disclosures substantive rather than boilerplate?</strong> The concern here is not merely whether companies mention AI risk — they increasingly do — but whether those mentions contain the specific operational detail, named systems, and governance evidence that would make them informative to investors, regulators, and researchers. A disclosure regime in which mention rates grow while quality stagnates is formally responsive but substantively hollow.</p>
 
-    <div class="callout callout-side">
-      <strong>Regulatory context — FRC 2024 UK Corporate Governance Code, Provision 29:</strong> Applying from financial years beginning on or after 1 January 2026, Provision 29 requires boards to make a formal declaration on the effectiveness of all <em>material controls</em> — including financial, operational, reporting, and compliance controls — and to describe any failures, their root causes, and corrective actions. AI governance is a form of material control under this framing, giving the substantiveness question direct regulatory urgency.
-    </div>
-
-    <p>Fourth, <strong>which CNI sectors and market segments show the greatest disclosure gaps relative to their plausible AI exposure?</strong> This question is motivated by the Observatory's Critical National Infrastructure focus. The UK's CNI framework designates thirteen sectors whose disruption would cause catastrophic consequences for public safety, economic stability, or national security: Energy, Finance, Transport, Health, Communications, Water, Food, Government, Defence, Civil Nuclear, Chemicals, Data Infrastructure, and Space. These sectors are defined and maintained by the National Protective Security Authority (NPSA). AI is deeply embedded across CNI: Energy faces OT/IT convergence risks; Finance relies on AI for trading, credit, and fraud detection; Health is deploying AI in clinical pathways; Communications mediates content at infrastructure scale. Two features make CNI disclosure monitoring particularly important: sector interdependence means AI failures can cascade across boundaries, and most CNI rely on AI from a small number of third-party providers, creating vendor concentration risk that may not be visible in public disclosures. Sectors whose disruption would have cascading national consequences may therefore present AI exposure patterns that are underrepresented in the disclosure record.</p>
+    <p>Fourth, <strong>what are the differences in the AI mentions across CNI sectors and market segments?</strong> This question is motivated by the Observatory's Critical National Infrastructure focus. The <a href="https://www.npsa.gov.uk/about-npsa/critical-national-infrastructure">UK's CNI framework</a> disignates thirteen sectors whose failure or compromise would severely impact essential services, national security, or the functioning of the state, with potential for widespread and cascading consequences across interconnected sectors. These include: Energy, Finance, Transport, Health, Communications, Water, Food, Government, Defence, Civil Nuclear, Chemicals, Data Infrastructure, and Space. These sectors are defined and maintained by the National Protective Security Authority (NPSA). The CNI sectors have an undeniable AI exposure: Energy faces operational technology/intormation technology (OT/IT) convergence risks; Finance relies on AI for trading, credit, and fraud detection; Health is deploying AI in clinical pathways; Communications mediates content at infrastructure scale. Two features make CNI disclosure monitoring particularly important: sector interdependence means AI failures can cascade across boundaries, and most CNI rely on AI from a small number of third-party providers, creating vendor concentration risk that may not be visible in public disclosures. Sectors whose disruption would have cascading national consequences may therefore present AI exposure patterns that are underrepresented in the disclosure record.</p>
+    
 
     <div class="float-clear" aria-hidden="true"></div>
 
@@ -652,8 +683,11 @@
 
     <p>Most large-scale empirical work on AI disclosure has focused on US markets, specifically the SEC's 10-K mandatory filing. The most comprehensive recent study, Uberti-Bona Marin et al. (2025), analyses over 30,000 US filings and finds a steep rise in AI-risk mentions alongside persistently generic content. Lang and Stice-Lawrence (2015) demonstrated that large-sample textual analysis of annual reports outside the US is both feasible and methodologically sound, but empirical coverage of UK listed companies at scale remains sparse.</p>
 
-    <p>This report makes four contributions. It provides the first large-scale structured analysis of AI disclosure across the full population of UK listed companies, covering both Main Market and AIM issuers. It introduces an explicit substantiveness dimension — distinguishing boilerplate from operationally grounded disclosure — that is absent from most prior work in this domain. It applies a CNI-sector decomposition that connects corporate disclosure patterns to the UK's national security and infrastructure resilience frameworks. And it establishes a reproducible pipeline, using Gemini Flash 3 as the production classifier validated against a 474-chunk human-reviewed and annotated golden set, that can be re-run annually as the regulatory landscape evolves under the 2024 UK Corporate Governance Code. The live view of the findings can be found at <a href="https://www.riskobservatory.ai">riskobservatory.ai</a>.</p>
+    <p>This report makes four contributions. It provides the first large-scale structured analysis of AI disclosure across the full population of UK listed companies, covering both Main Market, AIM and AQSE issuers. It introduces an explicit substantiveness dimension, distinguishing boilerplate from substantive disclosures, meaning mentions of tangible evidence of action taken by the company versus empty statements, that is absent from most prior work in this domain. It applies a CNI-sector decomposition that connects corporate disclosure patterns to the UK's national security and infrastructure resilience frameworks. And it establishes a reproducible pipeline, using Gemini Flash 3 as the production classifier, that can be re-run regularly as the regulatory landscape evolves under the 2024 UK Corporate Governance Code. </p>
+    
+    <p><strong>Funding and conflicts of interest.</strong> This research was supported by the UK AI Security Institute (AISI). The majority of the annual report filings used in this research were sourced from FinancialReports, a third-party data provider specialising in structured access to public company filings in machine-readable format. FinancialReports provided access to its corpus without a monetary fee; in exchange, we agreed to credit and reference their service on the AI Risk Observatory dashboard. The authors declare no conflicts of interest that could be perceived as influencing the objectivity of this report.</p>
 
+    <p>The live view of the findings can be found at <a href="https://www.riskobservatory.ai"> riskobservatory.ai</a>.</p>
     <hr>
 
     <!-- ── Section 2 ────────────────────────────────────────────────── -->
@@ -725,7 +759,7 @@
         <tbody>
           <tr><td><code>adoption</code></td><td>AI actively deployed, used, piloted, or implemented by the company or for clients. Requires company-specific language ("we/our"). Intent, strategy, or roadmaps alone do not qualify.</td></tr>
           <tr><td><code>risk</code></td><td>AI described as a source of material risk or downside. AI must be attributed as the risk source; proximate co-occurrence with generic risk language does not qualify.</td></tr>
-          <tr><td><code>harm</code></td><td>AI described as having caused a past harm (misinformation, fraud, safety incident, discrimination).</td></tr>
+          <tr><td><code>harm</code></td><td>AI described as having caused a past harm (such as: misinformation, fraud, safety incident, discrimination, etc.).</td></tr>
           <tr><td><code>vendor</code></td><td>Explicit named reference to a third-party AI provider or platform.</td></tr>
           <tr><td><code>general_ambiguous</code></td><td>AI explicitly mentioned but not meeting any of the above thresholds — high-level plans, strategic positioning, or non-specific AI references.</td></tr>
           <tr><td><code>none</code></td><td>No AI mention, false positive (place name, unrelated abbreviation), or automation language without explicit AI specificity.</td></tr>
@@ -1229,7 +1263,7 @@
 
     <p><strong><code>risk</code></strong> — AI is described as a risk or material concern to the company: legal, cybersecurity, operational, reputational, or regulatory risk directly caused by or attributed to AI. The classifier must verify that AI is the named source of the risk. A passage that mentions a risk category in one sentence and AI in a separate, unconnected sentence does not qualify.</p>
 
-    <p><strong><code>harm</code></strong> — AI is described as having caused a past, specific harm: misinformation spread, fraud enabled by AI, safety incident, or discriminatory outcome. Harm is distinguished from risk (prospective) by its past tense or completed framing.</p>
+    <p><strong><code>harm</code></strong> — AI is described as having caused a past, specific harm, such as: misinformation spread, fraud enabled by AI, safety incident, discriminatory outcome, or other. Harm is distinguished from risk (prospective) by its past tense or completed framing.</p>
 
     <p><strong><code>vendor</code></strong> — Explicit mention of a named third-party AI vendor or platform that provides AI technology to the company, or a named product that is clearly AI (e.g., GPT, Google Gemini, Microsoft Copilot). The emphasis is on <em>what AI models or systems the company uses</em>, not merely that a technology partnership exists.</p>
 
@@ -1404,6 +1438,12 @@
     </div>
 
     <p>The 15 companies are all large-cap or mid-cap listed firms with well-resourced investor relations and governance functions. This was deliberate: the golden set was designed to contain substantive, nuanced AI language rather than thin or absent disclosure, so that the classifier could be evaluated on the full range of signal types. The trade-off is that golden set agreement rates may be slightly pessimistic relative to what the classifier achieves on simpler filings with single-label AI mentions. The golden set does not include AIM companies or reports from 2020–2022; agreement performance on these cohorts has not been independently validated.</p>
+
+    <section class="footnotes">
+      <ol>
+        <li id="fn1">FRC, <em>Corporate Governance Code Guidance</em> (2024), paras. 302–303: "Where the risk or uncertainty is more generic, the description should make clear how it might affect the company specifically" and "The descriptions of the principal risks should be sufficiently specific that a shareholder can understand why they are important to the company." The FRC's earlier guidance following the EU referendum (2016) also cautioned that "care should be taken to avoid 'boilerplate' disclosures" and that "company specific disclosures are more informative and useful to investors." <a href="#fnref1" aria-label="Return to text">&#8617;</a></li>
+      </ol>
+    </section>
 
   </main>
 </div>

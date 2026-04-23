@@ -31,6 +31,13 @@ type ReportUniverseRow = {
   sector: string;
   isicSector: string;
   marketSegment: string;
+  marketSegmentRefined: string;
+};
+
+export type MarketSegmentCoverageRow = {
+  segment: string;
+  companyCount: number;
+  reportCount: number;
 };
 
 export type ReportClassificationFlowNode = {
@@ -87,6 +94,7 @@ export type GoldenDashboardData = {
   isicSectors: string[];
   isicSectorParents: Record<string, string>;
   marketSegments: string[];
+  marketSegmentCoverage: MarketSegmentCoverageRow[];
   reportClassificationFlow: ReportClassificationFlow;
   reportClassificationBreakdown: ReportClassificationBreakdown;
   exampleChunks: ExampleChunk[];
@@ -354,7 +362,13 @@ const parseCompanySectors = (): {
   marketSegmentMap: Map<string, string>;
   cniSectors: string[];
   isicSectors: string[];
-  companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[];
+  companySectors: {
+    company_name: string;
+    cniSector: string;
+    isicSector: string;
+    marketSegment: string;
+    marketSegmentRefined: string;
+  }[];
   reportUniverseRows: ReportUniverseRow[];
 } => {
   if (!fs.existsSync(COMPANIES_PATH)) {
@@ -365,7 +379,13 @@ const parseCompanySectors = (): {
       marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],
-      companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
+      companySectors: [] as {
+        company_name: string;
+        cniSector: string;
+        isicSector: string;
+        marketSegment: string;
+        marketSegmentRefined: string;
+      }[],
       reportUniverseRows: [] as ReportUniverseRow[],
     };
   }
@@ -381,7 +401,13 @@ const parseCompanySectors = (): {
       marketSegmentMap: new Map<string, string>(),
       cniSectors: [] as string[],
       isicSectors: [] as string[],
-      companySectors: [] as { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[],
+      companySectors: [] as {
+        company_name: string;
+        cniSector: string;
+        isicSector: string;
+        marketSegment: string;
+        marketSegmentRefined: string;
+      }[],
       reportUniverseRows: [] as ReportUniverseRow[],
     };
   }
@@ -400,6 +426,7 @@ const parseCompanySectors = (): {
       ? headers.indexOf('isic_sector_name')
       : headers.indexOf('isic_sector');
   const marketSegmentIndex = headers.indexOf('market_segment');
+  const marketSegmentRefinedIndex = headers.indexOf('market_segment_refined');
 
   const cniSectorMap = new Map<string, string>();
   const isicSectorMap = new Map<string, string>();
@@ -407,7 +434,13 @@ const parseCompanySectors = (): {
   const marketSegmentMap = new Map<string, string>();
   const cniSectors: string[] = [];
   const isicSectors: string[] = [];
-  const companySectors: { company_name: string; cniSector: string; isicSector: string; marketSegment: string }[] = [];
+  const companySectors: {
+    company_name: string;
+    cniSector: string;
+    isicSector: string;
+    marketSegment: string;
+    marketSegmentRefined: string;
+  }[] = [];
   const reportUniverseRows: ReportUniverseRow[] = [];
   const cniSectorSet = new Set<string>();
   const isicSectorSet = new Set<string>();
@@ -440,6 +473,9 @@ const parseCompanySectors = (): {
     const marketSegment = marketSegmentIndex >= 0
       ? (cells[marketSegmentIndex]?.trim() || 'Other')
       : 'Other';
+    const marketSegmentRefined = marketSegmentRefinedIndex >= 0
+      ? (cells[marketSegmentRefinedIndex]?.trim() || marketSegment || 'Other')
+      : marketSegment;
     if (!name) return;
     cniSectorMap.set(toKey(name), cniSector);
     isicSectorMap.set(toKey(name), isicSector);
@@ -447,7 +483,13 @@ const parseCompanySectors = (): {
       isicSectorParentMap.set(isicSector, isicParentSector);
     }
     marketSegmentMap.set(toKey(name), marketSegment);
-    companySectors.push({ company_name: name, cniSector, isicSector, marketSegment });
+    companySectors.push({
+      company_name: name,
+      cniSector,
+      isicSector,
+      marketSegment,
+      marketSegmentRefined,
+    });
     const reportDate = filingDate || releaseDatetime;
     const reportYear = parseYearFromDate(reportDate);
     if (filingId && reportYear !== null && reportYear >= 2020) {
@@ -459,6 +501,7 @@ const parseCompanySectors = (): {
         sector: cniSector,
         isicSector,
         marketSegment,
+        marketSegmentRefined,
       });
     }
     if (!cniSectorSet.has(cniSector)) {
@@ -1842,6 +1885,57 @@ const isCniMappedSector = (sector: string): boolean => {
   return normalized !== '' && normalized !== 'Unknown' && normalized !== 'Other';
 };
 
+const buildMarketSegmentCoverage = (
+  reportUniverseRows: ReportUniverseRow[]
+): MarketSegmentCoverageRow[] => {
+  const segmentDefinitions: Array<{
+    segment: string;
+    matches: (row: ReportUniverseRow) => boolean;
+  }> = [
+    {
+      segment: 'Main Market',
+      matches: row => row.marketSegmentRefined === 'Main Market',
+    },
+    {
+      segment: 'Main Market (FTSE 350)',
+      matches: row => row.marketSegment === 'FTSE 100' || row.marketSegment === 'FTSE 250',
+    },
+    {
+      segment: 'Main Market (FTSE 100)',
+      matches: row => row.marketSegment === 'FTSE 100',
+    },
+    {
+      segment: 'Main Market (FTSE 250)',
+      matches: row => row.marketSegment === 'FTSE 250',
+    },
+    {
+      segment: 'AIM',
+      matches: row => row.marketSegmentRefined === 'AIM',
+    },
+    {
+      segment: 'Aquis Exchange',
+      matches: row => row.marketSegmentRefined === 'AQSE',
+    },
+  ];
+
+  return segmentDefinitions.map(({ segment, matches }) => {
+    const companies = new Set<string>();
+    const reports = new Set<string>();
+
+    reportUniverseRows.forEach(row => {
+      if (!matches(row)) return;
+      companies.add(row.company_name);
+      reports.add(row.report_id);
+    });
+
+    return {
+      segment,
+      companyCount: companies.size,
+      reportCount: reports.size,
+    };
+  });
+};
+
 export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
   const {
     cniSectorMap,
@@ -1963,6 +2057,7 @@ export const buildGoldenSetDashboardDataFromRaw = (): GoldenDashboardData => {
     isicSectors: resolvedIsicSectors,
     isicSectorParents: Object.fromEntries(isicSectorParentMap),
     marketSegments: resolvedMarketSegments,
+    marketSegmentCoverage: buildMarketSegmentCoverage(reportUniverseRows),
     reportClassificationFlow: buildReportClassificationFlow(perReportData),
     reportClassificationBreakdown: buildReportClassificationBreakdown(perReportData),
     labels: {
@@ -1996,6 +2091,10 @@ export const loadGoldenSetDashboardData = (): GoldenDashboardData => {
         const rawData = buildGoldenSetDashboardDataFromRaw();
         cachedDashboardData = rawData;
         return rawData;
+      }
+      if (!precomputedData.marketSegmentCoverage) {
+        const { reportUniverseRows } = parseCompanySectors();
+        precomputedData.marketSegmentCoverage = buildMarketSegmentCoverage(reportUniverseRows);
       }
       cachedDashboardData = precomputedData;
       return precomputedData;

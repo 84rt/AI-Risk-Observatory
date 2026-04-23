@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { PDFDocument, rgb } from "pdf-lib";
+import puppeteer from "puppeteer-core";
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -51,24 +52,74 @@ mkdirSync(outputDir, { recursive: true });
 
 const browserPath = resolveChromeBinary();
 const inputUrl = new URL(`file://${inputPath}`).toString();
-const result = spawnSync(
-  browserPath,
-  [
-    "--headless=new",
-    "--disable-gpu",
-    "--allow-file-access-from-files",
-    "--run-all-compositor-stages-before-draw",
-    "--virtual-time-budget=8000",
-    "--no-pdf-header-footer",
-    `--print-to-pdf=${outputPath}`,
-    inputUrl,
-  ],
-  { stdio: "inherit" },
-);
 
-if (result.error) {
-  console.error(result.error.message);
-  process.exit(1);
+const footerTemplate = `
+  <div style="
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 8.5pt;
+    color: #b91c1c;
+    padding: 0 18mm 6mm;
+    text-align: center;
+    letter-spacing: 0.08em;
+  ">
+    <span style="color: #6f777b;">&#8212;</span>
+    <span class="pageNumber" style="display: inline-block; min-width: 12mm; font-weight: 700;"></span>
+    <span style="color: #6f777b;">&#8212;</span>
+  </div>
+`;
+
+async function hideFooterOnLeadingPages(pdfPath, numPagesToHide = 2) {
+  const pdfBytes = readFileSync(pdfPath);
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages().slice(0, numPagesToHide);
+
+  for (const page of pages) {
+    const { width } = page.getSize();
+
+    // Blank the footer strip on the first pages while leaving body content intact.
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width,
+      height: 42,
+      color: rgb(1, 1, 1),
+      borderWidth: 0,
+    });
+  }
+
+  writeFileSync(pdfPath, await pdfDoc.save());
 }
 
-process.exit(result.status ?? 0);
+const browser = await puppeteer.launch({
+  executablePath: browserPath,
+  headless: true,
+  args: [
+    "--allow-file-access-from-files",
+    "--disable-gpu",
+  ],
+});
+
+try {
+  const page = await browser.newPage();
+  await page.goto(inputUrl, { waitUntil: "networkidle0" });
+  await page.pdf({
+    path: outputPath,
+    format: "A4",
+    printBackground: true,
+    displayHeaderFooter: true,
+    headerTemplate: "<div></div>",
+    footerTemplate,
+    margin: {
+      top: "18mm",
+      right: "18mm",
+      bottom: "20mm",
+      left: "18mm",
+    },
+    preferCSSPageSize: true,
+  });
+} finally {
+  await browser.close();
+}
+
+await hideFooterOnLeadingPages(outputPath, 2);
