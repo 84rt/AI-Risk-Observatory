@@ -638,7 +638,7 @@
 
     <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. Our <i>substantiveness classification</i> (a measure of how elaborate a statement is), shows that in 2025, only 9.6% of AI risk mentions were classified as <i>substantive</i>, compared to 27.0% AI adoption mentions that year. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
     
-    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies: in 2025 (84.8% AI mention rate, 71.3% risk rate) while AIM companies reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
+    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies (84.8% AI mention rate, 71.3% risk rate in 2025), while AIM companies' reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
 
     <hr>
 
@@ -667,7 +667,7 @@
 
     <p>With those questions in view, this report organises our empirical findings around four themes.</p>
 
-    <p>First, <strong>how has the prevalence of AI-related disclosure changed across UK listed companies between 2020 and 2025?</strong> This encompasses both the growth in the share of companies disclosing anything about AI.</p>
+    <p>First, <strong>how has the prevalence of AI-related disclosure changed across UK listed companies between 2020 and 2025?</strong> This encompasses the growth in the share of companies disclosing anything about AI.</p>
 
     <p>Second, <strong>in what way is AI mentioned in these reports?</strong> With the primary focus on the reported risks from AI, levels of sophistication or types of AI adoption, and the AI technology vendors.</p>
 
@@ -683,7 +683,7 @@
 
     <p>Most large-scale empirical work on AI disclosure has focused on US markets, specifically the SEC's 10-K mandatory filing. The most comprehensive recent study, Uberti-Bona Marin et al. (2025), analyses over 30,000 US filings and finds a steep rise in AI-risk mentions alongside persistently generic content. Lang and Stice-Lawrence (2015) demonstrated that large-sample textual analysis of annual reports outside the US is both feasible and methodologically sound, but empirical coverage of UK listed companies at scale remains sparse.</p>
 
-    <p>This report makes four contributions. It provides the first large-scale structured analysis of AI disclosure across the full population of UK listed companies, covering both Main Market, AIM and AQSE issuers. It introduces an explicit substantiveness dimension, distinguishing boilerplate from substantive disclosures, meaning mentions of tangible evidence of action taken by the company versus empty statements, that is absent from most prior work in this domain. It applies a CNI-sector decomposition that connects corporate disclosure patterns to the UK's national security and infrastructure resilience frameworks. And it establishes a reproducible pipeline, using Gemini Flash 3 as the production classifier, that can be re-run regularly as the regulatory landscape evolves under the 2024 UK Corporate Governance Code. </p>
+    <p>This report makes four contributions. It provides the first large-scale structured analysis of AI disclosure across the full population of UK listed companies, covering both Main Market, AIM and AQSE issuers. It introduces an explicit substantiveness dimension that distinguishes boilerplate from substantive disclosures (tangible evidence of action taken by the company versus empty statements), a feature absent from most prior work in this domain. It applies a CNI-sector decomposition that connects corporate disclosure patterns to the UK's national security and infrastructure resilience frameworks. And it establishes a reproducible pipeline, using Gemini Flash 3 as the production classifier, that can be re-run regularly as the regulatory landscape evolves under the 2024 UK Corporate Governance Code. </p>
     
     <p><strong>Funding and conflicts of interest.</strong> This research was supported by the UK AI Security Institute (AISI). The majority of the annual report filings used in this research were sourced from FinancialReports, a third-party data provider specialising in structured access to public company filings in machine-readable format. FinancialReports provided access to its corpus without a monetary fee; in exchange, we agreed to credit and reference their service on the AI Risk Observatory dashboard. The authors declare no conflicts of interest that could be perceived as influencing the objectivity of this report.</p>
 
@@ -903,7 +903,7 @@
       <table>
         <thead>
           <tr>
-            <th>Year</th><th>Reports</th><th>Any AI</th><th>Adoption</th><th>Risk</th><th>Gen. ambiguous</th><th>Vendor</th><th>Adoption–risk gap</th>
+            <th>Year</th><th>Reports</th><th>Any AI</th><th>Adoption</th><th>Risk</th><th>General ambiguous</th><th>Vendor</th><th>Adoption-Risk gap</th>
           </tr>
         </thead>
         <tbody>
@@ -917,7 +917,7 @@
       </table>
     </div>
 
-    <p>The Adoption–Risk gap in the table above shows the percentage of reports that mention adoption for that year minus the percentage that mention AI risk. The spread between these two variables is highlighted in Figure 1 below.</p>
+    <p>The Adoption-Risk gap in the table above shows the percentage of reports that mention adoption for that year minus the percentage that mention AI risk. The spread between these two variables is highlighted in Figure 1 below.</p>
 
     <figure class="report-figure">
       <img src="figures/figure1.png" alt="Figure 1. Annual disclosure rates for Adoption, Risk, General or Ambiguous, and Vendor from 2020 to 2025, with the adoption-risk gap shaded." />
