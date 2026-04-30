@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 
-const BASE_URL = process.env.REPORT_FIGURE_BASE_URL ?? 'http://127.0.0.1:3000';
+const BASE_URL = process.env.REPORT_FIGURE_BASE_URL ?? 'http://localhost:3000';
 const OUTPUT_DIR = path.join(process.cwd(), '..', 'report', 'figures');
 const REPORT_FIGURES_PATH = path.join(process.cwd(), '..', 'report', 'report-figures.json');
 const FIGURE_IDS = ['figure1', 'figure2', 'figure3', 'figure4', 'figure5', 'figure6', 'figure7', 'figure8'];

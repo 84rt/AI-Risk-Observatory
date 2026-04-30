@@ -325,39 +325,151 @@
       "title": "Vendor reference distribution in 2025",
       "chartType": "treemap",
       "measure": "vendor-tag assignments",
-      "total_assignments_2025": 464,
+      "total_assignments_2025": 573,
       "groupedTotals": {
-        "named_tracked_assignments": 218,
-        "opaque_or_untracked_assignments": 198,
+        "named_tracked_assignments": 338,
+        "opaque_or_untracked_assignments": 187,
         "internal_assignments": 48,
-        "named_tracked_share_pct": 47,
-        "opaque_or_untracked_share_pct": 42.7,
-        "internal_share_pct": 10.3
+        "named_tracked_share_pct": 59.0,
+        "opaque_or_untracked_share_pct": 32.6,
+        "internal_share_pct": 8.4
       },
       "data": [
         {
-          "key": "other",
-          "label": "Other (named, unlisted)",
-          "color": "#64748b",
-          "group": "opaque_or_untracked",
-          "assignments_2025": 143,
-          "share_pct": 30.8
+          "key": "openai",
+          "label": "OpenAI",
+          "color": "#e63946",
+          "group": "named_tracked",
+          "assignments_2025": 38,
+          "share_pct": 6.6
         },
         {
           "key": "microsoft",
           "label": "Microsoft",
           "color": "#3b82f6",
           "group": "named_tracked",
-          "assignments_2025": 87,
-          "share_pct": 18.8
+          "assignments_2025": 99,
+          "share_pct": 17.3
         },
         {
-          "key": "undisclosed",
-          "label": "Undisclosed",
-          "color": "#e2e8f0",
-          "group": "opaque_or_untracked",
+          "key": "google",
+          "label": "Google",
+          "color": "#16a34a",
+          "group": "named_tracked",
           "assignments_2025": 55,
-          "share_pct": 11.9
+          "share_pct": 9.6
+        },
+        {
+          "key": "amazon",
+          "label": "Amazon / AWS",
+          "color": "#f59e0b",
+          "group": "named_tracked",
+          "assignments_2025": 39,
+          "share_pct": 6.8
+        },
+        {
+          "key": "nvidia",
+          "label": "Nvidia",
+          "color": "#76b900",
+          "group": "named_tracked",
+          "assignments_2025": 36,
+          "share_pct": 6.3
+        },
+        {
+          "key": "salesforce",
+          "label": "Salesforce",
+          "color": "#00a1e0",
+          "group": "named_tracked",
+          "assignments_2025": 14,
+          "share_pct": 2.4
+        },
+        {
+          "key": "databricks",
+          "label": "Databricks",
+          "color": "#ff3621",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "ibm",
+          "label": "IBM",
+          "color": "#1f70c1",
+          "group": "named_tracked",
+          "assignments_2025": 6,
+          "share_pct": 1.0
+        },
+        {
+          "key": "snowflake",
+          "label": "Snowflake",
+          "color": "#29b5e8",
+          "group": "named_tracked",
+          "assignments_2025": 6,
+          "share_pct": 1.0
+        },
+        {
+          "key": "meta",
+          "label": "Meta",
+          "color": "#1e3a8a",
+          "group": "named_tracked",
+          "assignments_2025": 24,
+          "share_pct": 4.2
+        },
+        {
+          "key": "anthropic",
+          "label": "Anthropic",
+          "color": "#d97706",
+          "group": "named_tracked",
+          "assignments_2025": 7,
+          "share_pct": 1.2
+        },
+        {
+          "key": "xai",
+          "label": "xAI",
+          "color": "#4a4a4a",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "palantir",
+          "label": "Palantir",
+          "color": "#6b21a8",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "arm",
+          "label": "ARM",
+          "color": "#0091bd",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "mistral",
+          "label": "Mistral",
+          "color": "#f97316",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0.0
+        },
+        {
+          "key": "uk_ai",
+          "label": "UK AI",
+          "color": "#be185d",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0.0
+        },
+        {
+          "key": "open_source_model",
+          "label": "Open-source model",
+          "color": "#7c3aed",
+          "group": "named_tracked",
+          "assignments_2025": 2,
+          "share_pct": 0.3
         },
         {
           "key": "internal",
@@ -365,53 +477,30 @@
           "color": "#0b0c0c",
           "group": "internal",
           "assignments_2025": 48,
-          "share_pct": 10.3
+          "share_pct": 8.4
         },
         {
-          "key": "google",
-          "label": "Google",
-          "color": "#16a34a",
-          "group": "named_tracked",
-          "assignments_2025": 42,
-          "share_pct": 9.1
+          "key": "other",
+          "label": "Other (named, unlisted)",
+          "color": "#64748b",
+          "group": "opaque_or_untracked",
+          "assignments_2025": 130,
+          "share_pct": 22.7
         },
         {
-          "key": "openai",
-          "label": "OpenAI",
-          "color": "#e63946",
-          "group": "named_tracked",
-          "assignments_2025": 36,
-          "share_pct": 7.8
-        },
-        {
-          "key": "amazon",
-          "label": "Amazon / AWS",
-          "color": "#f59e0b",
-          "group": "named_tracked",
-          "assignments_2025": 31,
-          "share_pct": 6.7
-        },
-        {
-          "key": "meta",
-          "label": "Meta",
-          "color": "#1e3a8a",
-          "group": "named_tracked",
-          "assignments_2025": 18,
-          "share_pct": 3.9
-        },
-        {
-          "key": "anthropic",
-          "label": "Anthropic",
-          "color": "#d97706",
-          "group": "named_tracked",
-          "assignments_2025": 4,
-          "share_pct": 0.9
+          "key": "undisclosed",
+          "label": "Undisclosed",
+          "color": "#e2e8f0",
+          "group": "opaque_or_untracked",
+          "assignments_2025": 57,
+          "share_pct": 9.9
         }
       ],
       "notes": [
         "Base dataset: datasets.perReport.",
         "Values are vendor-tag assignments in 2025, not unique reports.",
-        "A single report may contribute multiple vendor tags."
+        "A single report may contribute multiple vendor tags.",
+        "Vendor taxonomy expanded in this run to include Nvidia, Salesforce, IBM, Snowflake, Databricks, xAI, Palantir, ARM, Mistral, UK AI, and open-source model \u2014 previously absorbed into 'other'."
       ]
     },
     "figure5": {

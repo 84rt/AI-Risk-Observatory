@@ -444,6 +444,24 @@
         background: #fff;
       }
 
+      body::before {
+        content: "DRAFT FOR AISI";
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 9999;
+        transform: translate(-50%, -50%) rotate(-32deg);
+        width: 180mm;
+        text-align: center;
+        font-family: var(--font-sans);
+        font-size: 42pt;
+        font-weight: 800;
+        letter-spacing: .14em;
+        line-height: 1;
+        color: rgba(80, 90, 95, .12);
+        pointer-events: none;
+      }
+
       .layout {
         display: block;
         max-width: none;
@@ -638,7 +656,7 @@
 
     <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. Our <i>substantiveness classification</i> (a measure of how elaborate a statement is), shows that in 2025, only 9.6% of AI risk mentions were classified as <i>substantive</i>, compared to 27.0% AI adoption mentions that year. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
     
-    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies (84.8% AI mention rate, 71.3% risk rate in 2025), while AIM companies' reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
+    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies (84.8% AI mention rate, 71.3% risk rate in 2025), while AIM companies' reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 32.6% of AI provider references in 2025 were either undisclosed or referred to a third party not on the expanded list of named AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
 
     <hr>
 
@@ -758,7 +776,7 @@
 
     <p>The <em>risk classifier</em> maps the AI-related risk to one or more of ten categories: strategic and competitive, cybersecurity, operational and technical, regulatory and compliance, reputational and ethical, third-party and supply chain, information integrity, workforce impacts, environmental impact, and national security.</p>
 
-    <p>The <em>vendor classifier</em> identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Meta, and Anthropic; an <em>internal</em> tag captures companies describing in-house AI development; <em>other</em> covers explicitly named providers not in the main list; and <em>undisclosed</em> is used when a company references an external AI capability without naming the provider. Vendor chunks receive a substantiveness rating based on whether the provider or model is named and linked to a concrete use case, deployment context, scale, or outcome.</p>
+    <p>The <em>vendor classifier</em> identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Nvidia, Meta, Salesforce, IBM, Databricks, Snowflake, Anthropic, xAI, Palantir, ARM, Mistral, and UK AI providers; an <em>open_source_model</em> tag captures deployments of open-source models without a named commercial provider; an <em>internal</em> tag captures companies describing in-house AI development; <em>other</em> covers explicitly named providers not in the named list; and <em>undisclosed</em> is used when a company references an external AI capability without naming the provider. Vendor chunks receive a substantiveness rating based on whether the provider or model is named and linked to a concrete use case, deployment context, scale, or outcome.</p>
 
     <p>Each of the three classifiers additionally assigns a signal score to each assigned tag. There are three signal scores: 1) Explicit, 2) Strong Implicit, 3) Weak Implicit. For example, the adoption classifier might tag the following AI mention: "We are implementing an AI chatbot in our customer service that can autonomously handle phone calls" as: Agentic (explicit), LLM (strong implicit), non-LLM (weak implicit). This allows us to filter how explicitly a given taxonomy label is evidenced throughout the reports.</p>
 
@@ -837,8 +855,19 @@
           <tr><td><code>google</code></td><td>Google AI products: Gemini, Vertex AI, Google Cloud AI</td></tr>
           <tr><td><code>openai</code></td><td>OpenAI products: GPT series, ChatGPT, DALL·E</td></tr>
           <tr><td><code>amazon</code></td><td>Amazon/AWS AI services: Bedrock, SageMaker, Rekognition</td></tr>
+          <tr><td><code>nvidia</code></td><td>Nvidia AI products: DGX, NIM microservices, Nvidia AI Enterprise</td></tr>
           <tr><td><code>meta</code></td><td>Meta AI products: Llama series, Meta AI</td></tr>
+          <tr><td><code>salesforce</code></td><td>Salesforce AI products: Einstein AI, Agentforce</td></tr>
+          <tr><td><code>ibm</code></td><td>IBM AI products: watsonx, Watson AI, IBM Cloud AI services</td></tr>
+          <tr><td><code>databricks</code></td><td>Databricks: Mosaic AI, MLflow, Unity Catalog AI features</td></tr>
+          <tr><td><code>snowflake</code></td><td>Snowflake AI: Cortex AI, Snowflake ML, Arctic</td></tr>
           <tr><td><code>anthropic</code></td><td>Anthropic products: Claude series</td></tr>
+          <tr><td><code>xai</code></td><td>xAI products: Grok series</td></tr>
+          <tr><td><code>palantir</code></td><td>Palantir AI platforms: AIP, Foundry, Gotham</td></tr>
+          <tr><td><code>arm</code></td><td>Arm AI compute: Ethos NPUs, Arm Cortex AI infrastructure</td></tr>
+          <tr><td><code>mistral</code></td><td>Mistral AI models: Mistral and Mixtral series</td></tr>
+          <tr><td><code>uk_ai</code></td><td>UK-headquartered AI providers (e.g. Stability AI, BenevolentAI)</td></tr>
+          <tr><td><code>open_source_model</code></td><td>Open-source models deployed without a named commercial provider</td></tr>
           <tr><td><code>internal</code></td><td>Company describes in-house or proprietary AI development</td></tr>
           <tr><td><code>other</code></td><td>Explicitly named provider not in the named-vendor list</td></tr>
           <tr><td><code>undisclosed</code></td><td>External AI capability referenced without naming the provider</td></tr>
@@ -1003,7 +1032,7 @@
     <span id="s4-4" class="section-anchor"></span>
     <h3>4.4 Harm Classifications</h3>
 
-    <p>The pipeline includes a <code>harm</code> label for AI described as having caused a past, specific incident (misinformation spread, fraud enabled by AI, a safety failure, or a discriminatory outcome), as distinct from prospective risk. Across the full 9,821-report corpus, harm classifications are almost entirely absent: seven harm-tagged chunks were identified across two company-year filings, both in 2025 (Gear4Music Holdings PLC, two chunks; Trifast PLC, one chunk). Neither company is a CNI-sector operator.</p>
+    <p>The pipeline includes a <code>harm</code> label for AI described as having caused a past, specific incident (misinformation spread, fraud enabled by AI, a safety failure, or a discriminatory outcome), as distinct from prospective risk. Across the full 9,821-report corpus, harm classifications are almost entirely absent: seven harm-tagged chunks were identified across six company-year filings. Within the 2020–2025 window, five chunks appear across four filings: Prudential PLC in 2022 (one chunk), and Gear4Music (Holdings) PLC (two chunks), Trifast PLC (one chunk), and Chemring Group PLC (one chunk) in 2025. The 2026 partial cohort adds two further instances — Aviva PLC and Standard Chartered PLC. Five of the six companies are CNI-sector operators (Finance, Health, or Defence); Gear4Music is the sole non-CNI company.</p>
 
     <p>This near-absence is most likely a genuine feature of the annual report as a disclosure format. Companies have strong legal and reputational incentives to avoid admitting past AI-related harms in a board-accountable document, and will typically frame incidents as risks managed or lessons learned rather than harms caused. The annual report is therefore not a reliable surface for detecting realised AI incidents, and other data sources (regulatory enforcement records, incident databases, litigation filings) would be needed to complement the Observatory's signals on this dimension.</p>
 
@@ -1017,15 +1046,24 @@
       <table>
         <thead><tr><th>Vendor</th><th>2025 assignments</th><th>2025 % of reports</th><th>2024 % of reports</th><th>YoY change</th></tr></thead>
         <tbody>
-          <tr><td>Other (named, unlisted)</td><td>143</td><td>9.2%</td><td>5.8%</td><td class="pos">+3.4 pp</td></tr>
-          <tr><td>Microsoft</td><td>87</td><td>5.6%</td><td>5.1%</td><td class="pos">+0.5 pp</td></tr>
-          <tr><td>Undisclosed</td><td>55</td><td>3.5%</td><td>1.6%</td><td class="pos">+1.9 pp</td></tr>
-          <tr><td>Internal / proprietary</td><td>48</td><td>3.1%</td><td>2.2%</td><td class="pos">+0.8 pp</td></tr>
-          <tr><td>Google</td><td>42</td><td>2.7%</td><td>2.0%</td><td class="pos">+0.7 pp</td></tr>
-          <tr><td>OpenAI</td><td>36</td><td>2.3%</td><td>3.3%</td><td class="neg">−1.0 pp</td></tr>
-          <tr><td>Amazon / AWS</td><td>31</td><td>2.0%</td><td>1.8%</td><td class="pos">+0.2 pp</td></tr>
-          <tr><td>Meta</td><td>18</td><td>1.2%</td><td>0.7%</td><td class="pos">+0.5 pp</td></tr>
-          <tr><td>Anthropic</td><td>4</td><td>0.3%</td><td>0.1%</td><td class="pos">+0.1 pp</td></tr>
+          <tr><td>Other (named, unlisted)</td><td>130</td><td>8.3%</td><td>5.5%</td><td class="pos">+2.8 pp</td></tr>
+          <tr><td>Microsoft</td><td>99</td><td>6.3%</td><td>6.0%</td><td class="pos">+0.3 pp</td></tr>
+          <tr><td>Undisclosed</td><td>57</td><td>3.7%</td><td>1.6%</td><td class="pos">+2.1 pp</td></tr>
+          <tr><td>Google</td><td>55</td><td>3.5%</td><td>2.7%</td><td class="pos">+0.8 pp</td></tr>
+          <tr><td>Internal / proprietary</td><td>48</td><td>3.1%</td><td>2.0%</td><td class="pos">+1.1 pp</td></tr>
+          <tr><td>Amazon / AWS</td><td>39</td><td>2.5%</td><td>2.1%</td><td class="pos">+0.4 pp</td></tr>
+          <tr><td>OpenAI</td><td>38</td><td>2.4%</td><td>4.0%</td><td class="neg">−1.6 pp</td></tr>
+          <tr><td>Nvidia</td><td>36</td><td>2.3%</td><td>2.5%</td><td class="neg">−0.2 pp</td></tr>
+          <tr><td>Meta</td><td>24</td><td>1.5%</td><td>1.0%</td><td class="pos">+0.5 pp</td></tr>
+          <tr><td>Salesforce</td><td>14</td><td>0.9%</td><td>0.5%</td><td class="pos">+0.4 pp</td></tr>
+          <tr><td>Anthropic</td><td>7</td><td>0.4%</td><td>0.1%</td><td class="pos">+0.3 pp</td></tr>
+          <tr><td>IBM</td><td>6</td><td>0.4%</td><td>0.4%</td><td>0.0 pp</td></tr>
+          <tr><td>Snowflake</td><td>6</td><td>0.4%</td><td>0.1%</td><td class="pos">+0.3 pp</td></tr>
+          <tr><td>Databricks</td><td>3</td><td>0.2%</td><td>0.2%</td><td>0.0 pp</td></tr>
+          <tr><td>xAI</td><td>3</td><td>0.2%</td><td>0.0%</td><td class="pos">+0.2 pp</td></tr>
+          <tr><td>Palantir</td><td>3</td><td>0.2%</td><td>0.0%</td><td class="pos">+0.2 pp</td></tr>
+          <tr><td>ARM</td><td>3</td><td>0.2%</td><td>0.2%</td><td>0.0 pp</td></tr>
+          <tr><td>Open-source model</td><td>2</td><td>0.1%</td><td>0.0%</td><td class="pos">+0.1 pp</td></tr>
         </tbody>
       </table>
     </div>
@@ -1038,7 +1076,7 @@
       </figcaption>
     </figure>
 
-    <p>Two findings stand out. First, <em>other</em> and <em>undisclosed</em> together (references to external AI capabilities without identifying the provider) account for 198 of 464 total 2025 vendor assignments, or <strong>42.7% of all vendor references</strong>. Among only the explicitly named vendors, the three largest (Microsoft, Google, OpenAI) account for 75.7% of named-vendor assignments, revealing extreme concentration in the named portion of the landscape. Second, <strong>OpenAI is the only named vendor declining</strong> year-on-year (−1.0 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft. This structural opacity means that concentration at the foundation-model layer is larger than the named-vendor data suggests.</p>
+    <p>Two findings stand out. First, <em>other</em> and <em>undisclosed</em> together (references to external AI capabilities without identifying the provider) account for 187 of 573 total 2025 vendor assignments, or <strong>32.6% of all vendor references</strong>. This is down from 42.7% in the prior run as a result of expanding the named-vendor taxonomy — Nvidia, Salesforce, IBM, Snowflake, Palantir, and others previously absorbed into <em>other</em> are now tracked explicitly. Among only the explicitly named vendors, the three largest (Microsoft, Google, OpenAI) account for 56.8% of named-vendor assignments, still revealing substantial concentration. Second, <strong>OpenAI is the largest declining vendor</strong> year-on-year (−1.6 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft; Nvidia also declined modestly (−0.2 pp). This structural opacity means that concentration at the foundation-model layer remains larger than the named-vendor data alone suggests.</p>
 
     <p>Vendor disclosures are comparatively concrete when the provider is named. The remaining policy problem is incomplete dependency mapping: companies are acquiring AI capabilities from a small number of providers but not consistently identifying those dependencies as material disclosure items.</p>
 
@@ -1241,6 +1279,8 @@
 
     <p>The sector and market segment findings reinforce this picture. Finance and Health are active disclosers; Data Infrastructure and Energy are not, despite high plausible AI exposure. FTSE 100 companies are near-saturated on disclosure volume. AIM companies remain structurally underrepresented, reflecting lighter governance obligations rather than lower AI risk.</p>
 
+    <p>A striking finding is the near-total absence of harm disclosures across five years of filings. Across 9,821 annual reports from more than 1,300 companies spanning 2020 to 2025, only seven harm-tagged chunks were identified — a rate of effectively zero. UK listed companies have not disclosed realised AI harms in their annual reports. This is itself a signal: either AI-related harms have not yet materialised in ways that boards feel obliged to disclose, or — more plausibly — the annual report format systematically suppresses harm acknowledgement in favour of risk framing. Either way, annual reports alone are insufficient for harm surveillance; regulatory enforcement records, litigation filings, and incident databases are needed as complementary sources.</p>
+
     <p>The Observatory's most important near-term function is as a pre-intervention baseline for Provision 29 of the 2024 UK Corporate Governance Code, which takes effect for FY2026. If the Code is working as intended, the next annual cohort should show improvement in disclosure specificity and governance depth, not just mention rates. Annual reports are a lagging instrument, but they are one of the most systematic and legally accountable evidence bases available for monitoring corporate AI governance at scale.</p>
 
     <hr>
@@ -1344,10 +1384,21 @@
           <tr><td><code>google</code></td><td>Google Gemini, Vertex AI, Google Cloud AI/ML APIs, DeepMind products deployed commercially, Google Workspace AI features</td></tr>
           <tr><td><code>openai</code></td><td>GPT series (GPT-3, GPT-4, GPT-4o), ChatGPT, DALL·E, Whisper, OpenAI API references</td></tr>
           <tr><td><code>amazon</code></td><td>AWS Bedrock, Amazon SageMaker, Amazon Rekognition, Amazon Comprehend, Amazon Lex, and other AWS AI/ML services</td></tr>
+          <tr><td><code>nvidia</code></td><td>Nvidia DGX systems, NIM microservices, Nvidia AI Enterprise platform, Triton Inference Server, CUDA-based AI infrastructure</td></tr>
           <tr><td><code>meta</code></td><td>Llama series (Llama 2, Llama 3, Code Llama), Meta AI assistant, PyTorch where deployed as a production AI system</td></tr>
+          <tr><td><code>salesforce</code></td><td>Salesforce Einstein AI, Agentforce, Sales Cloud AI, Service Cloud AI, and other Salesforce AI-integrated products</td></tr>
+          <tr><td><code>ibm</code></td><td>IBM watsonx platform (watsonx.ai, watsonx.data, watsonx.governance), Watson AI services, IBM Cloud AI/ML services</td></tr>
+          <tr><td><code>databricks</code></td><td>Databricks Mosaic AI, MLflow, Unity Catalog AI features, Databricks Lakehouse AI capabilities</td></tr>
+          <tr><td><code>snowflake</code></td><td>Snowflake Cortex AI, Snowflake ML, Arctic foundation model, Snowflake AI Data Cloud features</td></tr>
           <tr><td><code>anthropic</code></td><td>Claude series (Claude 1, 2, 3, Haiku, Sonnet, Opus)</td></tr>
+          <tr><td><code>xai</code></td><td>xAI Grok series (Grok-1, Grok-2), xAI API references</td></tr>
+          <tr><td><code>palantir</code></td><td>Palantir AIP (Artificial Intelligence Platform), Foundry, Gotham, and other Palantir AI-integrated products</td></tr>
+          <tr><td><code>arm</code></td><td>Arm Ethos NPUs, Arm Cortex AI compute, Arm AI development tools used as AI inference infrastructure</td></tr>
+          <tr><td><code>mistral</code></td><td>Mistral AI models: Mistral series (Mistral 7B, Mistral Large), Mixtral series, Le Chat</td></tr>
+          <tr><td><code>uk_ai</code></td><td>UK-headquartered AI providers not otherwise listed (e.g. Stability AI, BenevolentAI, Faculty AI)</td></tr>
+          <tr><td><code>open_source_model</code></td><td>An open-source AI model deployed directly without a named commercial provider or hosted service (e.g. Llama deployed on-premises, Falcon, Mistral self-hosted)</td></tr>
           <tr><td><code>internal</code></td><td>Company explicitly describes building, training, or maintaining its own AI systems in-house or through a proprietary development programme</td></tr>
-          <tr><td><code>other</code></td><td>A named AI provider or product that does not match any of the above tags (e.g., Palantir, Scale AI, Snowflake Cortex, IBM watsonx)</td></tr>
+          <tr><td><code>other</code></td><td>A named AI provider or product that does not match any of the above tags (e.g. Scale AI, Cohere, Writer, Glean)</td></tr>
           <tr><td><code>undisclosed</code></td><td>An external AI capability or provider is referenced but not named (e.g., "our AI vendor", "third-party AI tools", "external AI platform")</td></tr>
         </tbody>
       </table>
