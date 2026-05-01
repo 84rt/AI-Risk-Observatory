@@ -5,7 +5,7 @@ Assigns multi-label mention types with confidence scores:
 - risk
 - harm
 - vendor
-- general_ambiguous
+- general_other_or_ambiguous
 - none
 """
 
@@ -23,7 +23,7 @@ class MentionTypeClassifier(BaseClassifier):
 
     CLASSIFIER_TYPE = "mention_type"
     RESPONSE_MODEL = MentionTypeResponseV2
-    PROMPT_KEY = "mention_type_v3"
+    PROMPT_KEY = "mention_type"
     SCHEMA_VERSION = "mention_type_v2"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:

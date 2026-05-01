@@ -52,6 +52,11 @@ from src.classifiers.adoption_type_classifier import AdoptionTypeClassifier
 from src.classifiers.base_classifier import _clean_schema_for_gemini
 from src.classifiers.mention_type_classifier import MentionTypeClassifier
 from src.classifiers.risk_classifier import RiskClassifier
+from src.classifiers.substantiveness_classifier import (
+    AdoptionSubstantivenessClassifier,
+    RiskSubstantivenessClassifier,
+    VendorSubstantivenessClassifier,
+)
 from src.classifiers.vendor_classifier import VendorClassifier
 from src.utils.batch_api import BatchClient
 from src.utils.normalization import (
@@ -89,6 +94,24 @@ CLASSIFIER_CONFIG: dict[str, dict[str, Any]] = {
         "cls": VendorClassifier,
         "human_field": "vendor_tags",
         "filter_mention": "vendor",
+    },
+    "risk_substantiveness": {
+        "cls": RiskSubstantivenessClassifier,
+        "human_field": "risk_substantiveness",
+        "filter_mention": "risk",
+        "output_field": "risk_sub_substantiveness",
+    },
+    "adoption_substantiveness": {
+        "cls": AdoptionSubstantivenessClassifier,
+        "human_field": "adoption_substantiveness",
+        "filter_mention": "adoption",
+        "output_field": "adoption_substantiveness",
+    },
+    "vendor_substantiveness": {
+        "cls": VendorSubstantivenessClassifier,
+        "human_field": "vendor_substantiveness",
+        "filter_mention": "vendor",
+        "output_field": "vendor_substantiveness",
     },
 }
 
@@ -219,6 +242,8 @@ def normalize_label_token(value: object) -> str:
     if hasattr(value, "value"):
         return str(getattr(value, "value"))
     token = str(value)
+    if token == "general_ambiguous":
+        return "general_other_or_ambiguous"
     for prefix in ("RiskType.", "AdoptionType."):
         if token.startswith(prefix):
             return token.split(".", 1)[1]
@@ -231,6 +256,10 @@ def normalize_risk_labels(labels: list[str]) -> list[str]:
 
 def normalize_risk_substantiveness(value: object) -> str | None:
     return normalize_risk_substantiveness_shared(value)
+
+
+def is_substantiveness_classifier(classifier_name: str) -> bool:
+    return classifier_name.endswith("_substantiveness")
 
 
 def risk_signal_map(parsed: dict) -> dict[str, int]:
@@ -452,6 +481,9 @@ def _salvage_risk_payload(text: str) -> dict | None:
 
 def _extract_confidence(parsed: dict) -> float:
     """Return a normalized confidence score on a 0.0-1.0 scale."""
+    if "substantiveness" in parsed:
+        confidence = parsed.get("confidence")
+        return float(confidence) if isinstance(confidence, (int, float)) else 0.0
     if "adoption_signals" in parsed or "adoption_confidences" in parsed:
         scores = adoption_signal_map(parsed)
         valid = [v for v in scores.values() if isinstance(v, (int, float))]
@@ -478,7 +510,10 @@ def download_and_parse(
 
     # --- Extract labels per classifier ---
     def _extract_llm_labels(parsed: dict) -> list[str]:
-        if classifier_name == "mention_type":
+        if is_substantiveness_classifier(classifier_name):
+            label = normalize_risk_substantiveness(parsed.get("substantiveness"))
+            return [label] if label else []
+        elif classifier_name == "mention_type":
             types = parsed.get("mention_types", [])
             if isinstance(types, str):
                 types = [types]
@@ -521,6 +556,7 @@ def download_and_parse(
             "risk_confidences": {},
             "risk_signals": [],
             "risk_substantiveness": None,
+            "substantiveness": None,
             "adoption_signals": {},
         }
 
@@ -639,6 +675,11 @@ def download_and_parse(
                 if classifier_name == "risk"
                 else None
             )
+            substantiveness = (
+                normalize_risk_substantiveness(parsed.get("substantiveness"))
+                if is_substantiveness_classifier(classifier_name)
+                else None
+            )
             adopt_conf = (
                 {str(k): v for k, v in adoption_signal_map(parsed).items() if isinstance(v, (int, float))}
                 if classifier_name == "adoption_type"
@@ -671,6 +712,7 @@ def download_and_parse(
                     "risk_confidences": risk_conf,
                     "risk_signals": r_signals,
                     "risk_substantiveness": r_substantiveness,
+                    "substantiveness": substantiveness,
                     "adoption_signals": adopt_conf,
                     "vendor_signals": vendor_sigs,
                 }

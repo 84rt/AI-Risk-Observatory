@@ -14,7 +14,7 @@ mention_type: |
     - *risk*: ‘Risk’ is the potential for a harm to occur, either to the firm or to another party or to society at large. For a mention to be classified as such, it must directly attribute AI as the source of a risk or downside (such as a risk of the following nature: strategic & competitive, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI: make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirect way, these should be classified as risk from AI.
     - *harm*: ‘Harm’ is an actual injury or damage or loss that has occurred or is occurring, either to the firm or to another party or to society at large. For a mention to be classified as such, it must describe harms caused by AI (such as: misinformation, fraud, abuse, safety incidents, regulatory penalty, financial loss or other type of harm). This label should only be applied where the harm has occurred, or is occurring. It should not be used for a potential harm.
     - *vendor*: must directly name a third-party AI vendor/platform that provides the AI technology (such as: Microsoft, Google, OpenAI, AWS, or explicitly developed in-house). Our goal is to tag text that mentions any information about what AI models, compute infrastructure, or AI hardware are used by the company (i.e. GPT or Google Gemini).
-    - *general_other_or_ambiguous*: vague AI strategy, high-level plans, or AI mentions that don't have enough context or are not specific enough. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_other_or_ambiguous. The tag general_other_or_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
+    - *general_other_or_ambiguous*: vague AI strategy, high-level plans, other AI mentions, or AI mentions that don't have enough context or are not specific enough. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_other_or_ambiguous. The tag general_other_or_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
 
 
   2. Assign confidence scores to each tag. Confidence scores always indicate how likely the label applies (including "none").
@@ -27,14 +27,14 @@ mention_type: |
 
   ## EXAMPLES
   - "We deployed an AI chatbot for customer support." -> adoption ~1
-  - "We are exploring AI opportunities." -> general_ambiguous ~0.7
+  - "We are exploring AI opportunities." -> general_other_or_ambiguous ~0.7
   - "We are piloting AI to automate invoice processing." -> adoption ~0.8
   - "We use data analytics and predictive analytics to optimize routing." -> none ~0.6 (unless AI/ML explicitly stated)
   - "AI could increase misinformation risks." -> risk ~0.8
   - "AI is a long-term megatrend, being widely adopted within the industry; we are evaluating any risks associated with it." -> risk ~0.7 (no "adoption" tag, as no evidence of adoption by company)
   - "We partner with Microsoft for AI tooling." -> vendor ~0.9, adoption ~0.6
   - "We partnered with OpenAI to deliver AI systems for clients in 2024." -> vendor ~0.9, adoption ~0.8
-  - "Automation of customer service tasks improved our..." -> general_ambiguous ~0.2 (not necessarily AI)
+  - "Automation of customer service tasks improved our..." -> general_other_or_ambiguous ~0.2 (not necessarily AI)
   - "Address: FT-AI 4810 Shangh'ai', is where the..." -> none ~0.9 (a false positive)
   - "AI-generated misinformation has damaged our brand reputation." -> harm ~0.9
 
@@ -52,8 +52,7 @@ adoption: |
 
   ## TASK
   The excerpt has already been classified with the following mention types: {mention_types}.
-  Classify the AI adopted by the company into type(s) into 3 categories. Categories are NOT mutually exclusive.
-  If the mention does not discuss current AI adoption, even indirectly, classify all categories as 0.
+  Classify the AI adopted by the company into type(s) into 4 categories. Categories are NOT mutually exclusive aside from `ambiguous` which should be used alone.
   Assign signal scores (0-3) for ALL adoption types. Use 0 for types not present.
   {reasoning_instruction}
 
@@ -61,16 +60,15 @@ adoption: |
   - *non_llm*: Traditional AI/ML — everything that is AI but not LLM or Agentic AI (e.g., computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, robotic process automation with ML).
   - *llm*: Large Language Models — such as: GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarization, code generation or anything in the GenAI category.
   - *agentic*: Agentic AI — AI systems or agents that autonomously execute tasks and take actions with limited human oversight. The key characteristic is autonomous execution: the AI acts, decides, and operates on its own rather than assisting a human who decides. The word "agentic" need not appear, but there must be clear evidence of autonomous AI action — not just AI-assisted decision support. When agentic AI is LLM-based, select both.
-  - *ambiguous*: Mentions too vague to classify into the above 3 categories. 
+  - *ambiguous*: Current AI adoption is present, but the excerpt is too vague to classify into non_llm, llm, or agentic without guessing. Use this for adoption mentions that don't have enough context to determine, even in a 'weak implicit' way, what is the underlying AI type, such as "we use AI tools" or "AI supports our operations".
 
   ## RULES
-  1. If the mention is falsely classified as adoption—i.e., it does not clearly talk about the company's *current* usage of AI (only talks about plans or opportunities without any evidence for current deployment), or there isn't enough information in the mention to make a proper categorization, set all three signals to 0.
+  1. If the mention is falsely classified as adoption—i.e., it does not clearly talk about the company's *current* usage of AI (only talks about plans or opportunities without any evidence for current deployment), set all four signals to 0. If current AI adoption is present but there is not enough information to classify it as non_llm, llm, or agentic, set ambiguous > 0 and set other types to 0.
   2. A single excerpt can describe multiple adoption types (e.g., LLM + agentic). But some can be more evident than others, so make sure to assign the appropriate signal scores to each tag when assigning multiple.
-  3. If the excerpt is vague about which type, assign low signals (1) rather than guessing.
-  4. "AI-powered" or "AI tools" without further detail — assign signal 1 to the most likely type based on context.
-  5. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
-  6. Generic "automation" without AI specificity should get a very low signal (1) across non_llm only — do NOT assign agentic signal for generic automation.
-  7. Agentic signal must be 0 for: standard RPA or workflow automation, AI that assists or augments human decisions, AI copilots/assistants, and any excerpt where AI is a tool humans use rather than an agent that acts independently.
+  3. Mentions such as "AI-powered" or "AI tools" without further detail — assign ambiguous unless context implies non_llm, llm, or agentic AI.
+  4. Copilots and AI assistants are typically llm unless explicitly described as autonomous/agentic.
+  5. Generic "automation" without AI specificity should get a very low signal (1) across non_llm only — do NOT assign agentic signal for generic automation.
+  6. Agentic signal must be 0 for: standard RPA or workflow automation, AI that assists or augments human decisions, AI copilots/assistants, and any excerpt where AI is a tool humans use rather than an agent that acts independently.
 
   ## SIGNAL GUIDANCE (0-3)
   - 0: not present
@@ -85,14 +83,14 @@ adoption: |
   - "In 2024, our AI platform autonomously handled customer service with no human oversight." → agentic (signal 2), llm (signal 1)
   - "We deployed autonomous AI agents that triage, investigate, and resolve IT incidents without human input." → agentic (signal 3), llm (signal 2)
   - "We integrated Microsoft Copilot across our organisation." → llm (signal 3), agentic (signal 1)
-  - "We use AI to improve operations." → assign signal 1 to the most likely type based on context, agentic (signal 0)
+  - "We apply AI in customer service." → ambiguous (signal 2), agentic (signal 0)
   - "Our autonomous vehicles use AI for navigation and safety." → non_llm (signal 3), agentic (signal 2)
   - "We are automating back-office workflows using AI." → non_llm (signal 2), agentic (signal 0) unless explicit agent behaviour is described
   - "Our computer vision system detects manufacturing defects on the production line." → non_llm (signal 3)
   - "We have established a committee to navigate the GenAI change and plan" → this only gives us a slight hint of potential implementation of LLMs, but we don't have enough information to determine that the company has any current deployment of LLM systems (signal 0)
 
   ## OUTPUT CONSTRAINTS
-  - Include ALL three adoption_signals entries: one each for non_llm, llm, agentic.
+  - Include ALL four adoption_signals entries: one each for non_llm, llm, agentic, ambiguous. If you assign ambiguous, set all other tags to 0.
   - Each entry must be an object with fields: {{"type": <label>, "signal": <0-3 integer>}}.
 
   ## EXCERPT CONTEXT
@@ -111,7 +109,7 @@ risk: |
   The excerpt has already been classified with mention types: {mention_types}.
   Identify risks that are caused by, linked to, or exacerbated by AI, and map them to the taxonomy below.
   Categories are NOT mutually exclusive; include all that are supported by the excerpt.
-  {{reasoning_instruction}}
+  {reasoning_instruction}
 
   ## ATTRIBUTION FRAMEWORK (MAPS DIRECTLY TO SIGNAL SCORES)
   Before assigning any risk category, assess the strength of AI-to-risk attribution:

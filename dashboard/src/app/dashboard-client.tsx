@@ -29,6 +29,10 @@ type RiskInfoPanelItem = {
 
 const DEFAULT_VIEW_ID = 1;
 const DEFAULT_DASHBOARD_BASE_URL = 'https://www.riskobservatory.ai/data';
+const PARTIAL_YEAR = 2026;
+
+const formatDashboardYear = (year: number) =>
+  year === PARTIAL_YEAR ? `${year} p` : String(year);
 
 const getViewHash = (viewId: number) => {
   switch (viewId) {
@@ -71,7 +75,7 @@ const VIEWS: View[] = [
     id: 2,
     title: 'Adoption',
     heading: 'Reports mentioning adoption of AI',
-    description: 'AI adoption type (Traditional AI (non-LLM), LLM, agentic) across sectors and over time.',
+    description: 'AI adoption type (Traditional AI (non-LLM), LLM, agentic, or ambiguous) across sectors and over time.',
   },
   {
     id: 3,
@@ -85,6 +89,7 @@ const adoptionColors: Record<string, string> = {
   non_llm: '#64748b',     // slate-500
   llm: '#3b82f6',         // blue-500
   agentic: '#f59e0b',     // amber-500
+  ambiguous: '#cbd5e1',   // slate-300
 };
 
 const vendorColors: Record<string, string> = {
@@ -99,10 +104,13 @@ const vendorColors: Record<string, string> = {
   snowflake: '#29b5e8',     // snowflake cyan
   meta: '#1e3a8a',          // blue-900
   anthropic: '#d97706',     // amber-600
+  cohere: '#7c3aed',         // violet-600
   xai: '#000000',           // black
   palantir: '#374151',      // gray-700
   arm: '#0091bd',           // arm blue
   mistral: '#f97316',       // orange-500
+  huggingface: '#facc15',    // yellow-400
+  pinecone: '#10b981',       // emerald-500
   uk_ai: '#6d28d9',         // violet-700
   open_source_model: '#059669', // emerald-600
   internal: '#0b0c0c',      // near-black
@@ -112,29 +120,29 @@ const vendorColors: Record<string, string> = {
 
 const riskColors: Record<string, string> = {
   strategic_competitive:    '#1d4ed8', // deep blue
-  cybersecurity:            '#3b82f6', // blue
-  operational_technical:    '#93c5fd', // light blue
+  cybersecurity:            '#3b82f6', // light blue
+  operational_technical:    '#2563eb', // blue
   regulatory_compliance:    '#dbeafe', // pale blue
   reputational_ethical:     '#fecdd3', // soft rose
   third_party_supply_chain: '#fca5a5', // light red
-  information_integrity:    '#ef4444', // red
-  workforce_impacts:        '#f87171', // red-rose
-  environmental_impact:     '#7f1d1d', // darkest red
+  information_integrity:    '#f87171', // red-rose
+  workforce_impacts:        '#ef4444', // red
   national_security:        '#b91c1c', // deep red
+  environmental_impact:     '#7f1d1d', // darkest red
 };
 
 const phase1RiskColors: Record<string, string> = {
-  risk: '#e63946',
+  risk: '#ef4444',
 };
 
 const riskCategoryDefinitions = [
   {
     label: 'Strategic / Competitive',
-    definition: 'AI-driven competitive disadvantage, disruption, or failure to adapt.',
+    definition: 'AI-driven competitive disadvantage, displacement, failure to adapt, or pricing and margin erosion.',
   },
   {
     label: 'Operational / Technical',
-    definition: 'Reliability, accuracy, integration, or model-risk failures that degrade operations or decision-making.',
+    definition: 'AI reliability, accuracy, safety, or model-risk failures that degrade decisions or operations, including unsafe employee AI use.',
   },
   {
     label: 'Cybersecurity',
@@ -142,15 +150,15 @@ const riskCategoryDefinitions = [
   },
   {
     label: 'Workforce Impacts',
-    definition: 'AI-related displacement, skills gaps, or risky employee AI usage.',
+    definition: 'AI-driven displacement or skills gaps.',
   },
   {
     label: 'Regulatory / Compliance',
-    definition: 'AI-specific legal, regulatory, privacy, intellectual-property, or compliance exposure.',
+    definition: 'AI-specific legal, regulatory, privacy, or intellectual-property liability, compliance burden, or enforcement exposure.',
   },
   {
     label: 'Information Integrity',
-    definition: 'AI-enabled misinformation, deepfakes, hallucinations, or authenticity manipulation.',
+    definition: 'AI-enabled misinformation, deepfakes, content authenticity manipulation, or similar information integrity failures.',
   },
   {
     label: 'Reputational / Ethical',
@@ -158,7 +166,7 @@ const riskCategoryDefinitions = [
   },
   {
     label: 'Third-Party Supply Chain',
-    definition: 'Dependency on external AI vendors, providers, APIs, or concentrated supplier exposure.',
+    definition: 'Dependency on AI vendors, concentration risk, or exposure to failures or misuse of AI in the company supply chain.',
   },
   {
     label: 'Environmental Impact',
@@ -166,22 +174,26 @@ const riskCategoryDefinitions = [
   },
   {
     label: 'National Security',
-    definition: 'AI-linked geopolitical or critical-systems exposure with wider security implications.',
+    definition: 'AI-linked geopolitical or security destabilization, or exposure of critical systems.',
   },
 ];
 
 const adoptionTypeDefinitions = [
   {
     label: 'Traditional AI (non-LLM)',
-    definition: 'Traditional AI or machine-learning systems that are not based on large language models.',
+    definition: 'Traditional AI or machine-learning systems that are not LLMs or agentic AI, such as computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, or ML-enabled robotic process automation.',
   },
   {
     label: 'LLM',
-    definition: 'Large language model usage, including generative AI assistants and model-based workflows.',
+    definition: 'Large language models and GenAI, including GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarization, or code generation.',
   },
   {
     label: 'Agentic',
-    definition: 'More autonomous AI systems, often coordinating multi-step tasks with limited human intervention.',
+    definition: 'AI systems or agents that autonomously execute tasks and take actions with limited human oversight. AI assistants, copilots, and decision-support tools are not agentic unless autonomous execution is clear.',
+  },
+  {
+    label: 'Ambiguous',
+    definition: 'Current AI adoption is present, but the excerpt is too vague to classify as traditional AI, LLM, or agentic without guessing.',
   },
 ];
 
@@ -231,6 +243,10 @@ const vendorTagDefinitions = [
     definition: 'Anthropic is explicitly named in the source disclosure.',
   },
   {
+    label: 'Cohere',
+    definition: 'Cohere or Command is explicitly named in the source disclosure.',
+  },
+  {
     label: 'xAI / Grok',
     definition: 'xAI or Grok is explicitly named in the source disclosure.',
   },
@@ -244,23 +260,35 @@ const vendorTagDefinitions = [
   },
   {
     label: 'Mistral',
-    definition: 'Mistral is explicitly named in the source disclosure.',
+    definition: 'Mistral or Mixtral is explicitly named in the source disclosure.',
   },
   {
-    label: 'UK AI Institutions',
-    definition: 'A UK government AI body (e.g. DSIT, AISI, Alan Turing Institute) is referenced.',
+    label: 'Hugging Face',
+    definition: 'Hugging Face is explicitly named as an AI model or model-platform provider.',
+  },
+  {
+    label: 'Pinecone',
+    definition: 'Pinecone is explicitly named as an AI retrieval or model-platform provider.',
+  },
+  {
+    label: 'UK AI Vendors',
+    definition: 'A listed UK AI vendor is explicitly named, such as Darktrace, Quantexa, Featurespace, Faculty AI, or BenevolentAI.',
   },
   {
     label: 'Open-Source Model',
-    definition: 'An open-source model or framework is referenced without a named commercial vendor.',
+    definition: 'An open-source LLM, open-source model, or open-source AI model is referenced without a specific tracked vendor.',
   },
   {
     label: 'Internal',
-    definition: 'The company describes AI capabilities as built or operated in-house.',
+    definition: 'The company explicitly implies internal development or deployment of AI models.',
   },
   {
     label: 'Other',
     definition: 'A named provider outside the primary tracked vendor set.',
+  },
+  {
+    label: 'Undisclosed',
+    definition: 'A third-party AI vendor is clearly mentioned, but the provider name is not disclosed.',
   },
 ];
 
@@ -331,8 +359,9 @@ const formatLabel = (val: string | number) => {
   const overrides: Record<string, string> = {
     llm: 'LLM',
     non_llm: 'Traditional AI (non-LLM)',
+    ambiguous: 'Ambiguous AI adoption type',
     risk: 'AI Risk Mentioned',
-    general_ambiguous: 'General / Ambiguous',
+    general_other_or_ambiguous: 'General / Other / Ambiguous',
     third_party_supply_chain: 'Third-Party Supply Chain',
     operational_technical: 'Operational / Technical',
     regulatory_compliance: 'Regulatory / Compliance',
@@ -347,6 +376,10 @@ const formatLabel = (val: string | number) => {
     no_ai_mention: 'No AI Mention',
     no_ai_risk_mention: 'No AI Risk Mention',
     openai: 'OpenAI',
+    cohere: 'Cohere',
+    huggingface: 'Hugging Face',
+    pinecone: 'Pinecone',
+    uk_ai: 'UK AI Vendors',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -2158,7 +2191,7 @@ function DashboardContent({
   const stackedChartTooltipFormatter = (value: number) =>
     isPercentageMetricMode ? formatPercent(value) : formatNumber(value);
   const riskHeatmapValueFormatter = (value: number) => formatPercent(value);
-  const dashboardUpdatedLabel = 'Dataset updated 3 Apr 2026';
+  const dashboardUpdatedLabel = 'Dataset updated 1 May 2026';
   const currentVisualizationExport = useMemo<VisualizationExport>(() => {
     if (activeView === 1) {
       if (visualizationMode === 'chart') {
@@ -3081,10 +3114,10 @@ function DashboardContent({
     title: 'Frequently Asked Questions',
     content: (
       <div className="text-sm">
-        <CollapsibleSection variant="faq" title="Does the adoption prompt only count adoption by the reporting company?" open={openFaqIndex === 0} onToggle={() => setOpenFaqIndex(openFaqIndex === 0 ? null : 0)}>
-          The adoption prompt is designed to capture AI adoption by the reporting company. However, it does not
-          impose a fully explicit entity-scope gate, so in ambiguous cases the classifier may also pick up adjacent
-          forms of adoption described in the excerpt rather than only strict first-party company adoption.
+        <CollapsibleSection variant="faq" title="What counts as AI adoption?" open={openFaqIndex === 0} onToggle={() => setOpenFaqIndex(openFaqIndex === 0 ? null : 0)}>
+          The adoption label is for real current deployment, implementation, rollout, pilot, or use of AI by the
+          reporting company or for its clients. Generic statements about future intent, strategy, roadmaps, or
+          opportunities are not treated as adoption unless the excerpt shows a current initiative is underway.
         </CollapsibleSection>
         <CollapsibleSection variant="faq" title="How do we handle ambiguity?" open={openFaqIndex === 1} onToggle={() => setOpenFaqIndex(openFaqIndex === 1 ? null : 1)}>
           We handle ambiguity in two ways. First, Phase 2 labels use signal scores to show how directly the text
@@ -3393,7 +3426,7 @@ function DashboardContent({
           Date Range
         </p>
         <div className="text-xs font-semibold text-slate-700">
-          {selectedStartYear} - {selectedEndYear}
+          {formatDashboardYear(selectedStartYear)} - {formatDashboardYear(selectedEndYear)}
         </div>
       </div>
       <div className="mt-4">
@@ -3472,7 +3505,7 @@ function DashboardContent({
                   }`}
                   style={{ left: `${leftPct}%` }}
                 >
-                  {year}
+                  {formatDashboardYear(year)}
                 </span>
               );
             })
@@ -3853,12 +3886,12 @@ function DashboardContent({
                   title="AI Adoption Mentioned Over Time"
                   subtitle={
                     isPercentageMetricMode
-                      ? `Stacked bar chart showing the percentage of ${percentageDenominatorLongLabel} referencing each AI adoption maturity level — Traditional AI (non-LLM), LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
-                      : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} referencing each AI adoption maturity level — Traditional AI (non-LLM), LLM, and Agentic — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
+                      ? `Stacked bar chart showing the percentage of ${percentageDenominatorLongLabel} referencing each AI adoption type — Traditional AI (non-LLM), LLM, Agentic, or Ambiguous — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single report may be tagged with multiple adoption types, so stacked totals can exceed 100%.`
+                      : `Stacked bar chart showing the number of ${datasetKey === 'perReport' ? 'annual reports' : 'AI mentions'} referencing each AI adoption type — Traditional AI (non-LLM), LLM, Agentic, or Ambiguous — (y-axis) across ${trendTimeAxis === 'month' ? 'report release months' : 'publication years'} (x-axis). A single ${datasetKey === 'perReport' ? 'report' : 'AI mention'} may be tagged with multiple adoption types. The y-axis scale adjusts dynamically to the data shown.`
                   }
                   tooltip={
                     <>
-                      <p>{isPercentageMetricMode ? `Each segment shows the share of ${percentageDenominatorShortLabel} in that period tagged with the adoption type.` : 'Each bar is stacked by adoption type: Traditional AI (non-LLM), LLM, and Agentic.'}</p>
+                      <p>{isPercentageMetricMode ? `Each segment shows the share of ${percentageDenominatorShortLabel} in that period tagged with the adoption type.` : 'Each bar is stacked by adoption type: Traditional AI (non-LLM), LLM, Agentic, and Ambiguous.'}</p>
                       <p className="mt-2">A single {datasetKey === 'perReport' ? 'report' : 'AI mention'} can be tagged with multiple adoption types and can therefore contribute to more than one segment within the same year.</p>
                       <p className="mt-2">Click a legend item to isolate one adoption type.</p>
                     </>

@@ -904,7 +904,10 @@ class Database:
                 vendor_sub_result.get("substantiveness")
             ),
             harm_confidence=mention_confidences.get("harm"),
-            general_ambiguous_confidence=mention_confidences.get("general_ambiguous"),
+            general_ambiguous_confidence=(
+                mention_confidences.get("general_other_or_ambiguous")
+                or mention_confidences.get("general_ambiguous")
+            ),
             confidence_score=_max_confidence(mention_confidences),
             reasoning_summary=mention_reasoning,
             model_version=model_version,

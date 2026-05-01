@@ -117,7 +117,7 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} AI Risk Observatory
           </p>
           <div className="mt-6 space-y-1 text-[11px] leading-tight text-muted-foreground">
-            <p>Last updated 17 April 2026</p>
+            <p>Last updated 1 May 2026</p>
             <p>
               Currently in public beta.{' '}
               <a

@@ -12,7 +12,7 @@ import re
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, conint, model_validator
+from pydantic import BaseModel, Field, conint, field_validator, model_validator
 
 
 # =============================================================================
@@ -27,7 +27,7 @@ class MentionType(str, Enum):
     risk = "risk"
     harm = "harm"
     vendor = "vendor"
-    general_ambiguous = "general_ambiguous"
+    general_other_or_ambiguous = "general_other_or_ambiguous"
     none = "none"
 
 
@@ -50,9 +50,9 @@ class MentionConfidenceScores(BaseModel):
         default=None,
         description="Confidence for vendor mention (0.0-1.0)",
     )
-    general_ambiguous: Optional[float] = Field(
+    general_other_or_ambiguous: Optional[float] = Field(
         default=None,
-        description="Confidence for general/ambiguous mention (0.0-1.0)",
+        description="Confidence for general/other/ambiguous AI mention (0.0-1.0)",
     )
     none: Optional[float] = Field(
         default=None,
@@ -70,7 +70,7 @@ class MentionTypeResponse(BaseModel):
             "'risk': AI described as risk, downside, or material concern. "
             "'harm': AI causing or enabling harm. "
             "'vendor': Named AI vendor/platform mentioned. "
-            "'general_ambiguous': Vague AI reference, high-level plans. "
+            "'general_other_or_ambiguous': Vague, general, or other AI reference. "
             "'none': False positive, no AI mention."
         )
     )
@@ -85,6 +85,28 @@ class MentionTypeResponse(BaseModel):
         default=None,
         description="Brief explanation of classification rationale.",
     )
+
+    @field_validator("mention_types", mode="before")
+    @classmethod
+    def normalize_mention_type_aliases(cls, value: object) -> object:
+        alias = {"general_ambiguous": "general_other_or_ambiguous"}
+        if isinstance(value, list):
+            return [alias.get(str(item), item) for item in value]
+        if isinstance(value, str):
+            return alias.get(value, value)
+        return value
+
+    @field_validator("confidence_scores", mode="before")
+    @classmethod
+    def normalize_confidence_aliases(cls, value: object) -> object:
+        if isinstance(value, dict) and "general_ambiguous" in value:
+            normalized = dict(value)
+            normalized.setdefault(
+                "general_other_or_ambiguous",
+                normalized.pop("general_ambiguous"),
+            )
+            return normalized
+        return value
 
 
 class MentionTypeResponseV2(BaseModel):
@@ -105,7 +127,7 @@ class MentionTypeResponseV2(BaseModel):
             "'risk': AI directly attributed as risk source. "
             "'harm': Past harms caused by AI. "
             "'vendor': Named AI vendor (Microsoft, Google, OpenAI, AWS, etc.). "
-            "'general_ambiguous': Vague AI mentions not fitting other categories; try use alone. "
+            "'general_other_or_ambiguous': Vague, general, or other AI mentions not fitting other categories; try use alone. "
             "'none': No explicit AI/ML/LLM mention or false positive."
         )
     )
@@ -116,6 +138,28 @@ class MentionTypeResponseV2(BaseModel):
             "and include a score for every type in mention_types."
         )
     )
+
+    @field_validator("mention_types", mode="before")
+    @classmethod
+    def normalize_mention_type_aliases(cls, value: object) -> object:
+        alias = {"general_ambiguous": "general_other_or_ambiguous"}
+        if isinstance(value, list):
+            return [alias.get(str(item), item) for item in value]
+        if isinstance(value, str):
+            return alias.get(value, value)
+        return value
+
+    @field_validator("confidence_scores", mode="before")
+    @classmethod
+    def normalize_confidence_aliases(cls, value: object) -> object:
+        if isinstance(value, dict) and "general_ambiguous" in value:
+            normalized = dict(value)
+            normalized.setdefault(
+                "general_other_or_ambiguous",
+                normalized.pop("general_ambiguous"),
+            )
+            return normalized
+        return value
 
     @model_validator(mode="after")
     def validate_confidences(self) -> "MentionTypeResponseV2":
@@ -171,6 +215,7 @@ class AdoptionType(str, Enum):
     non_llm = "non_llm"
     llm = "llm"
     agentic = "agentic"
+    ambiguous = "ambiguous"
 
 
 class AdoptionSignalEntry(BaseModel):
@@ -220,6 +265,20 @@ class AdoptionTypeResponse(BaseModel):
             raise ValueError(
                 f"adoption_signals missing required types: {', '.join(sorted([m.value for m in missing]))}"
             )
+        signals = {
+            entry.type.value if hasattr(entry.type, "value") else str(entry.type): entry.signal
+            for entry in self.adoption_signals
+        }
+        if signals.get("ambiguous", 0) > 0:
+            supported_specific = [
+                label
+                for label in ("non_llm", "llm", "agentic")
+                if signals.get(label, 0) > 0
+            ]
+            if supported_specific:
+                raise ValueError(
+                    "ambiguous adoption signal must not co-occur with non_llm, llm, or agentic signals"
+                )
         return self
 
 
@@ -772,6 +831,8 @@ class SubstantivenessResponseV2(BaseModel):
         )
     )
     confidence: float = Field(
+        ge=0.0,
+        le=1.0,
         description="Classification confidence (0.0-1.0).",
     )
     reasoning: Optional[str] = Field(
@@ -806,6 +867,8 @@ class RiskSubstantivenessResponse(BaseModel):
         )
     )
     confidence: float = Field(
+        ge=0.0,
+        le=1.0,
         description="Classification confidence (0.0-1.0).",
     )
     reasoning: Optional[str] = Field(
@@ -839,6 +902,8 @@ class AdoptionSubstantivenessResponse(BaseModel):
         )
     )
     confidence: float = Field(
+        ge=0.0,
+        le=1.0,
         description="Classification confidence (0.0-1.0).",
     )
     reasoning: Optional[str] = Field(
@@ -872,6 +937,8 @@ class VendorSubstantivenessResponse(BaseModel):
         )
     )
     confidence: float = Field(
+        ge=0.0,
+        le=1.0,
         description="Classification confidence (0.0-1.0).",
     )
     reasoning: Optional[str] = Field(

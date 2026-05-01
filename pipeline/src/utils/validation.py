@@ -34,7 +34,7 @@ VALID_CLASSIFIER_TYPES = {
     "mention_type_v2",
 }
 
-VALID_ADOPTION_TYPES = {"non_llm", "llm", "agentic"}
+VALID_ADOPTION_TYPES = {"non_llm", "llm", "agentic", "ambiguous"}
 
 VALID_RISK_CATEGORIES = {
     "strategic_competitive",
@@ -169,6 +169,7 @@ def _validate_adoption_response(
             messages.append(msg)
         else:
             seen = set()
+            signal_map: Dict[str, Any] = {}
             for entry in signals:
                 if not isinstance(entry, dict):
                     msg = f"adoption_signals entry must be a dict, got {type(entry)}"
@@ -190,6 +191,7 @@ def _validate_adoption_response(
                             raise ValidationError(msg, "adoption_signals")
                         messages.append(msg)
                     seen.add(atype)
+                    signal_map[atype] = score
                 signal_valid, signal_msgs = _validate_signal_score(score, strict)
                 messages.extend(signal_msgs)
             missing = set(VALID_ADOPTION_TYPES) - seen
@@ -198,6 +200,20 @@ def _validate_adoption_response(
                 if strict:
                     raise ValidationError(msg, "adoption_signals")
                 messages.append(msg)
+            if isinstance(signal_map.get("ambiguous"), (int, float)) and signal_map["ambiguous"] > 0:
+                specific = [
+                    label
+                    for label in ("non_llm", "llm", "agentic")
+                    if isinstance(signal_map.get(label), (int, float)) and signal_map[label] > 0
+                ]
+                if specific:
+                    msg = (
+                        "ambiguous adoption signal must not co-occur with "
+                        f"specific adoption types: {', '.join(specific)}"
+                    )
+                    if strict:
+                        raise ValidationError(msg, "adoption_signals")
+                    messages.append(msg)
 
     return len(messages) == 0, messages
 

@@ -29,7 +29,7 @@ class LLMClassifierV2(BaseClassifier):
 
     CLASSIFIER_TYPE = "mention_type_v2"
     RESPONSE_MODEL = MentionTypeResponseV2
-    PROMPT_KEY = "mention_type_v3"
+    PROMPT_KEY = "mention_type"
     SCHEMA_VERSION = "mention_type_v2"
 
     def __init__(

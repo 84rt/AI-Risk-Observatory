@@ -1,9 +1,10 @@
 """Adoption type classifier for AIRO pipeline.
 
-Classifies AI adoption mentions into three categories:
+Classifies AI adoption mentions into four categories:
 - non_llm: Traditional AI/ML (computer vision, predictive analytics)
 - llm: Large Language Models (GPT, chatbots, text generation)
 - agentic: Autonomous AI agents
+- ambiguous: Current AI adoption with insufficient detail to infer type
 """
 
 from typing import Any, Dict, List, Tuple
@@ -16,12 +17,12 @@ from ..utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 
 class AdoptionTypeClassifier(BaseClassifier):
-    """3-category classifier for AI adoption types."""
+    """4-category classifier for AI adoption types."""
 
     CLASSIFIER_TYPE = "adoption"
     RESPONSE_MODEL = AdoptionTypeResponse
-    PROMPT_KEY = "adoption_type"
-    SCHEMA_VERSION = "adoption_type_v2"
+    PROMPT_KEY = "adoption"
+    SCHEMA_VERSION = "adoption_type_v3"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
         """Generate the classification prompts for adoption type detection."""

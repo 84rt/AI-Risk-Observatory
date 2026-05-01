@@ -23,6 +23,17 @@ def _load_prompt_yaml() -> Dict[str, str]:
 def get_prompt_template(key: str) -> str:
     """Return the system prompt template for the given key."""
     prompts = _load_prompt_yaml()
+    aliases = {
+        "mention_type_v3": "mention_type",
+        "adoption_type": "adoption",
+        "risk_v5": "risk",
+        "vendor_v2": "vendor",
+        "substantiveness_v2": "risk_substantiveness",
+        "adoption_substantiveness_v1": "adoption_substantiveness",
+        "risk_substantiveness_v1": "risk_substantiveness",
+        "vendor_substantiveness_v1": "vendor_substantiveness",
+    }
+    key = aliases.get(key, key)
     if key not in prompts:
         raise KeyError(f"Prompt key not found: {key}")
     template = prompts[key]

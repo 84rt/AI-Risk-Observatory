@@ -11,6 +11,7 @@ const ADOPTION_COLORS = {
   non_llm: '#64748b',
   llm: '#3b82f6',
   agentic: '#f59e0b',
+  ambiguous: '#9ca3af',
 };
 
 const VENDOR_COLORS = {
@@ -18,8 +19,22 @@ const VENDOR_COLORS = {
   microsoft: '#3b82f6',
   google: '#16a34a',
   amazon: '#f59e0b',
+  nvidia: '#76b900',
+  salesforce: '#00a1e0',
+  databricks: '#ff3621',
+  ibm: '#1f70c1',
+  snowflake: '#29b5e8',
   meta: '#1e3a8a',
   anthropic: '#d97706',
+  cohere: '#39594d',
+  xai: '#4a4a4a',
+  palantir: '#6b21a8',
+  arm: '#0091bd',
+  mistral: '#f97316',
+  huggingface: '#fbbf24',
+  pinecone: '#10b981',
+  uk_ai: '#be185d',
+  open_source_model: '#7c3aed',
   internal: '#0b0c0c',
   other: '#64748b',
   undisclosed: '#e2e8f0',
@@ -56,6 +71,7 @@ const ADOPTION_LABELS = {
   non_llm: 'Traditional AI (non-LLM)',
   llm: 'LLM / Generative AI',
   agentic: 'Agentic AI',
+  ambiguous: 'Ambiguous AI adoption',
 };
 
 const RISK_LABELS = {
@@ -76,8 +92,22 @@ const VENDOR_LABELS = {
   microsoft: 'Microsoft',
   google: 'Google',
   amazon: 'Amazon / AWS',
+  nvidia: 'Nvidia',
+  salesforce: 'Salesforce',
+  databricks: 'Databricks',
+  ibm: 'IBM',
+  snowflake: 'Snowflake',
   meta: 'Meta',
   anthropic: 'Anthropic',
+  cohere: 'Cohere',
+  xai: 'xAI',
+  palantir: 'Palantir',
+  arm: 'ARM',
+  mistral: 'Mistral',
+  huggingface: 'Hugging Face',
+  pinecone: 'Pinecone',
+  uk_ai: 'UK AI',
+  open_source_model: 'Open-source model',
   internal: 'Internal / proprietary',
   other: 'Other (named, unlisted)',
   undisclosed: 'Undisclosed',
@@ -200,7 +230,6 @@ const buildFigure1 = dashboardData => {
     series: [
       { key: 'adoption_rate_pct', label: MENTION_LABELS.adoption, color: MENTION_COLORS.adoption },
       { key: 'risk_rate_pct', label: MENTION_LABELS.risk, color: MENTION_COLORS.risk },
-      { key: 'general_ambiguous_rate_pct', label: MENTION_LABELS.general_ambiguous, color: MENTION_COLORS.general_ambiguous },
       { key: 'vendor_rate_pct', label: MENTION_LABELS.vendor, color: MENTION_COLORS.vendor },
     ],
     shading: {
@@ -233,6 +262,7 @@ const buildFigure2 = dashboardData => {
       { key: 'non_llm', label: ADOPTION_LABELS.non_llm, color: ADOPTION_COLORS.non_llm },
       { key: 'llm', label: ADOPTION_LABELS.llm, color: ADOPTION_COLORS.llm },
       { key: 'agentic', label: ADOPTION_LABELS.agentic, color: ADOPTION_COLORS.agentic },
+      { key: 'ambiguous', label: ADOPTION_LABELS.ambiguous, color: ADOPTION_COLORS.ambiguous },
     ],
     data: years.map(year => {
       const row = getYearRow(dataset.adoptionTrend, year);
@@ -241,6 +271,7 @@ const buildFigure2 = dashboardData => {
         non_llm: row.non_llm,
         llm: row.llm,
         agentic: row.agentic,
+        ambiguous: row.ambiguous,
       };
     }),
     notes: [
@@ -301,8 +332,8 @@ const buildFigure4 = dashboardData => {
   const vendorKeys = dashboardData.labels.vendorTags;
   const totalAssignments = vendorKeys.reduce((sum, key) => sum + (row2025[key] ?? 0), 0);
 
-  const trackedNamedKeys = ['openai', 'microsoft', 'google', 'amazon', 'meta', 'anthropic'];
   const opaqueKeys = ['other', 'undisclosed'];
+  const trackedNamedKeys = vendorKeys.filter(key => !opaqueKeys.includes(key) && key !== 'internal');
 
   const data = vendorKeys.map(key => ({
     key,

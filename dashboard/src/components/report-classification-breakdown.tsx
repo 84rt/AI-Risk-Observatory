@@ -13,7 +13,7 @@ const branchStyles: Record<string, { accent: string; chip: string; bar: string }
     chip: 'bg-sky-100 text-sky-700',
     bar: 'bg-sky-400',
   },
-  general_ambiguous: {
+  general_other_or_ambiguous: {
     accent: 'border-slate-200 bg-slate-50/85',
     chip: 'bg-slate-200 text-slate-700',
     bar: 'bg-slate-400',
@@ -99,7 +99,7 @@ function BranchCard({
   branch: ReportClassificationBreakdownBranch;
   signalReports: number;
 }) {
-  const style = branchStyles[branch.id] ?? branchStyles.general_ambiguous;
+  const style = branchStyles[branch.id] ?? branchStyles.general_other_or_ambiguous;
   const children = (branch.children ?? []).filter(child => child.count > 0);
   const branchWidth =
     signalReports > 0 ? `${Math.max((branch.count / signalReports) * 100, branch.count > 0 ? 6 : 0)}%` : '0%';

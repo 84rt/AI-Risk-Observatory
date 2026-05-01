@@ -146,6 +146,8 @@ def normalize_label_token(value: object) -> str:
     if hasattr(value, "value"):
         return str(getattr(value, "value"))
     token = str(value)
+    if token == "general_ambiguous":
+        return "general_other_or_ambiguous"
     if token.startswith("RiskType."):
         return token.split(".", 1)[1]
     if token.startswith("AdoptionType."):

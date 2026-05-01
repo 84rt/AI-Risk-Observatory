@@ -257,11 +257,18 @@ const mentionTypes = [
   'adoption',
   'risk',
   'vendor',
-  'general_ambiguous',
+  'general_other_or_ambiguous',
   'harm',
 ];
 
-const adoptionTypes = ['non_llm', 'llm', 'agentic'];
+const adoptionTypes = ['non_llm', 'llm', 'agentic', 'ambiguous'];
+
+const normalizeMentionType = (value: string | null | undefined) => {
+  const key = value?.trim();
+  if (!key) return '';
+  if (key === 'general_ambiguous') return 'general_other_or_ambiguous';
+  return key;
+};
 
 const riskLabels = [
   'strategic_competitive',
@@ -288,10 +295,13 @@ const vendorTags = [
   'snowflake',
   'meta',
   'anthropic',
+  'cohere',
   'xai',
   'palantir',
   'arm',
   'mistral',
+  'huggingface',
+  'pinecone',
   'uk_ai',
   'open_source_model',
   'internal',
@@ -618,13 +628,14 @@ const formatFlowLabel = (value: string) => {
     adoption: 'Reports with AI Adoption mentions',
     risk: 'Reports with Risk from AI mentions',
     vendor: 'Reports with AI Vendor mentions',
-    general_ambiguous: 'Reports with General or ambiguous AI mentions',
+    general_other_or_ambiguous: 'Reports with General, other, or ambiguous AI mentions',
     harm: 'Mentions of AI Harm',
 
     // Phase 2 Tags - Adoption
     non_llm: 'Traditional AI / ML',
     llm: 'LLMs / Generative AI',
     agentic: 'Agentic / Autonomous AI',
+    ambiguous: 'Ambiguous AI adoption type',
 
     // Phase 2 Tags - Risk (Common Aliases)
     strategic_competitive: 'Strategic / Competitive Risk',
@@ -650,11 +661,14 @@ const formatFlowLabel = (value: string) => {
     snowflake: 'Snowflake Mentions',
     meta: 'Meta Mentions',
     anthropic: 'Anthropic Mentions',
+    cohere: 'Cohere Mentions',
     xai: 'xAI / Grok Mentions',
     palantir: 'Palantir Mentions',
     arm: 'Arm Mentions',
     mistral: 'Mistral Mentions',
-    uk_ai: 'UK AI Institutions',
+    huggingface: 'Hugging Face Mentions',
+    pinecone: 'Pinecone Mentions',
+    uk_ai: 'UK AI Vendor Mentions',
     open_source_model: 'Open-Source Model Mentions',
     internal: 'In-house AI Development',
     other: 'Other AI Vendors',
@@ -802,7 +816,10 @@ const aggregateToReports = (
     const report = reportMap.get(reportKey)!;
 
     // Mention types - no confidence, just presence
-    (item.mention_types || []).forEach(type => report.mentionTypes.add(type));
+    (item.mention_types || []).forEach(type => {
+      const normalized = normalizeMentionType(type);
+      if (normalized) report.mentionTypes.add(normalized);
+    });
 
     // Adoption types - check confidence threshold, collect signal values
     const adoptionConfMap = resolveConfidenceMap(item, 'adoption');
@@ -902,7 +919,7 @@ const buildReportClassificationBreakdown = (
     reportsInBranch.filter(report => accessor(report).has(value)).length;
 
   const adoptionCount = countByMentionType('adoption');
-  const generalAmbiguousCount = countByMentionType('general_ambiguous');
+  const generalAmbiguousCount = countByMentionType('general_other_or_ambiguous');
   const riskCount = countByMentionType('risk');
   const vendorCount = countByMentionType('vendor');
   const harmCount = countByMentionType('harm');
@@ -921,11 +938,12 @@ const buildReportClassificationBreakdown = (
         { id: 'non_llm', label: 'non_llm', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'non_llm'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'non_llm'), adoptionCount) },
         { id: 'llm', label: 'llm', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'llm'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'llm'), adoptionCount) },
         { id: 'agentic', label: 'agentic', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'agentic'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'agentic'), adoptionCount) },
+        { id: 'ambiguous', label: 'ambiguous', count: countBySetValue(adoptionReports, report => report.adoptionTypes, 'ambiguous'), pctOfParent: toPct(countBySetValue(adoptionReports, report => report.adoptionTypes, 'ambiguous'), adoptionCount) },
       ],
     },
     {
-      id: 'general_ambiguous',
-      label: 'General / ambiguous',
+      id: 'general_other_or_ambiguous',
+      label: 'General / other / ambiguous',
       count: generalAmbiguousCount,
       pctOfParent: toPct(generalAmbiguousCount, phase1SignalReports),
     },
@@ -994,7 +1012,7 @@ const buildReportClassificationFlow = (reports: ReportData[]): ReportClassificat
     adoption: '#0ea5e9',
     risk: '#f97316',
     vendor: '#14b8a6',
-    general_ambiguous: '#64748b',
+    general_other_or_ambiguous: '#64748b',
     harm: '#ef4444',
     none: '#cbd5e1',
   };
@@ -1082,7 +1100,7 @@ phase1Labels.forEach(label => {
       const bKey = b.split(':').pop() || '';
       
       // Bottom priority items
-      const bottomPriority = ['harm', 'general_ambiguous'];
+      const bottomPriority = ['harm', 'general_other_or_ambiguous'];
       const aIdx = bottomPriority.indexOf(aKey);
       const bIdx = bottomPriority.indexOf(bKey);
 
@@ -1204,7 +1222,7 @@ const annotationsAsChunks = (
       sector: cniSectorMap.get(toKey(item.company_name)) || 'Unknown',
       isicSector: isicSectorMap.get(toKey(item.company_name)) || 'Unknown',
       marketSegment: marketSegmentMap.get(toKey(item.company_name)) || 'Other',
-      mentionTypes: new Set(item.mention_types || []),
+      mentionTypes: new Set((item.mention_types || []).map(normalizeMentionType).filter(Boolean)),
       adoptionTypes: filteredAdoption,
       riskLabels: filteredRisk,
       vendorTags: new Set(item.vendor_tags || []),
@@ -1231,7 +1249,7 @@ const buildExampleChunks = (annotations: GoldenAnnotation[]): ExampleChunk[] => 
     const chunkId = item.chunk_id?.trim();
     if (!chunkId) return null;
 
-    const mentionTypes = Array.from(new Set((item.mention_types || []).map(type => type?.trim()).filter(Boolean)));
+    const mentionTypes = Array.from(new Set((item.mention_types || []).map(normalizeMentionType).filter(Boolean)));
     const riskLabels = Array.from(new Set((item.risk_taxonomy || [])
       .map(normalizeRiskLabel)
       .filter(Boolean)));
