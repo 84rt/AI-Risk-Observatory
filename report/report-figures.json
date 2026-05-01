@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-16T11:22:22.636Z",
+  "generatedAt": "2026-05-01T09:16:31.854Z",
   "source": {
     "dashboardDataPath": "/Users/84rt/Projects/AI Risk Observatory/dashboard/data/dashboard-data.json",
     "maxReportYear": 2025,
@@ -30,11 +30,6 @@
           "color": "#e63946"
         },
         {
-          "key": "general_ambiguous_rate_pct",
-          "label": "General / Ambiguous",
-          "color": "#9ca3af"
-        },
-        {
           "key": "vendor_rate_pct",
           "label": "Vendor",
           "color": "#3b82f6"
@@ -49,80 +44,74 @@
         {
           "year": 2020,
           "total_reports": 1007,
-          "adoption_count": 140,
-          "risk_count": 32,
-          "vendor_count": 28,
-          "general_ambiguous_count": 112,
-          "adoption_rate_pct": 13.9,
-          "risk_rate_pct": 3.2,
-          "vendor_rate_pct": 2.8,
-          "general_ambiguous_rate_pct": 11.1,
-          "adoption_minus_risk_gap_pp": 10.7
+          "adoption_count": 139,
+          "risk_count": 28,
+          "vendor_count": 31,
+          "adoption_rate_pct": 13.8,
+          "risk_rate_pct": 2.8,
+          "vendor_rate_pct": 3.1,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 11
         },
         {
           "year": 2021,
           "total_reports": 1328,
-          "adoption_count": 285,
-          "risk_count": 59,
-          "vendor_count": 41,
-          "general_ambiguous_count": 195,
-          "adoption_rate_pct": 21.5,
-          "risk_rate_pct": 4.4,
-          "vendor_rate_pct": 3.1,
-          "general_ambiguous_rate_pct": 14.7,
-          "adoption_minus_risk_gap_pp": 17
+          "adoption_count": 277,
+          "risk_count": 56,
+          "vendor_count": 56,
+          "adoption_rate_pct": 20.9,
+          "risk_rate_pct": 4.2,
+          "vendor_rate_pct": 4.2,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 16.6
         },
         {
           "year": 2022,
           "total_reports": 1853,
-          "adoption_count": 434,
-          "risk_count": 93,
-          "vendor_count": 83,
-          "general_ambiguous_count": 282,
-          "adoption_rate_pct": 23.4,
-          "risk_rate_pct": 5,
-          "vendor_rate_pct": 4.5,
-          "general_ambiguous_rate_pct": 15.2,
-          "adoption_minus_risk_gap_pp": 18.4
+          "adoption_count": 416,
+          "risk_count": 89,
+          "vendor_count": 106,
+          "adoption_rate_pct": 22.5,
+          "risk_rate_pct": 4.8,
+          "vendor_rate_pct": 5.7,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 17.6
         },
         {
           "year": 2023,
           "total_reports": 1905,
-          "adoption_count": 511,
-          "risk_count": 194,
-          "vendor_count": 119,
-          "general_ambiguous_count": 427,
-          "adoption_rate_pct": 26.8,
-          "risk_rate_pct": 10.2,
-          "vendor_rate_pct": 6.2,
-          "general_ambiguous_rate_pct": 22.4,
-          "adoption_minus_risk_gap_pp": 16.6
+          "adoption_count": 492,
+          "risk_count": 186,
+          "vendor_count": 143,
+          "adoption_rate_pct": 25.8,
+          "risk_rate_pct": 9.8,
+          "vendor_rate_pct": 7.5,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 16.1
         },
         {
           "year": 2024,
           "total_reports": 1828,
-          "adoption_count": 703,
-          "risk_count": 582,
-          "vendor_count": 244,
-          "general_ambiguous_count": 785,
-          "adoption_rate_pct": 38.5,
-          "risk_rate_pct": 31.8,
-          "vendor_rate_pct": 13.3,
-          "general_ambiguous_rate_pct": 42.9,
-          "adoption_minus_risk_gap_pp": 6.6
+          "adoption_count": 673,
+          "risk_count": 556,
+          "vendor_count": 266,
+          "adoption_rate_pct": 36.8,
+          "risk_rate_pct": 30.4,
+          "vendor_rate_pct": 14.6,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 6.4
         },
         {
           "year": 2025,
           "total_reports": 1561,
-          "adoption_count": 721,
-          "risk_count": 674,
-          "vendor_count": 271,
-          "general_ambiguous_count": 853,
-          "adoption_rate_pct": 46.2,
-          "risk_rate_pct": 43.2,
-          "vendor_rate_pct": 17.4,
-          "general_ambiguous_rate_pct": 54.6,
-          "adoption_minus_risk_gap_pp": 3
+          "adoption_count": 705,
+          "risk_count": 643,
+          "vendor_count": 299,
+          "adoption_rate_pct": 45.2,
+          "risk_rate_pct": 41.2,
+          "vendor_rate_pct": 19.2,
+          "general_ambiguous_rate_pct": 0,
+          "adoption_minus_risk_gap_pp": 4
         }
       ],
       "notes": [
@@ -157,44 +146,55 @@
           "key": "agentic",
           "label": "Agentic AI",
           "color": "#f59e0b"
+        },
+        {
+          "key": "ambiguous",
+          "label": "Ambiguous AI adoption",
+          "color": "#9ca3af"
         }
       ],
       "data": [
         {
           "year": 2020,
-          "non_llm": 136,
-          "llm": 39,
-          "agentic": 27
+          "non_llm": 127,
+          "llm": 30,
+          "agentic": 24,
+          "ambiguous": 22
         },
         {
           "year": 2021,
-          "non_llm": 281,
-          "llm": 61,
-          "agentic": 52
+          "non_llm": 261,
+          "llm": 52,
+          "agentic": 41,
+          "ambiguous": 29
         },
         {
           "year": 2022,
-          "non_llm": 424,
-          "llm": 108,
-          "agentic": 71
+          "non_llm": 386,
+          "llm": 83,
+          "agentic": 67,
+          "ambiguous": 70
         },
         {
           "year": 2023,
-          "non_llm": 495,
-          "llm": 230,
-          "agentic": 102
+          "non_llm": 441,
+          "llm": 165,
+          "agentic": 84,
+          "ambiguous": 82
         },
         {
           "year": 2024,
-          "non_llm": 663,
-          "llm": 450,
-          "agentic": 126
+          "non_llm": 556,
+          "llm": 305,
+          "agentic": 109,
+          "ambiguous": 209
         },
         {
           "year": 2025,
-          "non_llm": 672,
-          "llm": 557,
-          "agentic": 172
+          "non_llm": 555,
+          "llm": 387,
+          "agentic": 165,
+          "ambiguous": 312
         }
       ],
       "notes": [
@@ -214,104 +214,104 @@
       },
       "data": [
         {
-          "key": "strategic_competitive",
-          "label": "Strategic / Competitive",
-          "color": "#1d4ed8",
-          "count_2024": 376,
-          "count_2025": 458,
-          "rate_2024_pct": 20.6,
-          "rate_2025_pct": 29.3,
-          "delta_pp": 8.8
-        },
-        {
           "key": "cybersecurity",
           "label": "Cybersecurity",
           "color": "#3b82f6",
-          "count_2024": 327,
-          "count_2025": 405,
-          "rate_2024_pct": 17.9,
-          "rate_2025_pct": 25.9,
-          "delta_pp": 8.1
+          "count_2024": 326,
+          "count_2025": 401,
+          "rate_2024_pct": 17.8,
+          "rate_2025_pct": 25.7,
+          "delta_pp": 7.9
+        },
+        {
+          "key": "strategic_competitive",
+          "label": "Strategic / Competitive",
+          "color": "#1d4ed8",
+          "count_2024": 359,
+          "count_2025": 427,
+          "rate_2024_pct": 19.6,
+          "rate_2025_pct": 27.4,
+          "delta_pp": 7.7
         },
         {
           "key": "operational_technical",
           "label": "Operational / Technical",
           "color": "#93c5fd",
-          "count_2024": 291,
-          "count_2025": 352,
-          "rate_2024_pct": 15.9,
-          "rate_2025_pct": 22.5,
-          "delta_pp": 6.6
-        },
-        {
-          "key": "workforce_impacts",
-          "label": "Workforce Impacts",
-          "color": "#f87171",
-          "count_2024": 106,
-          "count_2025": 176,
-          "rate_2024_pct": 5.8,
-          "rate_2025_pct": 11.3,
-          "delta_pp": 5.5
+          "count_2024": 335,
+          "count_2025": 377,
+          "rate_2024_pct": 18.3,
+          "rate_2025_pct": 24.2,
+          "delta_pp": 5.8
         },
         {
           "key": "regulatory_compliance",
           "label": "Regulatory / Compliance",
           "color": "#dbeafe",
-          "count_2024": 279,
-          "count_2025": 322,
-          "rate_2024_pct": 15.3,
-          "rate_2025_pct": 20.6,
-          "delta_pp": 5.4
+          "count_2024": 277,
+          "count_2025": 320,
+          "rate_2024_pct": 15.2,
+          "rate_2025_pct": 20.5,
+          "delta_pp": 5.3
         },
         {
           "key": "reputational_ethical",
           "label": "Reputational / Ethical",
           "color": "#fecdd3",
-          "count_2024": 200,
-          "count_2025": 252,
-          "rate_2024_pct": 10.9,
-          "rate_2025_pct": 16.1,
-          "delta_pp": 5.2
+          "count_2024": 204,
+          "count_2025": 248,
+          "rate_2024_pct": 11.2,
+          "rate_2025_pct": 15.9,
+          "delta_pp": 4.7
         },
         {
           "key": "third_party_supply_chain",
           "label": "Third-Party / Supply Chain",
           "color": "#fca5a5",
-          "count_2024": 136,
-          "count_2025": 197,
-          "rate_2024_pct": 7.4,
-          "rate_2025_pct": 12.6,
-          "delta_pp": 5.2
+          "count_2024": 137,
+          "count_2025": 191,
+          "rate_2024_pct": 7.5,
+          "rate_2025_pct": 12.2,
+          "delta_pp": 4.7
+        },
+        {
+          "key": "workforce_impacts",
+          "label": "Workforce Impacts",
+          "color": "#f87171",
+          "count_2024": 83,
+          "count_2025": 132,
+          "rate_2024_pct": 4.5,
+          "rate_2025_pct": 8.5,
+          "delta_pp": 3.9
         },
         {
           "key": "information_integrity",
           "label": "Information Integrity",
           "color": "#ef4444",
-          "count_2024": 145,
-          "count_2025": 184,
-          "rate_2024_pct": 7.9,
-          "rate_2025_pct": 11.8,
-          "delta_pp": 3.9
+          "count_2024": 133,
+          "count_2025": 162,
+          "rate_2024_pct": 7.3,
+          "rate_2025_pct": 10.4,
+          "delta_pp": 3.1
         },
         {
           "key": "environmental_impact",
           "label": "Environmental Impact",
           "color": "#7f1d1d",
           "count_2024": 20,
-          "count_2025": 52,
+          "count_2025": 45,
           "rate_2024_pct": 1.1,
-          "rate_2025_pct": 3.3,
-          "delta_pp": 2.2
+          "rate_2025_pct": 2.9,
+          "delta_pp": 1.8
         },
         {
           "key": "national_security",
           "label": "National Security",
           "color": "#b91c1c",
-          "count_2024": 31,
-          "count_2025": 49,
-          "rate_2024_pct": 1.7,
-          "rate_2025_pct": 3.1,
-          "delta_pp": 1.4
+          "count_2024": 27,
+          "count_2025": 42,
+          "rate_2024_pct": 1.5,
+          "rate_2025_pct": 2.7,
+          "delta_pp": 1.2
         }
       ],
       "notes": [
@@ -325,14 +325,14 @@
       "title": "Vendor reference distribution in 2025",
       "chartType": "treemap",
       "measure": "vendor-tag assignments",
-      "total_assignments_2025": 464,
+      "total_assignments_2025": 609,
       "groupedTotals": {
-        "named_tracked_assignments": 218,
-        "opaque_or_untracked_assignments": 198,
-        "internal_assignments": 48,
-        "named_tracked_share_pct": 47,
-        "opaque_or_untracked_share_pct": 42.7,
-        "internal_share_pct": 10.3
+        "named_tracked_assignments": 334,
+        "opaque_or_untracked_assignments": 219,
+        "internal_assignments": 56,
+        "named_tracked_share_pct": 54.8,
+        "opaque_or_untracked_share_pct": 36,
+        "internal_share_pct": 9.2
       },
       "data": [
         {
@@ -340,72 +340,184 @@
           "label": "Other (named, unlisted)",
           "color": "#64748b",
           "group": "opaque_or_untracked",
-          "assignments_2025": 143,
-          "share_pct": 30.8
+          "assignments_2025": 154,
+          "share_pct": 25.3
         },
         {
           "key": "microsoft",
           "label": "Microsoft",
           "color": "#3b82f6",
           "group": "named_tracked",
-          "assignments_2025": 87,
-          "share_pct": 18.8
+          "assignments_2025": 98,
+          "share_pct": 16.1
         },
         {
           "key": "undisclosed",
           "label": "Undisclosed",
           "color": "#e2e8f0",
           "group": "opaque_or_untracked",
-          "assignments_2025": 55,
-          "share_pct": 11.9
+          "assignments_2025": 65,
+          "share_pct": 10.7
         },
         {
           "key": "internal",
           "label": "Internal / proprietary",
           "color": "#0b0c0c",
           "group": "internal",
-          "assignments_2025": 48,
-          "share_pct": 10.3
+          "assignments_2025": 56,
+          "share_pct": 9.2
         },
         {
           "key": "google",
           "label": "Google",
           "color": "#16a34a",
           "group": "named_tracked",
-          "assignments_2025": 42,
-          "share_pct": 9.1
-        },
-        {
-          "key": "openai",
-          "label": "OpenAI",
-          "color": "#e63946",
-          "group": "named_tracked",
-          "assignments_2025": 36,
-          "share_pct": 7.8
+          "assignments_2025": 47,
+          "share_pct": 7.7
         },
         {
           "key": "amazon",
           "label": "Amazon / AWS",
           "color": "#f59e0b",
           "group": "named_tracked",
-          "assignments_2025": 31,
-          "share_pct": 6.7
+          "assignments_2025": 42,
+          "share_pct": 6.9
+        },
+        {
+          "key": "openai",
+          "label": "OpenAI",
+          "color": "#e63946",
+          "group": "named_tracked",
+          "assignments_2025": 38,
+          "share_pct": 6.2
+        },
+        {
+          "key": "nvidia",
+          "label": "Nvidia",
+          "color": "#76b900",
+          "group": "named_tracked",
+          "assignments_2025": 38,
+          "share_pct": 6.2
         },
         {
           "key": "meta",
           "label": "Meta",
           "color": "#1e3a8a",
           "group": "named_tracked",
-          "assignments_2025": 18,
-          "share_pct": 3.9
+          "assignments_2025": 22,
+          "share_pct": 3.6
+        },
+        {
+          "key": "salesforce",
+          "label": "Salesforce",
+          "color": "#00a1e0",
+          "group": "named_tracked",
+          "assignments_2025": 16,
+          "share_pct": 2.6
+        },
+        {
+          "key": "ibm",
+          "label": "IBM",
+          "color": "#1f70c1",
+          "group": "named_tracked",
+          "assignments_2025": 7,
+          "share_pct": 1.1
+        },
+        {
+          "key": "snowflake",
+          "label": "Snowflake",
+          "color": "#29b5e8",
+          "group": "named_tracked",
+          "assignments_2025": 5,
+          "share_pct": 0.8
         },
         {
           "key": "anthropic",
           "label": "Anthropic",
           "color": "#d97706",
           "group": "named_tracked",
+          "assignments_2025": 5,
+          "share_pct": 0.8
+        },
+        {
+          "key": "palantir",
+          "label": "Palantir",
+          "color": "#6b21a8",
+          "group": "named_tracked",
           "assignments_2025": 4,
-          "share_pct": 0.9
+          "share_pct": 0.7
+        },
+        {
+          "key": "databricks",
+          "label": "Databricks",
+          "color": "#ff3621",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "arm",
+          "label": "ARM",
+          "color": "#0091bd",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "open_source_model",
+          "label": "Open-source model",
+          "color": "#7c3aed",
+          "group": "named_tracked",
+          "assignments_2025": 3,
+          "share_pct": 0.5
+        },
+        {
+          "key": "xai",
+          "label": "xAI",
+          "color": "#4a4a4a",
+          "group": "named_tracked",
+          "assignments_2025": 2,
+          "share_pct": 0.3
+        },
+        {
+          "key": "cohere",
+          "label": "Cohere",
+          "color": "#39594d",
+          "group": "named_tracked",
+          "assignments_2025": 1,
+          "share_pct": 0.2
+        },
+        {
+          "key": "mistral",
+          "label": "Mistral",
+          "color": "#f97316",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0
+        },
+        {
+          "key": "huggingface",
+          "label": "Hugging Face",
+          "color": "#fbbf24",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0
+        },
+        {
+          "key": "pinecone",
+          "label": "Pinecone",
+          "color": "#10b981",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0
+        },
+        {
+          "key": "uk_ai",
+          "label": "UK AI",
+          "color": "#be185d",
+          "group": "named_tracked",
+          "assignments_2025": 0,
+          "share_pct": 0
         }
       ],
       "notes": [
@@ -446,47 +558,47 @@
         {
           "year": 2021,
           "total_reports": 1328,
-          "risk_reports": 59,
-          "substantive_risk_reports": 9,
-          "risk_mention_rate_pct": 4.4,
-          "substantive_risk_rate_pct": 0.7,
-          "quality_gap_pp": 3.8
+          "risk_reports": 56,
+          "substantive_risk_reports": 8,
+          "risk_mention_rate_pct": 4.2,
+          "substantive_risk_rate_pct": 0.6,
+          "quality_gap_pp": 3.6
         },
         {
           "year": 2022,
           "total_reports": 1853,
-          "risk_reports": 93,
+          "risk_reports": 89,
           "substantive_risk_reports": 16,
-          "risk_mention_rate_pct": 5,
+          "risk_mention_rate_pct": 4.8,
           "substantive_risk_rate_pct": 0.9,
-          "quality_gap_pp": 4.2
+          "quality_gap_pp": 3.9
         },
         {
           "year": 2023,
           "total_reports": 1905,
-          "risk_reports": 194,
-          "substantive_risk_reports": 19,
-          "risk_mention_rate_pct": 10.2,
-          "substantive_risk_rate_pct": 1,
-          "quality_gap_pp": 9.2
+          "risk_reports": 186,
+          "substantive_risk_reports": 23,
+          "risk_mention_rate_pct": 9.8,
+          "substantive_risk_rate_pct": 1.2,
+          "quality_gap_pp": 8.6
         },
         {
           "year": 2024,
           "total_reports": 1828,
-          "risk_reports": 582,
-          "substantive_risk_reports": 63,
-          "risk_mention_rate_pct": 31.8,
-          "substantive_risk_rate_pct": 3.4,
-          "quality_gap_pp": 28.4
+          "risk_reports": 556,
+          "substantive_risk_reports": 61,
+          "risk_mention_rate_pct": 30.4,
+          "substantive_risk_rate_pct": 3.3,
+          "quality_gap_pp": 27.1
         },
         {
           "year": 2025,
           "total_reports": 1561,
-          "risk_reports": 674,
-          "substantive_risk_reports": 65,
-          "risk_mention_rate_pct": 43.2,
-          "substantive_risk_rate_pct": 4.2,
-          "quality_gap_pp": 39
+          "risk_reports": 643,
+          "substantive_risk_reports": 67,
+          "risk_mention_rate_pct": 41.2,
+          "substantive_risk_rate_pct": 4.3,
+          "quality_gap_pp": 36.9
         }
       ],
       "notes": [
@@ -524,18 +636,10 @@
         {
           "sector": "Communications",
           "total_reports": 29,
-          "risk_reports": 16,
-          "no_ai_risk_reports": 13,
-          "risk_rate_pct": 55.2,
-          "no_ai_risk_rate_pct": 44.8
-        },
-        {
-          "sector": "Water",
-          "total_reports": 17,
-          "risk_reports": 9,
-          "no_ai_risk_reports": 8,
-          "risk_rate_pct": 52.9,
-          "no_ai_risk_rate_pct": 47.1
+          "risk_reports": 15,
+          "no_ai_risk_reports": 14,
+          "risk_rate_pct": 51.7,
+          "no_ai_risk_rate_pct": 48.3
         },
         {
           "sector": "Chemicals",
@@ -546,28 +650,20 @@
           "no_ai_risk_rate_pct": 50
         },
         {
+          "sector": "Water",
+          "total_reports": 17,
+          "risk_reports": 8,
+          "no_ai_risk_reports": 9,
+          "risk_rate_pct": 47.1,
+          "no_ai_risk_rate_pct": 52.9
+        },
+        {
           "sector": "Finance",
           "total_reports": 657,
-          "risk_reports": 325,
-          "no_ai_risk_reports": 332,
-          "risk_rate_pct": 49.5,
-          "no_ai_risk_rate_pct": 50.5
-        },
-        {
-          "sector": "Food",
-          "total_reports": 70,
-          "risk_reports": 31,
-          "no_ai_risk_reports": 39,
-          "risk_rate_pct": 44.3,
-          "no_ai_risk_rate_pct": 55.7
-        },
-        {
-          "sector": "Transport",
-          "total_reports": 67,
-          "risk_reports": 28,
-          "no_ai_risk_reports": 39,
-          "risk_rate_pct": 41.8,
-          "no_ai_risk_rate_pct": 58.2
+          "risk_reports": 309,
+          "no_ai_risk_reports": 348,
+          "risk_rate_pct": 47,
+          "no_ai_risk_rate_pct": 53
         },
         {
           "sector": "Defence",
@@ -576,6 +672,22 @@
           "no_ai_risk_reports": 13,
           "risk_rate_pct": 40.9,
           "no_ai_risk_rate_pct": 59.1
+        },
+        {
+          "sector": "Food",
+          "total_reports": 70,
+          "risk_reports": 28,
+          "no_ai_risk_reports": 42,
+          "risk_rate_pct": 40,
+          "no_ai_risk_rate_pct": 60
+        },
+        {
+          "sector": "Transport",
+          "total_reports": 67,
+          "risk_reports": 26,
+          "no_ai_risk_reports": 41,
+          "risk_rate_pct": 38.8,
+          "no_ai_risk_rate_pct": 61.2
         },
         {
           "sector": "Health",
@@ -588,18 +700,18 @@
         {
           "sector": "Energy",
           "total_reports": 140,
-          "risk_reports": 29,
-          "no_ai_risk_reports": 111,
-          "risk_rate_pct": 20.7,
-          "no_ai_risk_rate_pct": 79.3
+          "risk_reports": 28,
+          "no_ai_risk_reports": 112,
+          "risk_rate_pct": 20,
+          "no_ai_risk_rate_pct": 80
         },
         {
           "sector": "Data Infrastructure",
           "total_reports": 20,
-          "risk_reports": 3,
-          "no_ai_risk_reports": 17,
-          "risk_rate_pct": 15,
-          "no_ai_risk_rate_pct": 85
+          "risk_reports": 2,
+          "no_ai_risk_reports": 18,
+          "risk_rate_pct": 10,
+          "no_ai_risk_rate_pct": 90
         },
         {
           "sector": "Civil Nuclear",
@@ -666,79 +778,79 @@
         {
           "sector": "Government",
           "year": 2023,
-          "current_risk_rate_pct": 9.1,
+          "current_risk_rate_pct": 13.6,
           "previous_risk_rate_pct": 0,
-          "delta_pp": 9.1
+          "delta_pp": 13.6
         },
         {
           "sector": "Government",
           "year": 2024,
-          "current_risk_rate_pct": 54.2,
-          "previous_risk_rate_pct": 9.1,
-          "delta_pp": 45.1
+          "current_risk_rate_pct": 58.3,
+          "previous_risk_rate_pct": 13.6,
+          "delta_pp": 44.7
         },
         {
           "sector": "Government",
           "year": 2025,
           "current_risk_rate_pct": 60.9,
-          "previous_risk_rate_pct": 54.2,
-          "delta_pp": 6.7
+          "previous_risk_rate_pct": 58.3,
+          "delta_pp": 2.5
         },
         {
           "sector": "Finance",
           "year": 2021,
-          "current_risk_rate_pct": 5.8,
-          "previous_risk_rate_pct": 4.1,
-          "delta_pp": 1.7
+          "current_risk_rate_pct": 5.5,
+          "previous_risk_rate_pct": 3.7,
+          "delta_pp": 1.8
         },
         {
           "sector": "Finance",
           "year": 2022,
-          "current_risk_rate_pct": 6.7,
-          "previous_risk_rate_pct": 5.8,
-          "delta_pp": 0.9
+          "current_risk_rate_pct": 6.6,
+          "previous_risk_rate_pct": 5.5,
+          "delta_pp": 1.1
         },
         {
           "sector": "Finance",
           "year": 2023,
-          "current_risk_rate_pct": 12.3,
-          "previous_risk_rate_pct": 6.7,
-          "delta_pp": 5.5
+          "current_risk_rate_pct": 12,
+          "previous_risk_rate_pct": 6.6,
+          "delta_pp": 5.4
         },
         {
           "sector": "Finance",
           "year": 2024,
-          "current_risk_rate_pct": 39.1,
-          "previous_risk_rate_pct": 12.3,
-          "delta_pp": 26.8
+          "current_risk_rate_pct": 36.4,
+          "previous_risk_rate_pct": 12,
+          "delta_pp": 24.3
         },
         {
           "sector": "Finance",
           "year": 2025,
-          "current_risk_rate_pct": 49.5,
-          "previous_risk_rate_pct": 39.1,
-          "delta_pp": 10.4
+          "current_risk_rate_pct": 47,
+          "previous_risk_rate_pct": 36.4,
+          "delta_pp": 10.7
         },
         {
           "sector": "Health",
           "year": 2021,
-          "current_risk_rate_pct": 8.9,
+          "current_risk_rate_pct": 7.6,
           "previous_risk_rate_pct": 2,
-          "delta_pp": 6.9
+          "delta_pp": 5.6
         },
         {
           "sector": "Health",
           "year": 2022,
-          "current_risk_rate_pct": 5.6,
-          "previous_risk_rate_pct": 8.9,
-          "delta_pp": -3.2
+          "current_risk_rate_pct": 4.8,
+          "previous_risk_rate_pct": 7.6,
+          "delta_pp": -2.8
         },
         {
           "sector": "Health",
           "year": 2023,
           "current_risk_rate_pct": 10.2,
-          "previous_risk_rate_pct": 5.6,
-          "delta_pp": 4.5
+          "previous_risk_rate_pct": 4.8,
+          "delta_pp": 5.3
         },
         {
           "sector": "Health",
@@ -771,23 +883,23 @@
         {
           "sector": "Transport",
           "year": 2023,
-          "current_risk_rate_pct": 4.8,
+          "current_risk_rate_pct": 3.6,
           "previous_risk_rate_pct": 4.7,
-          "delta_pp": 0.2
+          "delta_pp": -1
         },
         {
           "sector": "Transport",
           "year": 2024,
           "current_risk_rate_pct": 26.5,
-          "previous_risk_rate_pct": 4.8,
-          "delta_pp": 21.7
+          "previous_risk_rate_pct": 3.6,
+          "delta_pp": 22.9
         },
         {
           "sector": "Transport",
           "year": 2025,
-          "current_risk_rate_pct": 41.8,
+          "current_risk_rate_pct": 38.8,
           "previous_risk_rate_pct": 26.5,
-          "delta_pp": 15.3
+          "delta_pp": 12.3
         },
         {
           "sector": "Energy",
@@ -799,30 +911,30 @@
         {
           "sector": "Energy",
           "year": 2022,
-          "current_risk_rate_pct": 1.3,
+          "current_risk_rate_pct": 0.7,
           "previous_risk_rate_pct": 2,
-          "delta_pp": -0.6
+          "delta_pp": -1.3
         },
         {
           "sector": "Energy",
           "year": 2023,
-          "current_risk_rate_pct": 1.3,
-          "previous_risk_rate_pct": 1.3,
+          "current_risk_rate_pct": 0.7,
+          "previous_risk_rate_pct": 0.7,
           "delta_pp": 0
         },
         {
           "sector": "Energy",
           "year": 2024,
-          "current_risk_rate_pct": 15.4,
-          "previous_risk_rate_pct": 1.3,
-          "delta_pp": 14.1
+          "current_risk_rate_pct": 14.1,
+          "previous_risk_rate_pct": 0.7,
+          "delta_pp": 13.4
         },
         {
           "sector": "Energy",
           "year": 2025,
-          "current_risk_rate_pct": 20.7,
-          "previous_risk_rate_pct": 15.4,
-          "delta_pp": 5.3
+          "current_risk_rate_pct": 20,
+          "previous_risk_rate_pct": 14.1,
+          "delta_pp": 5.9
         },
         {
           "sector": "Communications",
@@ -848,16 +960,16 @@
         {
           "sector": "Communications",
           "year": 2024,
-          "current_risk_rate_pct": 30.6,
+          "current_risk_rate_pct": 25,
           "previous_risk_rate_pct": 18.2,
-          "delta_pp": 12.4
+          "delta_pp": 6.8
         },
         {
           "sector": "Communications",
           "year": 2025,
-          "current_risk_rate_pct": 55.2,
-          "previous_risk_rate_pct": 30.6,
-          "delta_pp": 24.6
+          "current_risk_rate_pct": 51.7,
+          "previous_risk_rate_pct": 25,
+          "delta_pp": 26.7
         },
         {
           "sector": "Data Infrastructure",
@@ -883,15 +995,15 @@
         {
           "sector": "Data Infrastructure",
           "year": 2024,
-          "current_risk_rate_pct": 10,
+          "current_risk_rate_pct": 5,
           "previous_risk_rate_pct": 0,
-          "delta_pp": 10
+          "delta_pp": 5
         },
         {
           "sector": "Data Infrastructure",
           "year": 2025,
-          "current_risk_rate_pct": 15,
-          "previous_risk_rate_pct": 10,
+          "current_risk_rate_pct": 10,
+          "previous_risk_rate_pct": 5,
           "delta_pp": 5
         },
         {
@@ -911,37 +1023,37 @@
         {
           "sector": "Water",
           "year": 2023,
-          "current_risk_rate_pct": 35.3,
+          "current_risk_rate_pct": 23.5,
           "previous_risk_rate_pct": 10.5,
-          "delta_pp": 24.8
+          "delta_pp": 13
         },
         {
           "sector": "Water",
           "year": 2024,
           "current_risk_rate_pct": 33.3,
-          "previous_risk_rate_pct": 35.3,
-          "delta_pp": -2
+          "previous_risk_rate_pct": 23.5,
+          "delta_pp": 9.8
         },
         {
           "sector": "Water",
           "year": 2025,
-          "current_risk_rate_pct": 52.9,
+          "current_risk_rate_pct": 47.1,
           "previous_risk_rate_pct": 33.3,
-          "delta_pp": 19.6
+          "delta_pp": 13.7
         },
         {
           "sector": "Food",
           "year": 2021,
-          "current_risk_rate_pct": 3.5,
-          "previous_risk_rate_pct": 4.3,
-          "delta_pp": -0.8
+          "current_risk_rate_pct": 1.8,
+          "previous_risk_rate_pct": 2.2,
+          "delta_pp": -0.4
         },
         {
           "sector": "Food",
           "year": 2022,
           "current_risk_rate_pct": 1.7,
-          "previous_risk_rate_pct": 3.5,
-          "delta_pp": -1.8
+          "previous_risk_rate_pct": 1.8,
+          "delta_pp": -0.1
         },
         {
           "sector": "Food",
@@ -960,9 +1072,9 @@
         {
           "sector": "Food",
           "year": 2025,
-          "current_risk_rate_pct": 44.3,
+          "current_risk_rate_pct": 40,
           "previous_risk_rate_pct": 31.6,
-          "delta_pp": 12.6
+          "delta_pp": 8.4
         },
         {
           "sector": "Chemicals",
@@ -1105,43 +1217,43 @@
           "total_reports": 223,
           "ai_mention_reports": 189,
           "adoption_reports": 178,
-          "risk_reports": 159,
+          "risk_reports": 153,
           "ai_mention_rate_pct": 84.8,
           "adoption_rate_pct": 79.8,
-          "risk_rate_pct": 71.3
+          "risk_rate_pct": 68.6
         },
         {
           "segment_key": "Main Market (FTSE 350 only)",
           "segment_label": "FTSE 350",
           "total_reports": 606,
           "ai_mention_reports": 502,
-          "adoption_reports": 383,
-          "risk_reports": 403,
+          "adoption_reports": 371,
+          "risk_reports": 382,
           "ai_mention_rate_pct": 82.8,
-          "adoption_rate_pct": 63.2,
-          "risk_rate_pct": 66.5
+          "adoption_rate_pct": 61.2,
+          "risk_rate_pct": 63
         },
         {
           "segment_key": "Main Market",
           "segment_label": "Main Market",
           "total_reports": 703,
           "ai_mention_reports": 545,
-          "adoption_reports": 401,
-          "risk_reports": 428,
+          "adoption_reports": 391,
+          "risk_reports": 406,
           "ai_mention_rate_pct": 77.5,
-          "adoption_rate_pct": 57,
-          "risk_rate_pct": 60.9
+          "adoption_rate_pct": 55.6,
+          "risk_rate_pct": 57.8
         },
         {
           "segment_key": "AIM",
           "segment_label": "AIM",
           "total_reports": 171,
           "ai_mention_reports": 63,
-          "adoption_reports": 53,
-          "risk_reports": 12,
+          "adoption_reports": 52,
+          "risk_reports": 11,
           "ai_mention_rate_pct": 36.8,
-          "adoption_rate_pct": 31,
-          "risk_rate_pct": 7
+          "adoption_rate_pct": 30.4,
+          "risk_rate_pct": 6.4
         }
       ],
       "notes": [

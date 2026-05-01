@@ -444,6 +444,24 @@
         background: #fff;
       }
 
+      body::before {
+        content: "DRAFT FOR AISI";
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 9999;
+        transform: translate(-50%, -50%) rotate(-32deg);
+        width: 180mm;
+        text-align: center;
+        font-family: var(--font-sans);
+        font-size: 42pt;
+        font-weight: 800;
+        letter-spacing: .14em;
+        line-height: 1;
+        color: rgba(80, 90, 95, .12);
+        pointer-events: none;
+      }
+
       .layout {
         display: block;
         max-width: none;
@@ -626,19 +644,19 @@
       </div>
       <div class="stat-card">
         <div class="stat-num">65.5%</div>
-        <div class="stat-label">of reports mentioned AI in 2025<br><small>(up from 19.5% in 2020)</small></div>
+        <div class="stat-label">of reports mentioned AI in 2025<br><small>(up from 19.8% in 2020)</small></div>
       </div>
       <div class="stat-card">
-        <div class="stat-num">21×</div>
+        <div class="stat-num">23×</div>
         <div class="stat-label">Growth in AI risk disclosures<br><small>2020 → 2025</small></div>
       </div>
     </div>
 
-    <p><strong>Core Findings.</strong> First, AI mentions in annual reports have grown rapidly. In 2020, 19.5% of reports contained any AI mention; by 2025 that figure reached 65.5%. Risk-specific mentions grew even faster from a much smaller base, rising from 3.2% of reports in 2020 to 43.2% in 2025. In count terms, annual reports mentioning AI risk increased from 32 to 674, a twenty-one-fold increase. The sharpest single-year increase occurred between 2023 and 2024 (388 more AI risk mentions), coinciding with mass-market generative AI adoption.</p>
+    <p><strong>Core Findings.</strong> First, AI mentions in annual reports have grown rapidly. In 2020, 19.8% of reports contained any AI mention; by 2025 that figure reached 65.5%. Risk-specific mentions grew even faster from a much smaller base, rising from 2.8% of reports in 2020 to 41.2% in 2025. In count terms, annual reports mentioning AI risk increased from 28 to 643, a twenty-three-fold increase. The sharpest single-year increase occurred between 2023 and 2024 (370 more AI risk mentions), coinciding with mass-market generative AI adoption.</p>
 
-    <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. Our <i>substantiveness classification</i> (a measure of how elaborate a statement is), shows that in 2025, only 9.6% of AI risk mentions were classified as <i>substantive</i>, compared to 27.0% AI adoption mentions that year. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
+    <p>Second, disclosure quality has not kept pace with disclosure volume, and the weakness is sharpest in risk reporting. Our <i>substantiveness classification</i> (a measure of how elaborate a statement is), shows that in 2025, only 10.4% of AI risk mentions were classified as <i>substantive</i>, compared to 33.8% of AI adoption mentions that year. The dominant pattern is moderate disclosure: companies increasingly identify AI-related uses, risks, and providers, but usually without the mechanisms, controls, deployment detail, metrics, or timelines needed for decision-useful reporting.</p>
     
-    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies (84.8% AI mention rate, 71.3% risk rate in 2025), while AIM companies' reports mention AI significantly less (36.8% signal rate, 7.0% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft, Google, and OpenAI are the most commonly named providers, but 42.7% of AI provider references in 2025 were either undisclosed or referred to a third party not on the list of major AI providers, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
+    <p>Third, there are significant differences between sectors and between market segments (LSE Main Market vs AIM). Finance and Health CNI sectors have high levels of relevant AI mentions while Data Infrastructure and Energy show thin disclosure relative to their plausible operational AI exposure. FTSE 100 companies mention AI substantially more than the rest of the studied companies (84.8% AI mention rate, 68.6% risk rate in 2025), while AIM companies' reports mention AI significantly less (36.8% signal rate, 6.4% risk rate). Vendor concentration is a factor that is the hardest for us to analyse: Microsoft remains the leading named provider, but 36.0% of AI provider references in 2025 were either undisclosed or referred to a third party outside the main named-provider buckets, which may mask growing infrastructure dependencies on a small number of hyperscalers.</p>
 
     <hr>
 
@@ -758,7 +776,7 @@
 
     <p>The <em>risk classifier</em> maps the AI-related risk to one or more of ten categories: strategic and competitive, cybersecurity, operational and technical, regulatory and compliance, reputational and ethical, third-party and supply chain, information integrity, workforce impacts, environmental impact, and national security.</p>
 
-    <p>The <em>vendor classifier</em> identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Meta, and Anthropic; an <em>internal</em> tag captures companies describing in-house AI development; <em>other</em> covers explicitly named providers not in the main list; and <em>undisclosed</em> is used when a company references an external AI capability without naming the provider. Vendor chunks receive a substantiveness rating based on whether the provider or model is named and linked to a concrete use case, deployment context, scale, or outcome.</p>
+    <p>The <em>vendor classifier</em> identifies the AI provider referenced in the chunk. Named tags cover Microsoft, Google, OpenAI, Amazon, Nvidia, Meta, Salesforce, IBM, Databricks, Snowflake, Anthropic, xAI, Palantir, ARM, Mistral, and UK AI providers; an <em>open_source_model</em> tag captures deployments of open-source models without a named commercial provider; an <em>internal</em> tag captures companies describing in-house AI development; <em>other</em> covers explicitly named providers not in the named list; and <em>undisclosed</em> is used when a company references an external AI capability without naming the provider. Vendor chunks receive a substantiveness rating based on whether the provider or model is named and linked to a concrete use case, deployment context, scale, or outcome.</p>
 
     <p>Each of the three classifiers additionally assigns a signal score to each assigned tag. There are three signal scores: 1) Explicit, 2) Strong Implicit, 3) Weak Implicit. For example, the adoption classifier might tag the following AI mention: "We are implementing an AI chatbot in our customer service that can autonomously handle phone calls" as: Agentic (explicit), LLM (strong implicit), non-LLM (weak implicit). This allows us to filter how explicitly a given taxonomy label is evidenced throughout the reports.</p>
 
@@ -837,8 +855,19 @@
           <tr><td><code>google</code></td><td>Google AI products: Gemini, Vertex AI, Google Cloud AI</td></tr>
           <tr><td><code>openai</code></td><td>OpenAI products: GPT series, ChatGPT, DALL·E</td></tr>
           <tr><td><code>amazon</code></td><td>Amazon/AWS AI services: Bedrock, SageMaker, Rekognition</td></tr>
+          <tr><td><code>nvidia</code></td><td>Nvidia AI products: DGX, NIM microservices, Nvidia AI Enterprise</td></tr>
           <tr><td><code>meta</code></td><td>Meta AI products: Llama series, Meta AI</td></tr>
+          <tr><td><code>salesforce</code></td><td>Salesforce AI products: Einstein AI, Agentforce</td></tr>
+          <tr><td><code>ibm</code></td><td>IBM AI products: watsonx, Watson AI, IBM Cloud AI services</td></tr>
+          <tr><td><code>databricks</code></td><td>Databricks: Mosaic AI, MLflow, Unity Catalog AI features</td></tr>
+          <tr><td><code>snowflake</code></td><td>Snowflake AI: Cortex AI, Snowflake ML, Arctic</td></tr>
           <tr><td><code>anthropic</code></td><td>Anthropic products: Claude series</td></tr>
+          <tr><td><code>xai</code></td><td>xAI products: Grok series</td></tr>
+          <tr><td><code>palantir</code></td><td>Palantir AI platforms: AIP, Foundry, Gotham</td></tr>
+          <tr><td><code>arm</code></td><td>Arm AI compute: Ethos NPUs, Arm Cortex AI infrastructure</td></tr>
+          <tr><td><code>mistral</code></td><td>Mistral AI models: Mistral and Mixtral series</td></tr>
+          <tr><td><code>uk_ai</code></td><td>UK-headquartered AI providers (e.g. Stability AI, BenevolentAI)</td></tr>
+          <tr><td><code>open_source_model</code></td><td>Open-source models deployed without a named commercial provider</td></tr>
           <tr><td><code>internal</code></td><td>Company describes in-house or proprietary AI development</td></tr>
           <tr><td><code>other</code></td><td>Explicitly named provider not in the named-vendor list</td></tr>
           <tr><td><code>undisclosed</code></td><td>External AI capability referenced without naming the provider</td></tr>
@@ -863,7 +892,7 @@
 
     <p>The most fundamental limit is that often disclosure does not equal exposure. A company that discusses AI risk at length in its annual report is not necessarily more exposed to AI-related harm than a company that says nothing. It may simply have more sophisticated governance processes, be operating in a more heavily scrutinised sector, or be responding to investor or regulatory pressure. Conversely, a company with thin or absent AI disclosure may face significant operational AI risk that it has not yet recognised, has chosen not to disclose, or has disclosed under language our keyword gate does not capture. The corpus measures what companies say, not what they experience.</p>
 
-    <p>The 2023-2024 surge in AI risk mentions (a 200% increase in a single year) is the most striking finding in the dataset and the most difficult to attribute. Three mechanisms are simultaneously operative and individually plausible: the mass-market adoption of generative AI tools (ChatGPT launched November 2022; enterprise GenAI adoption accelerated through 2023), early anticipatory compliance with the 2024 UK Corporate Governance Code as companies revised their risk frameworks ahead of Provision 29<sup><a id="fnref3" href="#fn3">3</a></sup>, and growing investor and analyst pressure to address AI risk specifically. We cannot cleanly decompose these effects with observational disclosure data alone.</p>
+    <p>The 2023-2024 surge in AI risk mentions (an almost 200% increase in report count in a single year) is the most striking finding in the dataset and the most difficult to attribute. Three mechanisms are simultaneously operative and individually plausible: the mass-market adoption of generative AI tools (ChatGPT launched November 2022; enterprise GenAI adoption accelerated through 2023), early anticipatory compliance with the 2024 UK Corporate Governance Code as companies revised their risk frameworks ahead of Provision 29<sup><a id="fnref3" href="#fn3">3</a></sup>, and growing investor and analyst pressure to address AI risk specifically. We cannot cleanly decompose these effects with observational disclosure data alone.</p>
 
     <h3>3.2 Coverage Gaps</h3>
 
@@ -883,7 +912,7 @@
 
     <p>Substantiveness classification is where judgement-dependent is more “subtle” than mention-type and risk-category classifiers. The substantiveness scale (boilerplate / moderate / substantive) requires the classifier to make fine-grained judgements between similar passages, assessing specificity, level of concrete detail, and whether actual governance actions or controls are described; for this reason, substantiveness scores are approximate indicators of disclosure quality and broad reporting patterns, not exact measurements.</p>
 
-    <p>Vendor tagging carries its own opacity. The "other" category captured 143 signals in 2025 alone, and "undisclosed" represents an additional substantial group of references where vendor identity cannot be inferred from the disclosure text. Until reporting practice improves, vendor concentration analysis at the firm level will remain limited by the deliberate or inadvertent opacity of the source documents themselves.</p>
+    <p>Vendor tagging carries its own opacity. The "other" category captured 154 signals in 2025 alone, and "undisclosed" represents an additional 65 references where vendor identity cannot be inferred from the disclosure text. Until reporting practice improves, vendor concentration analysis at the firm level will remain limited by the deliberate or inadvertent opacity of the source documents themselves.</p>
 
     <hr>
 
@@ -896,23 +925,23 @@
     <span id="s4-1" class="section-anchor"></span>
     <h3>4.1 The Disclosure Surge: Overall Trends</h3>
 
-    <p>The most striking finding in the corpus is the scale and speed of growth in AI-related disclosure. In 2020, 196 of 1,007 processed reports (19.5%) contained at least one AI mention. By 2025, that figure had risen to 1,023 of 1,561 reports, or 65.5%. Risk disclosure grew even faster from a much smaller base: in 2020, just 32 reports (3.2%) named AI as a material risk. By 2025, 674 reports (43.2% of the annual cohort), a 21-fold increase in absolute terms. Table 2 provides the full year-by-year breakdown.</p>
+    <p>The most striking finding in the corpus is the scale and speed of growth in AI-related disclosure. In 2020, 199 of 1,007 processed reports (19.8%) contained at least one AI mention. By 2025, that figure had risen to 1,023 of 1,561 reports, or 65.5%. Risk disclosure grew even faster from a much smaller base: in 2020, just 28 reports (2.8%) named AI as a material risk. By 2025, 643 reports (41.2% of the annual cohort), a 23-fold increase in absolute terms. Table 2 provides the full year-by-year breakdown.</p>
 
     <p class="table-title">Table 2: Annual disclosure prevalence by signal type (% of all reports that year)</p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Year</th><th>Reports</th><th>Any AI</th><th>Adoption</th><th>Risk</th><th>General ambiguous</th><th>Vendor</th><th>Adoption-Risk gap</th>
+            <th>Year</th><th>Reports</th><th>Any AI</th><th>Adoption</th><th>Risk</th><th>Vendor</th><th>Adoption-Risk gap</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>2020</td><td>1,007</td><td>19.5%</td><td>13.9%</td><td>3.2%</td><td>11.1%</td><td>2.8%</td><td>10.7 pp</td></tr>
-          <tr><td>2021</td><td>1,328</td><td>27.2%</td><td>21.5%</td><td>4.4%</td><td>14.7%</td><td>3.1%</td><td>17.0 pp</td></tr>
-          <tr><td>2022</td><td>1,853</td><td>28.4%</td><td>23.4%</td><td>5.0%</td><td>15.2%</td><td>4.5%</td><td>18.4 pp</td></tr>
-          <tr><td>2023</td><td>1,905</td><td>36.9%</td><td>26.8%</td><td>10.2%</td><td>22.4%</td><td>6.2%</td><td>16.6 pp</td></tr>
-          <tr><td>2024</td><td>1,828</td><td>55.1%</td><td>38.5%</td><td>31.8%</td><td>42.9%</td><td>13.3%</td><td>6.6 pp</td></tr>
-          <tr><td>2025</td><td>1,561</td><td>65.5%</td><td>46.2%</td><td>43.2%</td><td>54.6%</td><td>17.4%</td><td>3.0 pp</td></tr>
+          <tr><td>2020</td><td>1,007</td><td>19.8%</td><td>13.8%</td><td>2.8%</td><td>3.1%</td><td>11.0 pp</td></tr>
+          <tr><td>2021</td><td>1,328</td><td>27.4%</td><td>20.9%</td><td>4.2%</td><td>4.2%</td><td>16.6 pp</td></tr>
+          <tr><td>2022</td><td>1,853</td><td>28.4%</td><td>22.5%</td><td>4.8%</td><td>5.7%</td><td>17.6 pp</td></tr>
+          <tr><td>2023</td><td>1,905</td><td>36.8%</td><td>25.8%</td><td>9.8%</td><td>7.5%</td><td>16.1 pp</td></tr>
+          <tr><td>2024</td><td>1,828</td><td>55.2%</td><td>36.8%</td><td>30.4%</td><td>14.6%</td><td>6.4 pp</td></tr>
+          <tr><td>2025</td><td>1,561</td><td>65.5%</td><td>45.2%</td><td>41.2%</td><td>19.2%</td><td>4.0 pp</td></tr>
         </tbody>
       </table>
     </div>
@@ -920,68 +949,69 @@
     <p>The Adoption-Risk gap in the table above shows the percentage of reports that mention adoption for that year minus the percentage that mention AI risk. The spread between these two variables is highlighted in Figure 1 below.</p>
 
     <figure class="report-figure">
-      <img src="figures/figure1.png" alt="Figure 1. Annual disclosure rates for Adoption, Risk, General or Ambiguous, and Vendor from 2020 to 2025, with the adoption-risk gap shaded." />
+      <img src="figures/figure1.png" alt="Figure 1. Annual disclosure rates for Adoption, Risk, and Vendor from 2020 to 2025, with the adoption-risk gap shaded." />
       <figcaption>
         <div class="fig-label">Figure 1</div>
-        <div class="fig-desc">Line chart showing annual disclosure rates for Adoption, Risk, General/Ambiguous, and Vendor, 2020–2025, with adoption-risk gap shaded</div>
+        <div class="fig-desc">Line chart showing annual disclosure rates for Adoption, Risk, and Vendor, 2020–2025, with adoption-risk gap shaded</div>
       </figcaption>
     </figure>
 
-    <p>Growth across the full period falls into three broadly distinct phases. Between 2020 and 2022, adoption disclosure grew steadily, from 13.9% to 23.4% of reports, while risk disclosure lagged, reaching only 5.0% by 2022. The adoption-to-risk gap actually widened over this phase, peaking at 18.4 percentage points in 2022, as companies began describing their AI use without yet framing it as a governance concern. The second phase opens in 2023: risk mentions more than doubled in a single year (5.0% → 10.2%), and general strategy language surged, as ChatGPT reached mass awareness and AI moved rapidly from a technology consideration to a board-level agenda item. The third phase, 2024 onwards, is defined by the risk disclosure surge: risk reports grew 200% in a single year (10.2% → 31.8%), compressing the adoption-risk gap from 16.6 to 6.6 percentage points. By 2025, the gap had narrowed to 3.0 pp; risk disclosure is now nearly at parity with adoption disclosure. In the partial 2026 data, risk reports (66.7%) marginally exceed adoption reports (64.3%) for the first time, suggesting the two signals may have crossed.</p>
+    <p>Growth across the full period falls into three broadly distinct phases. Between 2020 and 2022, adoption disclosure grew steadily, from 13.8% to 22.5% of reports, while risk disclosure lagged, reaching only 4.8% by 2022. The adoption-to-risk gap widened over this phase, peaking at 17.6 percentage points in 2022, as companies began describing their AI use without yet framing it as a governance concern. The second phase opens in 2023: risk mentions more than doubled in a single year (4.8% → 9.8%), as ChatGPT reached mass awareness and AI moved rapidly from a technology consideration to a board-level agenda item. The third phase, 2024 onwards, is defined by the risk disclosure surge: risk reports almost tripled in a single year (9.8% → 30.4%), compressing the adoption-risk gap from 16.1 to 6.4 percentage points. By 2025, the gap had narrowed to 4.0 pp; risk disclosure is now close to parity with adoption disclosure. In the partial 2026 data, risk reports (66.4%) exceed adoption reports (63.1%) for the first time, suggesting the two signals may have crossed.</p>
 
-    <p>Despite this growth, the disclosure gap remains substantial in absolute terms. In 2025, 887 of 1,561 annual reports (56.8%) contained no AI risk mention.</p>
+    <p>Despite this growth, the disclosure gap remains substantial in absolute terms. In 2025, 918 of 1,561 annual reports (58.8%) contained no AI risk mention.</p>
 
     <span id="s4-2" class="section-anchor"></span>
     <h3>4.2 Adoption Patterns</h3>
 
-    <p>Adoption disclosure appeared in 3,012 unique company-year filings across the full corpus. Its composition has shifted significantly over time as the balance between AI types has reordered.</p>
+    <p>Adoption disclosure appeared in 2,916 unique company-year filings across the full corpus. Its composition has shifted significantly over time as the balance between AI types has reordered.</p>
 
     <p class="table-title">Table 3: Adoption type disclosure rates (% of all reports), 2024–2025</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Adoption type</th><th>2024</th><th>2025</th><th>YoY change</th></tr></thead>
         <tbody>
-          <tr><td>Traditional AI (non-LLM)</td><td>36.3%</td><td>43.0%</td><td class="pos">+6.8 pp</td></tr>
-          <tr><td>LLM / Generative AI</td><td>24.6%</td><td>35.7%</td><td class="pos">+11.1 pp</td></tr>
-          <tr><td>Agentic AI</td><td>6.9%</td><td>11.0%</td><td class="pos">+4.1 pp</td></tr>
+          <tr><td>Traditional AI (non-LLM)</td><td>30.4%</td><td>35.6%</td><td class="pos">+5.1 pp</td></tr>
+          <tr><td>LLM / Generative AI</td><td>16.7%</td><td>24.8%</td><td class="pos">+8.1 pp</td></tr>
+          <tr><td>Agentic AI</td><td>6.0%</td><td>10.6%</td><td class="pos">+4.6 pp</td></tr>
+          <tr><td>Ambiguous AI adoption</td><td>11.4%</td><td>20.0%</td><td class="pos">+8.6 pp</td></tr>
         </tbody>
       </table>
     </div>
 
     <figure class="report-figure">
-      <img src="figures/figure2.png" alt="Figure 2. Stacked area chart of non-LLM, LLM, and agentic adoption report counts by year from 2020 to 2025." />
+      <img src="figures/figure2.png" alt="Figure 2. Stacked area chart of non-LLM, LLM, agentic, and ambiguous adoption report counts by year from 2020 to 2025." />
       <figcaption>
         <div class="fig-label">Figure 2</div>
-        <div class="fig-desc">Stacked area chart showing non-LLM, LLM, and agentic adoption report counts by year, 2020–2025</div>
+        <div class="fig-desc">Stacked area chart showing non-LLM, LLM, agentic, and ambiguous adoption report counts by year, 2020–2025</div>
       </figcaption>
     </figure>
 
-    <p>Non-LLM adoption (traditional machine learning, computer vision, predictive analytics, fraud detection) remains the numerically dominant category, growing from 136 reports in 2020 to 672 in 2025. But LLM and generative AI adoption has grown far faster (14-fold versus five-fold for non-LLM) - and by 2025 LLM adoption appears in 35.7% of all reports, narrowing fast on non-LLM at 43.0%. LLM adoption was essentially invisible before 2022; its acceleration is the clearest signal in the corpus of the ChatGPT diffusion effect translating into formal corporate disclosure.</p>
+    <p>Non-LLM adoption (traditional machine learning, computer vision, predictive analytics, fraud detection) remains the numerically dominant category, growing from 127 reports in 2020 to 555 in 2025. But LLM and generative AI adoption has grown faster (13-fold versus four-fold for non-LLM) - and by 2025 LLM adoption appears in 24.8% of all reports, narrowing on non-LLM at 35.6%. LLM adoption was essentially invisible before 2022; its acceleration is the clearest signal in the corpus of the ChatGPT diffusion effect translating into formal corporate disclosure.</p>
 
-    <p>Agentic AI (autonomous systems that execute tasks without continuous human oversight) appears in 172 reports by 2025, up from 27 in 2020. The category is growing in significance beyond its absolute count: average adoption labels per adoption-reporting company rose from 1.76 in 2024 to 1.94 in 2025, partly driven by companies reporting multiple adoption types simultaneously as AI deployment portfolios diversify. Agentic AI mentions are concentrated in Finance, Transport, and Defence.</p>
+    <p>Agentic AI (autonomous systems that execute tasks without continuous human oversight) appears in 165 reports by 2025, up from 24 in 2020. The category is growing in significance beyond its absolute count: average adoption labels per adoption-reporting company rose from 1.75 in 2024 to 2.01 in 2025, partly driven by companies reporting multiple adoption types simultaneously as AI deployment portfolios diversify. Agentic AI mentions are concentrated in Finance, Transport, and Defence.</p>
 
-    <p>The <code>general_ambiguous</code> category grew from 11.1% of reports in 2020 to 54.6% in 2025, overtaking adoption as the largest single-year category. It represents companies acknowledging AI without providing operational specificity, and its sustained growth reflects a reporting environment where mentioning AI has become normative but concrete characterisation has not.</p>
+    <p>The ambiguous adoption category reached 312 label assignments in 2025, or 20.0% of all reports. It represents companies acknowledging AI adoption without enough operational specificity to classify the use as non-LLM, LLM/generative, or agentic. Its growth reflects a reporting environment where mentioning AI has become normative but concrete characterisation has not.</p>
 
     <span id="s4-3" class="section-anchor"></span>
     <h3>4.3 Risk Disclosure Patterns</h3>
 
-    <p>AI risk mentions not only grew in volume but broadened substantially in scope. In 2020, the risk profile was narrow: strategic/competitive and operational/technical together were the most prominent AI risk tags. By 2025, all ten taxonomy categories are materially represented, the risk profile has diversified, and companies reporting risk are reporting more of it: average risk labels per risk-reporting company rose from 3.28 in 2024 to 3.63 in 2025.</p>
+    <p>AI risk mentions not only grew in volume but broadened substantially in scope. In 2020, the risk profile was narrow: strategic/competitive and operational/technical together were the most prominent AI risk tags. By 2025, all ten taxonomy categories are materially represented, the risk profile has diversified, and companies reporting risk are reporting more of it: average risk labels per risk-reporting company rose from 3.42 in 2024 to 3.65 in 2025.</p>
 
     <p class="table-title">Table 4: Risk category disclosure rates (label assignments as % of all 2025 reports), 2024–2025</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Risk category</th><th>2025 assignments</th><th>2025 % of reports</th><th>2024 % of reports</th><th>YoY change</th></tr></thead>
         <tbody>
-          <tr><td>Strategic / Competitive</td><td>458</td><td>29.3%</td><td>20.6%</td><td class="pos">+8.8 pp</td></tr>
-          <tr><td>Cybersecurity</td><td>405</td><td>25.9%</td><td>17.9%</td><td class="pos">+8.1 pp</td></tr>
-          <tr><td>Operational / Technical</td><td>352</td><td>22.5%</td><td>15.9%</td><td class="pos">+6.6 pp</td></tr>
-          <tr><td>Regulatory / Compliance</td><td>322</td><td>20.6%</td><td>15.3%</td><td class="pos">+5.4 pp</td></tr>
-          <tr><td>Reputational / Ethical</td><td>252</td><td>16.1%</td><td>10.9%</td><td class="pos">+5.2 pp</td></tr>
-          <tr><td>Third-Party / Supply Chain</td><td>197</td><td>12.6%</td><td>7.4%</td><td class="pos">+5.2 pp</td></tr>
-          <tr><td>Information Integrity</td><td>184</td><td>11.8%</td><td>7.9%</td><td class="pos">+3.9 pp</td></tr>
-          <tr><td>Workforce Impacts</td><td>176</td><td>11.3%</td><td>5.8%</td><td class="pos">+5.5 pp</td></tr>
-          <tr><td>Environmental Impact</td><td>52</td><td>3.3%</td><td>1.1%</td><td class="pos">+2.2 pp</td></tr>
-          <tr><td>National Security</td><td>49</td><td>3.1%</td><td>1.7%</td><td class="pos">+1.4 pp</td></tr>
+          <tr><td>Cybersecurity</td><td>401</td><td>25.7%</td><td>17.8%</td><td class="pos">+7.9 pp</td></tr>
+          <tr><td>Strategic / Competitive</td><td>427</td><td>27.4%</td><td>19.6%</td><td class="pos">+7.7 pp</td></tr>
+          <tr><td>Operational / Technical</td><td>377</td><td>24.2%</td><td>18.3%</td><td class="pos">+5.8 pp</td></tr>
+          <tr><td>Regulatory / Compliance</td><td>320</td><td>20.5%</td><td>15.2%</td><td class="pos">+5.3 pp</td></tr>
+          <tr><td>Reputational / Ethical</td><td>248</td><td>15.9%</td><td>11.2%</td><td class="pos">+4.7 pp</td></tr>
+          <tr><td>Third-Party / Supply Chain</td><td>191</td><td>12.2%</td><td>7.5%</td><td class="pos">+4.7 pp</td></tr>
+          <tr><td>Workforce Impacts</td><td>132</td><td>8.5%</td><td>4.5%</td><td class="pos">+3.9 pp</td></tr>
+          <tr><td>Information Integrity</td><td>162</td><td>10.4%</td><td>7.3%</td><td class="pos">+3.1 pp</td></tr>
+          <tr><td>Environmental Impact</td><td>45</td><td>2.9%</td><td>1.1%</td><td class="pos">+1.8 pp</td></tr>
+          <tr><td>National Security</td><td>42</td><td>2.7%</td><td>1.5%</td><td class="pos">+1.2 pp</td></tr>
         </tbody>
       </table>
     </div>
@@ -994,38 +1024,48 @@
       </figcaption>
     </figure>
 
-    <p>Strategic/competitive risk remains the leading category (29.3%), but the most consequential compositional shift is the rise of cybersecurity: from 11 reports in 2020 to 405 in 2025, it has moved from a peripheral concern to the second-largest category. This represents a reframing of AI in corporate risk language, from a strategic threat (competitive obsolescence) to an operational one (AI-enabled attacks, adversarial exploitation, AI-accelerated fraud), consistent with NCSC guidance on AI as a force multiplier for hostile actors.</p>
+    <p>Strategic/competitive risk remains the largest category by assignment count (27.4%), but the fastest compositional shift is the rise of cybersecurity: from 9 reports in 2020 to 401 in 2025, it has moved from a peripheral concern to the second-largest category and was the fastest-rising risk label in 2025. This represents a reframing of AI in corporate risk language, from a strategic threat (competitive obsolescence) to an operational one (AI-enabled attacks, adversarial exploitation, AI-accelerated fraud), consistent with NCSC guidance on AI as a force multiplier for hostile actors.</p>
 
-    <p>Two categories show exceptional growth from near-zero bases. Information integrity (AI-generated misinformation, deepfakes, content authenticity erosion) grew from 1 report in 2020 to 184 in 2025. Workforce impacts grew from 4 to 176 reports, a 44-fold increase. Their emergence as mainstream disclosure categories reflects how the perceived scope of AI risk has broadened from competitive and technical concerns to societal and human-capital questions. National security<sup><a id="fnref2" href="#fn2">2</a></sup>, while small (49 reports in 2025), is non-trivially concentrated in CNI sectors and growing in the 2026 partial data.</p>
+    <p>Two categories show exceptional growth from near-zero bases. Information integrity (AI-generated misinformation, deepfakes, content authenticity erosion) grew from 1 report in 2020 to 162 in 2025. Workforce impacts grew from 3 to 132 reports, a 44-fold increase. Their emergence as mainstream disclosure categories reflects how the perceived scope of AI risk has broadened from competitive and technical concerns to societal and human-capital questions. National security<sup><a id="fnref2" href="#fn2">2</a></sup>, while small (42 reports in 2025), is non-trivially concentrated in CNI sectors and growing in the 2026 partial data.</p>
 
-    <p>Critically, the <em>directness</em> of risk attribution has not improved. The distribution of signal strength (the classifier's rating of how explicitly AI is attributed as the risk source) was essentially flat year-on-year: explicit (signal 3) signals were 31.6% in 2024 and 31.2% in 2025; strong implicit (signal 2) was 30.7% and 30.3%; weak implicit (signal 1) rose from 37.7% to 38.5%. Companies are disclosing more risk categories, but not attributing them to AI with greater directness or specificity.</p>
+    <p>Critically, the <em>directness</em> of risk attribution improved only modestly. The distribution of signal strength (the classifier's rating of how explicitly AI is attributed as the risk source) shifted from 30.6% explicit (signal 3) in 2024 to 33.2% in 2025; strong implicit (signal 2) moved from 29.8% to 28.8%; weak implicit (signal 1) fell from 39.6% to 38.0%. Companies are disclosing more risk categories, but direct attribution to AI is improving much more slowly than disclosure volume.</p>
 
     <span id="s4-4" class="section-anchor"></span>
     <h3>4.4 Harm Classifications</h3>
 
-    <p>The pipeline includes a <code>harm</code> label for AI described as having caused a past, specific incident (misinformation spread, fraud enabled by AI, a safety failure, or a discriminatory outcome), as distinct from prospective risk. Across the full 9,821-report corpus, harm classifications are almost entirely absent: seven harm-tagged chunks were identified across two company-year filings, both in 2025 (Gear4Music Holdings PLC, two chunks; Trifast PLC, one chunk). Neither company is a CNI-sector operator.</p>
+    <p>The pipeline includes a <code>harm</code> label for AI described as having caused a past, specific incident (misinformation spread, fraud enabled by AI, a safety failure, or a discriminatory outcome), as distinct from prospective risk. Across the full 9,821-report corpus, harm classifications are almost entirely absent: nine harm-tagged chunks were identified across seven company-year filings. The affected filings are Polar Capital Technology Trust PLC in 2020 and 2024, Prudential PLC in 2022, AstraZeneca PLC in 2024 and 2025, Gear4Music (Holdings) PLC in 2025, and Trifast PLC in 2025. Four of the five companies are CNI-sector operators (Finance or Health); Gear4Music is the sole non-CNI company.</p>
 
     <p>This near-absence is most likely a genuine feature of the annual report as a disclosure format. Companies have strong legal and reputational incentives to avoid admitting past AI-related harms in a board-accountable document, and will typically frame incidents as risks managed or lessons learned rather than harms caused. The annual report is therefore not a reliable surface for detecting realised AI incidents, and other data sources (regulatory enforcement records, incident databases, litigation filings) would be needed to complement the Observatory's signals on this dimension.</p>
 
     <span id="s4-5" class="section-anchor"></span>
     <h3>4.5 The Vendor Landscape</h3>
 
-    <p>Vendor references appeared in 877 unique company-year filings. The distribution is heavily skewed, and its most important feature is not which vendors are named but how many are not.</p>
+    <p>Vendor references appeared in 1,001 unique company-year filings. The distribution is heavily skewed, and its most important feature is not which vendors are named but how many are not.</p>
 
     <p class="table-title">Table 5: Vendor reference rates (label assignments as % of all 2025 reports), 2024–2025</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Vendor</th><th>2025 assignments</th><th>2025 % of reports</th><th>2024 % of reports</th><th>YoY change</th></tr></thead>
         <tbody>
-          <tr><td>Other (named, unlisted)</td><td>143</td><td>9.2%</td><td>5.8%</td><td class="pos">+3.4 pp</td></tr>
-          <tr><td>Microsoft</td><td>87</td><td>5.6%</td><td>5.1%</td><td class="pos">+0.5 pp</td></tr>
-          <tr><td>Undisclosed</td><td>55</td><td>3.5%</td><td>1.6%</td><td class="pos">+1.9 pp</td></tr>
-          <tr><td>Internal / proprietary</td><td>48</td><td>3.1%</td><td>2.2%</td><td class="pos">+0.8 pp</td></tr>
-          <tr><td>Google</td><td>42</td><td>2.7%</td><td>2.0%</td><td class="pos">+0.7 pp</td></tr>
-          <tr><td>OpenAI</td><td>36</td><td>2.3%</td><td>3.3%</td><td class="neg">−1.0 pp</td></tr>
-          <tr><td>Amazon / AWS</td><td>31</td><td>2.0%</td><td>1.8%</td><td class="pos">+0.2 pp</td></tr>
-          <tr><td>Meta</td><td>18</td><td>1.2%</td><td>0.7%</td><td class="pos">+0.5 pp</td></tr>
-          <tr><td>Anthropic</td><td>4</td><td>0.3%</td><td>0.1%</td><td class="pos">+0.1 pp</td></tr>
+          <tr><td>Other (named, unlisted)</td><td>154</td><td>9.9%</td><td>5.9%</td><td class="pos">+4.0 pp</td></tr>
+          <tr><td>Microsoft</td><td>98</td><td>6.3%</td><td>6.1%</td><td class="pos">+0.2 pp</td></tr>
+          <tr><td>Undisclosed</td><td>65</td><td>4.2%</td><td>1.8%</td><td class="pos">+2.4 pp</td></tr>
+          <tr><td>Internal / proprietary</td><td>56</td><td>3.6%</td><td>2.5%</td><td class="pos">+1.1 pp</td></tr>
+          <tr><td>Google</td><td>47</td><td>3.0%</td><td>2.7%</td><td class="pos">+0.3 pp</td></tr>
+          <tr><td>Amazon / AWS</td><td>42</td><td>2.7%</td><td>2.1%</td><td class="pos">+0.6 pp</td></tr>
+          <tr><td>OpenAI</td><td>38</td><td>2.4%</td><td>3.8%</td><td class="neg">−1.3 pp</td></tr>
+          <tr><td>Nvidia</td><td>38</td><td>2.4%</td><td>3.1%</td><td class="neg">−0.6 pp</td></tr>
+          <tr><td>Meta</td><td>22</td><td>1.4%</td><td>1.0%</td><td class="pos">+0.4 pp</td></tr>
+          <tr><td>Salesforce</td><td>16</td><td>1.0%</td><td>0.5%</td><td class="pos">+0.5 pp</td></tr>
+          <tr><td>IBM</td><td>7</td><td>0.4%</td><td>0.4%</td><td class="pos">+0.1 pp</td></tr>
+          <tr><td>Anthropic</td><td>5</td><td>0.3%</td><td>0.1%</td><td class="pos">+0.2 pp</td></tr>
+          <tr><td>Snowflake</td><td>5</td><td>0.3%</td><td>0.1%</td><td class="pos">+0.2 pp</td></tr>
+          <tr><td>Databricks</td><td>3</td><td>0.2%</td><td>0.2%</td><td>0.0 pp</td></tr>
+          <tr><td>ARM</td><td>3</td><td>0.2%</td><td>0.3%</td><td class="neg">−0.1 pp</td></tr>
+          <tr><td>Open-source model</td><td>3</td><td>0.2%</td><td>0.1%</td><td class="pos">+0.1 pp</td></tr>
+          <tr><td>Palantir</td><td>4</td><td>0.3%</td><td>0.0%</td><td class="pos">+0.3 pp</td></tr>
+          <tr><td>xAI</td><td>2</td><td>0.1%</td><td>0.0%</td><td class="pos">+0.1 pp</td></tr>
+          <tr><td>Cohere</td><td>1</td><td>0.1%</td><td>0.0%</td><td class="pos">+0.1 pp</td></tr>
         </tbody>
       </table>
     </div>
@@ -1038,7 +1078,7 @@
       </figcaption>
     </figure>
 
-    <p>Two findings stand out. First, <em>other</em> and <em>undisclosed</em> together (references to external AI capabilities without identifying the provider) account for 198 of 464 total 2025 vendor assignments, or <strong>42.7% of all vendor references</strong>. Among only the explicitly named vendors, the three largest (Microsoft, Google, OpenAI) account for 75.7% of named-vendor assignments, revealing extreme concentration in the named portion of the landscape. Second, <strong>OpenAI is the only named vendor declining</strong> year-on-year (−1.0 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft. This structural opacity means that concentration at the foundation-model layer is larger than the named-vendor data suggests.</p>
+    <p>Two findings stand out. First, <em>other</em> and <em>undisclosed</em> together (references to external AI capabilities without identifying the provider) account for 219 of 609 total 2025 vendor assignments, or <strong>36.0% of all vendor references</strong>. Among only explicitly named vendors, the three largest account for 56.0% of named-vendor assignments, still revealing substantial concentration. Second, <strong>OpenAI is the largest declining named vendor</strong> year-on-year (−1.3 pp), likely reflecting a combination of reduced direct API usage and the routing of OpenAI model access through Azure, which registers as Microsoft; Nvidia also declined (−0.6 pp). This structural opacity means that concentration at the foundation-model layer remains larger than the named-vendor data alone suggests.</p>
 
     <p>Vendor disclosures are comparatively concrete when the provider is named. The remaining policy problem is incomplete dependency mapping: companies are acquiring AI capabilities from a small number of providers but not consistently identifying those dependencies as material disclosure items.</p>
 
@@ -1052,9 +1092,9 @@
       <table>
         <thead><tr><th>Disclosure type</th><th>Scored reports</th><th>Substantive</th><th>Moderate</th><th>Boilerplate</th></tr></thead>
         <tbody>
-          <tr><td>Adoption</td><td>721</td><td>195 (27.0%)</td><td>431 (59.8%)</td><td>95 (13.2%)</td></tr>
-          <tr><td>Risk</td><td>674</td><td>65 (9.6%)</td><td>538 (79.8%)</td><td>71 (10.5%)</td></tr>
-          <tr><td>Vendor</td><td>271</td><td>161 (59.4%)</td><td>70 (25.8%)</td><td>40 (14.8%)</td></tr>
+          <tr><td>Adoption</td><td>705</td><td>238 (33.8%)</td><td>391 (55.5%)</td><td>76 (10.8%)</td></tr>
+          <tr><td>Risk</td><td>643</td><td>67 (10.4%)</td><td>505 (78.5%)</td><td>71 (11.0%)</td></tr>
+          <tr><td>Vendor</td><td>299</td><td>193 (64.5%)</td><td>74 (24.7%)</td><td>32 (10.7%)</td></tr>
         </tbody>
       </table>
     </div>
@@ -1068,11 +1108,11 @@
       <table>
         <thead><tr><th>Year</th><th>Risk reports</th><th>Risk rate</th><th>Substantive risk reports</th><th>Substantive risk rate</th><th>Quality gap</th></tr></thead>
         <tbody>
-          <tr><td>2021</td><td>59</td><td>4.4%</td><td>9</td><td>0.7%</td><td>3.8 pp</td></tr>
-          <tr><td>2022</td><td>93</td><td>5.0%</td><td>16</td><td>0.9%</td><td>4.2 pp</td></tr>
-          <tr><td>2023</td><td>194</td><td>10.2%</td><td>19</td><td>1.0%</td><td>9.2 pp</td></tr>
-          <tr><td>2024</td><td>582</td><td>31.8%</td><td>63</td><td>3.4%</td><td>28.4 pp</td></tr>
-          <tr><td>2025</td><td>674</td><td>43.2%</td><td>65</td><td>4.2%</td><td class="warn">39.0 pp</td></tr>
+          <tr><td>2021</td><td>56</td><td>4.2%</td><td>8</td><td>0.6%</td><td>3.6 pp</td></tr>
+          <tr><td>2022</td><td>89</td><td>4.8%</td><td>16</td><td>0.9%</td><td>3.9 pp</td></tr>
+          <tr><td>2023</td><td>186</td><td>9.8%</td><td>23</td><td>1.2%</td><td>8.6 pp</td></tr>
+          <tr><td>2024</td><td>556</td><td>30.4%</td><td>61</td><td>3.3%</td><td>27.1 pp</td></tr>
+          <tr><td>2025</td><td>643</td><td>41.2%</td><td>67</td><td>4.3%</td><td class="warn">36.9 pp</td></tr>
         </tbody>
       </table>
     </div>
@@ -1085,7 +1125,7 @@
       </figcaption>
     </figure>
 
-    <p>Signal strength data corroborates this independently: the share of explicit risk signals (signal 3) was 31.6% in 2024 and 31.2% in 2025, while weak-implicit signals rose from 37.7% to 38.5%. Companies are acknowledging more risk categories without attributing them to AI with greater directness.</p>
+    <p>Signal strength data corroborates this independently: the share of explicit risk signals (signal 3) was 30.6% in 2024 and 33.2% in 2025, while weak-implicit signals fell from 39.6% to 38.0%. Companies are acknowledging more risk categories much faster than they are improving direct attribution to AI.</p>
 
     <span id="s4-7" class="section-anchor"></span>
     <h3>4.7 Sector and CNI Patterns</h3>
@@ -1097,17 +1137,17 @@
       <table>
         <thead><tr><th>Sector</th><th>Companies</th><th>2025 reports</th><th>AI mention %</th><th>AI risk %</th><th>Risk YoY change</th></tr></thead>
         <tbody>
-          <tr><td>Government</td><td>20</td><td>23</td><td>87.0%</td><td>60.9%</td><td class="pos">+6.7 pp</td></tr>
-          <tr><td>Communications</td><td>28</td><td>29</td><td>86.2%</td><td>55.2%</td><td class="pos">+24.6 pp</td></tr>
-          <tr><td>Finance</td><td>461</td><td>657</td><td>74.7%</td><td>49.5%</td><td class="pos">+10.4 pp</td></tr>
-          <tr><td>Water</td><td>18</td><td>17</td><td>64.7%</td><td>52.9%</td><td class="pos">+19.6 pp</td></tr>
+          <tr><td>Government</td><td>20</td><td>23</td><td>87.0%</td><td>60.9%</td><td class="pos">+2.5 pp</td></tr>
+          <tr><td>Communications</td><td>28</td><td>29</td><td>86.2%</td><td>51.7%</td><td class="pos">+26.7 pp</td></tr>
           <tr><td>Chemicals</td><td>34</td><td>24</td><td>62.5%</td><td>50.0%</td><td class="pos">+21.1 pp</td></tr>
-          <tr><td>Food</td><td>52</td><td>70</td><td>62.9%</td><td>44.3%</td><td class="pos">+12.6 pp</td></tr>
-          <tr><td>Transport</td><td>61</td><td>67</td><td>73.1%</td><td>41.8%</td><td class="pos">+15.3 pp</td></tr>
+          <tr><td>Water</td><td>18</td><td>17</td><td>64.7%</td><td>47.1%</td><td class="pos">+13.7 pp</td></tr>
+          <tr><td>Finance</td><td>461</td><td>657</td><td>74.7%</td><td>47.0%</td><td class="pos">+10.7 pp</td></tr>
           <tr><td>Defence</td><td>20</td><td>22</td><td>77.3%</td><td>40.9%</td><td class="pos">+14.0 pp</td></tr>
+          <tr><td>Food</td><td>52</td><td>70</td><td>62.9%</td><td>40.0%</td><td class="pos">+8.4 pp</td></tr>
+          <tr><td>Transport</td><td>61</td><td>67</td><td>73.1%</td><td>38.8%</td><td class="pos">+12.3 pp</td></tr>
           <tr><td>Health</td><td>111</td><td>100</td><td>50.0%</td><td>37.0%</td><td class="pos">+7.3 pp</td></tr>
-          <tr><td>Energy</td><td>141</td><td>140</td><td>30.7%</td><td>20.7%</td><td class="pos">+5.3 pp</td></tr>
-          <tr><td>Data Infrastructure</td><td>22</td><td>20</td><td>60.0%</td><td>15.0%</td><td class="pos">+5.0 pp</td></tr>
+          <tr><td>Energy</td><td>141</td><td>140</td><td>30.7%</td><td>20.0%</td><td class="pos">+5.9 pp</td></tr>
+          <tr><td>Data Infrastructure</td><td>22</td><td>20</td><td>60.0%</td><td>10.0%</td><td class="pos">+5.0 pp</td></tr>
           <tr><td>Civil Nuclear</td><td>2</td><td>3</td><td>0.0%</td><td>0.0%</td><td>n/a</td></tr>
         </tbody>
       </table>
@@ -1129,11 +1169,11 @@
       </figcaption>
     </figure>
 
-    <p>Finance dominates in absolute volume (461 companies, all ten risk categories materially represented), and its disclosure depth reflects genuine AI embeddedness across trading, credit, fraud detection, and compliance. Communications had the largest single-year rise in risk disclosure in 2025 (+24.6 pp), consistent with the sector's exposure to both AI-enabled content moderation and information integrity risks. Government leads on AI mention rate (87.0%), with workforce impacts its most prominent risk category, consistent with the public policy debate around AI in public services.</p>
+    <p>Finance dominates in absolute volume (461 companies, all ten risk categories materially represented), and its disclosure depth reflects genuine AI embeddedness across trading, credit, fraud detection, and compliance. Communications had the largest single-year rise in risk disclosure in 2025 (+26.7 pp), consistent with the sector's exposure to both AI-enabled content moderation and information integrity risks. Government leads on AI mention rate (87.0%) and risk rate (60.9%), with workforce impacts its most prominent risk category, consistent with the public policy debate around AI in public services.</p>
 
-    <p>Two sectors warrant particular attention. <strong>Data Infrastructure</strong> talks about AI the least: 85% of reports in 2025 contain no AI risk mention, despite this sector's role as the layer on which most AI deployment depends. <strong>Energy</strong> is close behind at 79.3%, even though AI is increasingly embedded in grid management, predictive maintenance, and operational technology, and OT/IT convergence in energy infrastructure is among the most documented systemic risk concerns in the national security literature. These are not sectors with low AI exposure; they are sectors with low AI disclosure.</p>
+    <p>Two sectors warrant particular attention. <strong>Data Infrastructure</strong> talks about AI risk the least: 90.0% of reports in 2025 contain no AI risk mention, despite this sector's role as the layer on which most AI deployment depends. <strong>Energy</strong> is close behind at 80.0%, even though AI is increasingly embedded in grid management, predictive maintenance, and operational technology, and OT/IT convergence in energy infrastructure is among the most documented systemic risk concerns in the national security literature. These are not sectors with low AI exposure; they are sectors with low AI disclosure.</p>
 
-    <p>Water, by contrast, reached 52.9% AI risk disclosure in 2025 (up from 33.3% in 2024), a sharp rise that partly reflects the small sample size (17 reports from 18 companies) amplifying individual company changes. The absolute numbers warrant caution, but the direction is notable.</p>
+    <p>Water reached 47.1% AI risk disclosure in 2025 (up from 33.3% in 2024), a rise that partly reflects the small sample size (17 reports from 18 companies) amplifying individual company changes. The absolute numbers warrant caution, but the direction is notable.</p>
 
     <p>Defence reports a high adoption of agentic AI. It is the only sector with agentic tags (31) outnumbering LLM signals (15). This is consistent with defence sector language around autonomous systems, vehicles, and unmanned platforms.</p>
 
@@ -1155,17 +1195,17 @@
       <table>
         <thead><tr><th>Market segment</th><th>Lifetime reports</th><th>2025 reports</th><th>2025 AI mention %</th><th>2025 Adoption %</th><th>2025 Risk %</th><th>2025 Vendor %</th></tr></thead>
         <tbody>
-          <tr><td>FTSE 100</td><td>1,359</td><td>223</td><td>84.8%</td><td>79.8%</td><td>71.3%</td><td>28.7%</td></tr>
-          <tr><td>FTSE 350</td><td>3,638</td><td>606</td><td>82.8%</td><td>63.2%</td><td>66.5%</td><td>26.9%</td></tr>
-          <tr><td>Main Market</td><td>4,166</td><td>703</td><td>77.5%</td><td>57.0%</td><td>60.9%</td><td>23.8%</td></tr>
-          <tr><td>AIM</td><td>1,414</td><td>171</td><td>36.8%</td><td>31.0%</td><td class="warn">7.0%</td><td>9.4%</td></tr>
+          <tr><td>FTSE 100</td><td>1,359</td><td>223</td><td>84.8%</td><td>79.8%</td><td>68.6%</td><td>31.8%</td></tr>
+          <tr><td>FTSE 350</td><td>3,638</td><td>606</td><td>82.8%</td><td>61.2%</td><td>63.0%</td><td>28.9%</td></tr>
+          <tr><td>Main Market</td><td>4,166</td><td>703</td><td>77.5%</td><td>55.6%</td><td>57.8%</td><td>25.6%</td></tr>
+          <tr><td>AIM</td><td>1,414</td><td>171</td><td>36.8%</td><td>30.4%</td><td class="warn">6.4%</td><td>9.4%</td></tr>
         </tbody>
       </table>
     </div>
 
-    <p>In 2025, 71.3% of FTSE 100 companies mentioned AI risk in their reports. The question for the largest companies is no longer whether they disclose AI risk but whether these mentions have valuable information or are boilerplate in nature.</p>
+    <p>In 2025, 68.6% of FTSE 100 companies mentioned AI risk in their reports. The question for the largest companies is no longer whether they disclose AI risk but whether these mentions have valuable information or are boilerplate in nature.</p>
 
-    <p>AIM is in a different category. Only 7.0% of companies in 2025 mentioned AI as a risk, against 60.9% for the Main Market. The gap in AI risk mentions is wider than the gap in general mentions of AI (36.8% AI mention for AIM, suggesting companies are aware of AI; 7.0% risk, suggesting they may not translate that awareness into formal risk governance).</p>
+    <p>AIM is in a different category. Only 6.4% of companies in 2025 mentioned AI as a risk, against 57.8% for the Main Market. The gap in AI risk mentions is wider than the gap in general mentions of AI (36.8% AI mention for AIM, suggesting companies are aware of AI; 6.4% risk, suggesting they may not translate that awareness into formal risk governance).</p>
 
     <hr>
 
@@ -1229,7 +1269,7 @@
 
     <p><strong>Boilerplate tracking over time within companies</strong> is a direct extension of Brown and Tucker's (2011) MD&amp;A modification measure applied to AI-specific language. By computing year-over-year textual similarity of AI-risk passages within the same company, it becomes possible to operationalise "disclosure staleness" at the firm level, identifying companies that have copied forward risk language for multiple years without material revision.</p>
 
-    <p><strong>Agentic and autonomous system monitoring</strong> warrants dedicated attention. The agentic adoption category recorded approximately six-fold growth between 2020 and 2025 (27 to 172 signals), a pace considerably faster than non-LLM or general LLM adoption. Annual reports are beginning to describe autonomous AI agents in operational contexts: systems that act, not merely systems that analyse. The risk taxonomy, the disclosure patterns, and the governance language around agentic systems are likely to differ substantially from what has developed around predictive analytics and language models. Establishing a monitoring baseline for this category before it matures into a common disclosure topic will be considerably easier than retrospectively reconstructing it.</p>
+    <p><strong>Agentic and autonomous system monitoring</strong> warrants dedicated attention. The agentic adoption category recorded approximately seven-fold growth between 2020 and 2025 (24 to 165 signals), a pace considerably faster than non-LLM adoption. Annual reports are beginning to describe autonomous AI agents in operational contexts: systems that act, not merely systems that analyse. The risk taxonomy, the disclosure patterns, and the governance language around agentic systems are likely to differ substantially from what has developed around predictive analytics and language models. Establishing a monitoring baseline for this category before it matures into a common disclosure topic will be considerably easier than retrospectively reconstructing it.</p>
 
     <hr>
 
@@ -1240,6 +1280,8 @@
     <p>The AI Risk Observatory documents a disclosure landscape defined by volume growth without equivalent quality growth. AI disclosure is now a mainstream feature of UK annual reports, and risk disclosure has grown even faster. Across the broader quality picture, vendor disclosures are the most concrete, adoption disclosures are mostly moderate, and risk disclosures remain the weakest.</p>
 
     <p>The sector and market segment findings reinforce this picture. Finance and Health are active disclosers; Data Infrastructure and Energy are not, despite high plausible AI exposure. FTSE 100 companies are near-saturated on disclosure volume. AIM companies remain structurally underrepresented, reflecting lighter governance obligations rather than lower AI risk.</p>
+
+    <p>A striking finding is the near-total absence of harm disclosures across five years of filings. Across 9,821 annual reports from more than 1,300 companies spanning 2020 to 2025, only nine harm-tagged chunks were identified — a rate of effectively zero. UK listed companies rarely disclose realised AI harms in their annual reports. This is itself a signal: either AI-related harms have not yet materialised in ways that boards feel obliged to disclose, or — more plausibly — the annual report format systematically suppresses harm acknowledgement in favour of risk framing. Either way, annual reports alone are insufficient for harm surveillance; regulatory enforcement records, litigation filings, and incident databases are needed as complementary sources.</p>
 
     <p>The Observatory's most important near-term function is as a pre-intervention baseline for Provision 29 of the 2024 UK Corporate Governance Code, which takes effect for FY2026. If the Code is working as intended, the next annual cohort should show improvement in disclosure specificity and governance depth, not just mention rates. Annual reports are a lagging instrument, but they are one of the most systematic and legally accountable evidence bases available for monitoring corporate AI governance at scale.</p>
 
@@ -1344,10 +1386,21 @@
           <tr><td><code>google</code></td><td>Google Gemini, Vertex AI, Google Cloud AI/ML APIs, DeepMind products deployed commercially, Google Workspace AI features</td></tr>
           <tr><td><code>openai</code></td><td>GPT series (GPT-3, GPT-4, GPT-4o), ChatGPT, DALL·E, Whisper, OpenAI API references</td></tr>
           <tr><td><code>amazon</code></td><td>AWS Bedrock, Amazon SageMaker, Amazon Rekognition, Amazon Comprehend, Amazon Lex, and other AWS AI/ML services</td></tr>
+          <tr><td><code>nvidia</code></td><td>Nvidia DGX systems, NIM microservices, Nvidia AI Enterprise platform, Triton Inference Server, CUDA-based AI infrastructure</td></tr>
           <tr><td><code>meta</code></td><td>Llama series (Llama 2, Llama 3, Code Llama), Meta AI assistant, PyTorch where deployed as a production AI system</td></tr>
+          <tr><td><code>salesforce</code></td><td>Salesforce Einstein AI, Agentforce, Sales Cloud AI, Service Cloud AI, and other Salesforce AI-integrated products</td></tr>
+          <tr><td><code>ibm</code></td><td>IBM watsonx platform (watsonx.ai, watsonx.data, watsonx.governance), Watson AI services, IBM Cloud AI/ML services</td></tr>
+          <tr><td><code>databricks</code></td><td>Databricks Mosaic AI, MLflow, Unity Catalog AI features, Databricks Lakehouse AI capabilities</td></tr>
+          <tr><td><code>snowflake</code></td><td>Snowflake Cortex AI, Snowflake ML, Arctic foundation model, Snowflake AI Data Cloud features</td></tr>
           <tr><td><code>anthropic</code></td><td>Claude series (Claude 1, 2, 3, Haiku, Sonnet, Opus)</td></tr>
+          <tr><td><code>xai</code></td><td>xAI Grok series (Grok-1, Grok-2), xAI API references</td></tr>
+          <tr><td><code>palantir</code></td><td>Palantir AIP (Artificial Intelligence Platform), Foundry, Gotham, and other Palantir AI-integrated products</td></tr>
+          <tr><td><code>arm</code></td><td>Arm Ethos NPUs, Arm Cortex AI compute, Arm AI development tools used as AI inference infrastructure</td></tr>
+          <tr><td><code>mistral</code></td><td>Mistral AI models: Mistral series (Mistral 7B, Mistral Large), Mixtral series, Le Chat</td></tr>
+          <tr><td><code>uk_ai</code></td><td>UK-headquartered AI providers not otherwise listed (e.g. Stability AI, BenevolentAI, Faculty AI)</td></tr>
+          <tr><td><code>open_source_model</code></td><td>An open-source AI model deployed directly without a named commercial provider or hosted service (e.g. Llama deployed on-premises, Falcon, Mistral self-hosted)</td></tr>
           <tr><td><code>internal</code></td><td>Company explicitly describes building, training, or maintaining its own AI systems in-house or through a proprietary development programme</td></tr>
-          <tr><td><code>other</code></td><td>A named AI provider or product that does not match any of the above tags (e.g., Palantir, Scale AI, Snowflake Cortex, IBM watsonx)</td></tr>
+          <tr><td><code>other</code></td><td>A named AI provider or product that does not match any of the above tags (e.g. Scale AI, Cohere, Writer, Glean)</td></tr>
           <tr><td><code>undisclosed</code></td><td>An external AI capability or provider is referenced but not named (e.g., "our AI vendor", "third-party AI tools", "external AI platform")</td></tr>
         </tbody>
       </table>
