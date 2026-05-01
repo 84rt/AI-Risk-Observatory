@@ -66,7 +66,7 @@ class BatchClient:
         report_section = "Unknown"
 
         return get_prompt_messages(
-            "mention_type_v3",
+            "mention_type",
             reasoning_policy="short",
             user_template=self._user_template,
             firm_name=firm_name,

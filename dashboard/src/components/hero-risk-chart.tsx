@@ -16,6 +16,10 @@ interface HeroRiskChartProps {
   series: ChartSeries[];
 }
 
+const PARTIAL_YEAR = 2026;
+const PARTIAL_YEAR_NOTE = 'p = partial year; 2026 data is not a full-year sample.';
+const formatHeroYear = (year: number) => year === PARTIAL_YEAR ? `${year} (partial)` : String(year);
+
 export default function HeroRiskChart({ series }: HeroRiskChartProps) {
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -130,6 +134,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
                   axisLine={false}
                   tickLine={false}
                   dy={8}
+                  tickFormatter={(value: number) => formatHeroYear(value)}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: '#6f777b' }}
@@ -177,7 +182,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
                     return (
                       <div className="min-w-[220px] rounded-xl border border-border bg-white px-4 py-3 shadow-[0_18px_50px_rgba(11,12,12,0.14)]">
                         <div className="mb-3 border-b border-slate-100 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                          {label}
+                          {typeof label === 'number' ? formatHeroYear(label) : label}
                         </div>
                         <div className="space-y-2.5">
                           {rows.map((entry, index) => {
@@ -296,6 +301,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
 
         <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
           Values show the proportion of UK public-company annual reports that mention each disclosure type in a given year.
+          {years.includes(PARTIAL_YEAR) ? ` ${PARTIAL_YEAR_NOTE}` : ''}
         </p>
       </div>
     </div>

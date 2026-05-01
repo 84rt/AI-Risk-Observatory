@@ -135,7 +135,7 @@ export default function AboutPage() {
       borderClass: 'border-rose-200',
       surfaceClass: 'bg-rose-50',
     },
-    general_ambiguous: {
+    general_other_or_ambiguous: {
       dotClass: 'bg-slate-500',
       barClass: 'bg-slate-500',
       highlightClass: 'bg-slate-500/15',
@@ -161,6 +161,7 @@ export default function AboutPage() {
     llm: 'LLM',
     agentic: 'Agentic AI',
     agentic_ai: 'Agentic AI',
+    ambiguous: 'Ambiguous AI adoption type',
     // Risk
     regulatory_compliance: 'Regulatory/compliance',
     strategic_competitive: 'Strategic/competitive',
@@ -184,17 +185,20 @@ export default function AboutPage() {
     snowflake: 'Snowflake',
     meta: 'Meta',
     anthropic: 'Anthropic',
+    cohere: 'Cohere',
     xai: 'xAI / Grok',
     palantir: 'Palantir',
     arm: 'Arm',
     mistral: 'Mistral',
-    uk_ai: 'UK AI Institutions',
+    huggingface: 'Hugging Face',
+    pinecone: 'Pinecone',
+    uk_ai: 'UK AI Vendors',
     open_source_model: 'Open-Source Model',
     internal: 'Internal',
     other: 'Other',
     undisclosed: 'Undisclosed',
   };
-  const phase1Cards = ['general_ambiguous', 'none', 'harm', 'adoption', 'risk', 'vendor'].flatMap(id => {
+  const phase1Cards = ['general_other_or_ambiguous', 'none', 'harm', 'adoption', 'risk', 'vendor'].flatMap(id => {
     if (id === 'none') {
       return [
         {
@@ -215,7 +219,7 @@ export default function AboutPage() {
     return [
       {
         ...branch,
-        label: branch.id === 'general_ambiguous' ? 'General or ambiguous' : branch.label,
+        label: branch.id === 'general_other_or_ambiguous' ? 'General, other, or ambiguous' : branch.label,
         ...phaseCardStyles[id],
         continuesToPhase2: (branch.children?.length ?? 0) > 0,
       },
@@ -606,11 +610,11 @@ export default function AboutPage() {
                     </tr>
                   </thead>
                   <tbody className="text-muted">
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Adoption</td><td className="py-2">Current use, rollout, pilot, implementation, or delivery of AI systems.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Risk</td><td className="py-2">AI described as a downside or exposure for the company.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Harm</td><td className="py-2">AI described as causing or enabling harm (misinformation, fraud, abuse, safety incidents).</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Vendor reference</td><td className="py-2">A named AI model, vendor, or platform provider is referenced.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">General or ambiguous</td><td className="py-2">AI mentioned but too high-level or vague for the above categories.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Adoption</td><td className="py-2">Real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Risk</td><td className="py-2">AI directly attributed as the source of a risk or downside to the firm, another party, or society at large.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Harm</td><td className="py-2">AI described as causing an actual past or ongoing injury, damage, or loss.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Vendor reference</td><td className="py-2">A provider of AI technology, model, platform, compute infrastructure, or AI hardware is referenced.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">General, other, or ambiguous</td><td className="py-2">AI mentioned but too high-level, vague, or otherwise outside the adoption, risk, harm, and vendor categories.</td></tr>
                     <tr><td className="py-2 pr-4 font-bold text-primary">None</td><td className="py-2">No real AI mention / false positive. Exclusive — cannot co-occur with others.</td></tr>
                   </tbody>
                 </table>
@@ -641,12 +645,12 @@ Assign ALL mention types that apply to the excerpt. Types are NOT mutually exclu
 If the excerpt contains no AI mention, return only "none". Only tag content that is explicitly about AI in the excerpt; ignore unrelated sentences.
 
 ## RULES
-1. AI EXPLICITNESS GATE: If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision), assign the tag "none". Terms like "data analytics" or "digital tools" generally are NOT considered AI under our definition. The tag "none" is used when there is no AI mention, a false positive, or unrelated automation not clearly AI. Only consider terms like "autonomous or virtual assistant" as AI if it can be clearly attributed to AI. Otherwise, use the following tags in a non-mutually exclusive manner: adoption (the current usage of AI technology by the company), risk (AI as a risk: risks that are directly coming from AI), harm (past harms that were caused by AI), vendor (any mention of a provider of AI technology), general_ambiguous (any statement about AI that does not fit into the other tags). Here are more details on each tag:
+1. AI EXPLICITNESS GATE: If the excerpt does NOT explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique (e.g., machine learning, neural networks, computer vision), assign the tag "none". Terms like "data analytics" or "digital tools" generally are NOT considered AI under our definition. The tag "none" is used when there is no AI mention, a false positive, or unrelated automation not clearly AI. Only consider terms like "autonomous or virtual assistant" as AI if it can be clearly attributed to AI. If the excerpt DOES explicitly mention AI/ML/LLM/GenAI or a clearly AI-specific technique, use the following tags in a non-mutually exclusive manner: adoption (the current usage of AI technology by the company), risk (AI as a risk: risks that are directly coming from AI), harm (past or ongoing harms that were caused by AI), vendor (any mention of a provider of AI technology), general_other_or_ambiguous (any statement about AI that does not fit into the other tags). Here are more details on each tag:
    - adoption: must directly describe real current deployment, implementation, rollout, pilot, or use of AI by the company or for its clients. Generic statements about intent/strategy/roadmaps/plans (adoption in the future) are NOT considered adoption. Treat "exploring", "piloting", or "investigating" AI use as adoption ONLY when it refers to an initiative currently underway (e.g. "current trial resulted in..."). Delivering AI systems directly or indirectly for clients does count as adoption; pure consulting/advice without deployment does NOT.
-   - risk: must directly attribute AI as the source of a risk or downside (i.e. strategic & competitive, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirect way; these should be classified as risk from AI.
-   - harm: must describe past harms that were caused by AI (misinformation, fraud, abuse, safety incidents).
-   - vendor: must explicitly name a third-party AI vendor/platform that provides the AI technology (i.e. Microsoft, Google, OpenAI, AWS, or explicitly developed in-house). We primarily want to tag text that mentions any information about what AI models are used by the company (i.e. GPT or Google Gemini).
-   - general_ambiguous: vague AI strategy, high-level plans, or AI mentions that don't have enough context or are not specific enough. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_ambiguous. The tag general_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
+   - risk: 'Risk' is the potential for a harm to occur, either to the firm or to another party or to society at large. For a mention to be classified as such, it must directly attribute AI as the source of a risk or downside (such as strategic & competitive, operational & technical, cybersecurity, workforce impacts, regulatory & compliance, information integrity, reputational & ethical, third-party & supply chain, environmental impact, and national security etc.). The excerpt might contain a sentence on risk and a separate sentence on AI; make sure to only assign the "risk" tag if AI is mentioned as the source of the risk. Generic risk language without explicitly mentioning AI is NOT risk from AI. However, the risk section might outline downstream risks or effects from AI technologies in an indirect way; these should be classified as risk from AI.
+   - harm: 'Harm' is an actual injury or damage or loss that has occurred or is occurring, either to the firm or to another party or to society at large. It must describe harms caused by AI, such as misinformation, fraud, abuse, safety incidents, regulatory penalty, financial loss, or another type of harm. This label should only be applied where the harm has occurred, or is occurring. It should not be used for a potential harm.
+   - vendor: must directly name a third-party AI vendor/platform that provides the AI technology (such as Microsoft, Google, OpenAI, AWS, or explicitly developed in-house). Our goal is to tag text that mentions any information about what AI models, compute infrastructure, or AI hardware are used by the company (i.e. GPT or Google Gemini).
+   - general_other_or_ambiguous: vague AI strategy, high-level plans, other AI mentions, or AI mentions that don't have enough context or are not specific enough. If AI is explicitly mentioned but does not meet adoption/risk/harm/vendor, use general_other_or_ambiguous. The tag general_other_or_ambiguous should only be added when the excerpt clearly talks about AI but does not meet the other tag definitions.
 2. Assign confidence scores to each tag. Confidence scores always indicate how likely the label applies (including "none").
 
 ## CONFIDENCE GUIDANCE (0.0–1.0)
@@ -657,14 +661,14 @@ If the excerpt contains no AI mention, return only "none". Only tag content that
 
 ## EXAMPLES
 - "We deployed an AI chatbot for customer support." → adoption ~0.9
-- "We are exploring AI opportunities." → general_ambiguous ~0.7
+- "We are exploring AI opportunities." → general_other_or_ambiguous ~0.7
 - "We are piloting AI to automate invoice processing." → adoption ~0.8
 - "We use data analytics and predictive analytics to optimize routing." → none ~0.6 (unless AI/ML explicitly stated)
 - "AI could increase misinformation risks." → risk ~0.8
 - "AI is a long-term megatrend, being widely adopted within the industry; we are evaluating any risks associated with it." → risk ~0.7 (no "adoption" tag, as no evidence of adoption by company)
 - "We partner with Microsoft for AI tooling." → vendor ~0.9, adoption ~0.6
 - "We partnered with OpenAI to deliver AI systems for clients in 2024." → vendor ~0.9, adoption ~0.8
-- "Automation of customer service tasks improved our..." → general_ambiguous ~0.2 (not necessarily AI)
+- "Automation of customer service tasks improved our..." → general_other_or_ambiguous ~0.2 (not necessarily AI)
 - "Address: FT-AI 4810 Shangh'ai', is where the..." → none ~0.9 (a false positive)
 - "AI-generated misinformation has damaged our brand reputation." → harm ~0.9
 
@@ -702,9 +706,10 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                     </tr>
                   </thead>
                   <tbody className="text-muted">
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Traditional AI/ML</td><td className="py-2">Traditional AI/ML — predictive models, computer vision, detection/classification systems.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">LLM/GenAI</td><td className="py-2">Large language model/GenAI use (GPT, Gemini, Claude, Copilot-style deployments).</td></tr>
-                    <tr><td className="py-2 pr-4 font-bold text-primary">Agentic systems</td><td className="py-2">Autonomous or agent-based workflows with limited human intervention.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Traditional AI/ML</td><td className="py-2">AI that is not LLM or agentic AI, such as computer vision, predictive analytics, fraud detection, recommendation engines, anomaly detection, or ML-enabled robotic process automation.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">LLM/GenAI</td><td className="py-2">Large language models and GenAI, including GPT, ChatGPT, Gemini, Claude, Copilot, text generation, NLP chatbots, document summarization, or code generation.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Agentic systems</td><td className="py-2">AI systems or agents that autonomously execute tasks and take actions with limited human oversight. AI assistants, copilots, and decision-support tools are not agentic unless autonomous execution is clear.</td></tr>
+                    <tr><td className="py-2 pr-4 font-bold text-primary">Ambiguous</td><td className="py-2">Current AI adoption is present, but too vague to classify as traditional AI, LLM, or agentic without guessing.</td></tr>
                   </tbody>
                 </table>
 
@@ -718,16 +723,16 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                     </tr>
                   </thead>
                   <tbody className="text-muted">
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Strategic / competitive</td><td className="py-2">Competitive disadvantage, disruption, or failure to adapt.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Operational / technical</td><td className="py-2">Reliability/accuracy/model-risk failures degrading operations.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Strategic / competitive</td><td className="py-2">AI-driven competitive disadvantage, displacement, failure to adapt, or pricing and margin erosion.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Operational / technical</td><td className="py-2">AI reliability, accuracy, safety, or model-risk failures that degrade decisions or operations, including unsafe employee AI use.</td></tr>
                     <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Cybersecurity</td><td className="py-2">AI-enabled attacks, fraud, breach pathways, or adversarial abuse.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Workforce impacts</td><td className="py-2">Displacement, skills gaps, or risky employee AI usage.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Regulatory / compliance</td><td className="py-2">Legal, regulatory, privacy, or IP liability and compliance burden.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Information integrity</td><td className="py-2">Misinformation, deepfakes, or authenticity manipulation.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Workforce impacts</td><td className="py-2">AI-driven displacement or skills gaps.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Regulatory / compliance</td><td className="py-2">AI-specific legal, regulatory, privacy, or IP liability, compliance burden, or enforcement exposure.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Information integrity</td><td className="py-2">AI-enabled misinformation, deepfakes, content authenticity manipulation, or similar information integrity failures.</td></tr>
                     <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Reputational / ethical</td><td className="py-2">Trust, fairness, ethics, or rights concerns.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Third-party / supply chain</td><td className="py-2">Dependency on external AI vendors and concentration exposure.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Third-party / supply chain</td><td className="py-2">Dependency on AI vendors, concentration risk, or exposure to failures or misuse of AI in the company supply chain.</td></tr>
                     <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">Environmental impact</td><td className="py-2">Energy, carbon, or resource-burden risk.</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">National security</td><td className="py-2">Geopolitical destabilisation or critical-systems exposure.</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-2 pr-4 font-bold text-primary">National security</td><td className="py-2">AI-linked geopolitical or security destabilisation, or exposure of critical systems.</td></tr>
                     <tr><td className="py-2 pr-4 font-bold text-primary">None</td><td className="py-2">No attributable risk category (or too vague to assign one).</td></tr>
                   </tbody>
                 </table>
@@ -737,11 +742,11 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
                 <p>
                   Vendors are tagged against a predefined list of named providers: OpenAI, Microsoft,
                   Google, Amazon / AWS, Nvidia, Salesforce, Databricks, IBM, Snowflake, Meta,
-                  Anthropic, xAI / Grok, Palantir, Arm, Mistral, and UK AI institutions (e.g. DSIT,
-                  AISI, Alan Turing Institute). Additional categories cover open-source models
-                  (named frameworks without a commercial vendor), internal (in-house AI development),
-                  undisclosed (implied but unnamed provider), and other (any named provider outside
-                  the predefined list, captured as free text).
+                  Anthropic, xAI / Grok, Palantir, Arm, Mistral, Cohere, Hugging Face,
+                  Pinecone, and UK AI vendors (Darktrace, Quantexa, Featurespace, Faculty AI,
+                  BenevolentAI). Additional categories cover open-source models, internal AI model
+                  development or deployment, undisclosed third-party AI vendors, and other named
+                  providers outside the predefined list.
                 </p>
 
                 {/* Substantiveness */}
@@ -791,7 +796,7 @@ Company: {firm_name} | Sector: {sector} | Report Year: {report_year} | Report Se
 
               <ul className="space-y-4">
                 <li><strong className="text-primary">Structured outputs</strong> — classifiers write to strict JSON response schemas; malformed or labels outside the permitted set are retried or flagged.</li>
-                <li><strong className="text-primary">Conservative prompting</strong> — prompts require explicit AI attribution and discourage over-labelling; the default outcome is <em>none</em> or <em>general_ambiguous</em>.</li>
+                <li><strong className="text-primary">Conservative prompting</strong> — prompts require explicit AI attribution and discourage over-labelling; the default outcome is <em>none</em> or <em>general_other_or_ambiguous</em>.</li>
                 <li><strong className="text-primary">Temperature zero</strong> — all classifier calls use temperature zero for deterministic, reproducible outputs.</li>
                 <li><strong className="text-primary">Chunk-level traceability</strong> — every annotation maps back to a company, year, and report section via a stable chunk ID.</li>
                 <li>

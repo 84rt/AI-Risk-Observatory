@@ -62,7 +62,7 @@ class RiskClassifier(BaseClassifier):
 
     CLASSIFIER_TYPE = "risk"
     RESPONSE_MODEL = RiskResponse
-    PROMPT_KEY = "risk_v5"
+    PROMPT_KEY = "risk"
     SCHEMA_VERSION = "risk_v2"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
@@ -78,7 +78,7 @@ class RiskClassifier(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            self.PROMPT_KEY, # risk | risk_v2 | risk_v3 | risk_v4 | risk_v5
+            self.PROMPT_KEY,
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,

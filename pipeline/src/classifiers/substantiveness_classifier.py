@@ -1,6 +1,6 @@
 """Substantiveness classifier for AIRO pipeline.
 
-Classifies AI mentions as boilerplate, contextual, or substantive.
+Classifies AI mentions as boilerplate, moderate, or substantive.
 """
 
 from typing import Any, Dict, List, Tuple
@@ -8,7 +8,12 @@ from typing import Any, Dict, List, Tuple
 from pydantic import BaseModel
 
 from .base_classifier import BaseClassifier
-from .schemas import SubstantivenessResponse
+from .schemas import (
+    AdoptionSubstantivenessResponse,
+    RiskSubstantivenessResponse,
+    SubstantivenessResponse,
+    VendorSubstantivenessResponse,
+)
 from ..utils.prompt_loader import get_prompt_messages as render_prompt_messages
 
 
@@ -17,12 +22,15 @@ class SubstantivenessClassifier(BaseClassifier):
 
     CLASSIFIER_TYPE = "substantiveness"
     RESPONSE_MODEL = SubstantivenessResponse
+    PROMPT_KEY = "risk_substantiveness"
+    SCHEMA_VERSION = "substantiveness_v2"
 
     def get_prompt_messages(self, text: str, metadata: Dict[str, Any]) -> Tuple[str, str]:
         """Generate the classification prompts for substantiveness detection."""
         firm_name = metadata.get("firm_name", "Unknown Company")
         report_year = metadata.get("report_year", "Unknown")
         sector = metadata.get("sector", "Unknown")
+        report_section = metadata.get("report_section", "Unknown")
         mention_types = metadata.get("mention_types", [])
 
         max_chars = 30000
@@ -30,11 +38,12 @@ class SubstantivenessClassifier(BaseClassifier):
             text = text[:15000] + "\n\n[...content truncated...]\n\n" + text[-15000:]
 
         return render_prompt_messages(
-            "substantiveness",
+            self.PROMPT_KEY,
             reasoning_policy="short",
             firm_name=firm_name,
             sector=sector,
             report_year=report_year,
+            report_section=report_section,
             mention_types=", ".join(mention_types) if mention_types else "unknown",
             text=text,
         )
@@ -50,7 +59,7 @@ class SubstantivenessClassifier(BaseClassifier):
         reasoning = response.reasoning or ""
 
         # Determine primary label from highest score
-        valid_levels = {"boilerplate", "contextual", "substantive"}
+        valid_levels = {"boilerplate", "moderate", "substantive"}
         best_level = "boilerplate"
         best_score = 0.0
 
@@ -79,7 +88,7 @@ class SubstantivenessClassifier(BaseClassifier):
         # Also handle new format with scores
         substantiveness_scores = response.get("substantiveness_scores", {})
         if substantiveness_scores:
-            valid_levels = {"boilerplate", "contextual", "substantive"}
+            valid_levels = {"boilerplate", "moderate", "substantive"}
             best_level = "boilerplate"
             best_score = 0.0
             for level, score in substantiveness_scores.items():
@@ -90,7 +99,9 @@ class SubstantivenessClassifier(BaseClassifier):
             confidence = best_score if best_score > 0 else 0.5
 
         # Validate substantiveness value
-        valid_levels = {"boilerplate", "contextual", "substantive"}
+        if substantiveness == "contextual":
+            substantiveness = "moderate"
+        valid_levels = {"boilerplate", "moderate", "substantive"}
         if substantiveness not in valid_levels:
             substantiveness = "boilerplate"
 
@@ -118,3 +129,30 @@ class SubstantivenessClassifier(BaseClassifier):
         full_reasoning = " | ".join(filter(None, reasoning_parts))
 
         return primary_label, confidence, evidence, full_reasoning
+
+
+class RiskSubstantivenessClassifier(SubstantivenessClassifier):
+    """Dedicated substantiveness classifier for AI risk disclosures."""
+
+    CLASSIFIER_TYPE = "risk_substantiveness"
+    RESPONSE_MODEL = RiskSubstantivenessResponse
+    PROMPT_KEY = "risk_substantiveness"
+    SCHEMA_VERSION = "risk_substantiveness_v1"
+
+
+class AdoptionSubstantivenessClassifier(SubstantivenessClassifier):
+    """Dedicated substantiveness classifier for AI adoption disclosures."""
+
+    CLASSIFIER_TYPE = "adoption_substantiveness"
+    RESPONSE_MODEL = AdoptionSubstantivenessResponse
+    PROMPT_KEY = "adoption_substantiveness"
+    SCHEMA_VERSION = "adoption_substantiveness_v1"
+
+
+class VendorSubstantivenessClassifier(SubstantivenessClassifier):
+    """Dedicated substantiveness classifier for AI vendor disclosures."""
+
+    CLASSIFIER_TYPE = "vendor_substantiveness"
+    RESPONSE_MODEL = VendorSubstantivenessResponse
+    PROMPT_KEY = "vendor_substantiveness"
+    SCHEMA_VERSION = "vendor_substantiveness_v1"

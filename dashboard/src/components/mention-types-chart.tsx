@@ -6,7 +6,7 @@ const mentionColors: Record<string, string> = {
   adoption: '#0ea5e9',
   risk: '#f97316',
   vendor: '#14b8a6',
-  general_ambiguous: '#64748b',
+  general_other_or_ambiguous: '#64748b',
   harm: '#ef4444',
   none: '#d1d5db',
 };

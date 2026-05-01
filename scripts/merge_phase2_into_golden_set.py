@@ -25,7 +25,14 @@ SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
 RUNS_DIR = REPO_ROOT / "data" / "testbed_runs"
 
-CLASSIFIERS = ["risk", "adoption_type", "vendor"]
+CLASSIFIERS = [
+    "risk",
+    "adoption_type",
+    "vendor",
+    "risk_substantiveness",
+    "adoption_substantiveness",
+    "vendor_substantiveness",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,6 +140,38 @@ def main() -> None:
                 record["vendor_confidence"] = vendor_result.get("vendor_signals", {})
                 merged_count["vendor"] += 1
 
+        # Dedicated substantiveness classifiers
+        if "risk_substantiveness" in classifier_data:
+            sub_result = classifier_data["risk_substantiveness"].get(chunk_id)
+            if sub_result:
+                label = sub_result.get("substantiveness") or (
+                    sub_result.get("llm_labels") or [None]
+                )[0]
+                if label:
+                    record["risk_substantiveness"] = label
+                    record["risk_sub_substantiveness"] = label
+                    merged_count["risk_substantiveness"] += 1
+
+        if "adoption_substantiveness" in classifier_data:
+            sub_result = classifier_data["adoption_substantiveness"].get(chunk_id)
+            if sub_result:
+                label = sub_result.get("substantiveness") or (
+                    sub_result.get("llm_labels") or [None]
+                )[0]
+                if label:
+                    record["adoption_substantiveness"] = label
+                    merged_count["adoption_substantiveness"] += 1
+
+        if "vendor_substantiveness" in classifier_data:
+            sub_result = classifier_data["vendor_substantiveness"].get(chunk_id)
+            if sub_result:
+                label = sub_result.get("substantiveness") or (
+                    sub_result.get("llm_labels") or [None]
+                )[0]
+                if label:
+                    record["vendor_substantiveness"] = label
+                    merged_count["vendor_substantiveness"] += 1
+
         output_records.append(record)
 
     # Write output
@@ -153,7 +192,10 @@ def main() -> None:
     }, indent=2))
 
     print(f"\nWrote {len(output_records)} chunks -> {args.output}")
-    print(f"Merged: risk={merged_count['risk']}, adoption_type={merged_count['adoption_type']}, vendor={merged_count['vendor']}")
+    print(
+        "Merged: "
+        + ", ".join(f"{name}={merged_count[name]}" for name in CLASSIFIERS)
+    )
 
 
 if __name__ == "__main__":

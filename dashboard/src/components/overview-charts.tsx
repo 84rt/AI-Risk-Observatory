@@ -15,8 +15,9 @@ const formatLabel = (val: string) => {
   const overrides: Record<string, string> = {
     llm: 'LLM',
     non_llm: 'Traditional AI (non-LLM)',
+    ambiguous: 'Ambiguous AI adoption type',
     risk: 'AI Risk Mentioned',
-    general_ambiguous: 'General / Ambiguous',
+    general_other_or_ambiguous: 'General / Other / Ambiguous',
     third_party_supply_chain: 'Third-Party Supply Chain',
     operational_technical: 'Operational / Technical',
     reputational_ethical: 'Reputational / Ethical',
@@ -25,6 +26,10 @@ const formatLabel = (val: string) => {
     no_ai_risk_mention: 'No AI Risk Mention',
     none: 'None / False Positive',
     openai: 'OpenAI',
+    cohere: 'Cohere',
+    huggingface: 'Hugging Face',
+    pinecone: 'Pinecone',
+    uk_ai: 'UK AI Vendors',
   };
   if (overrides[val]) return overrides[val];
   return val
@@ -32,6 +37,18 @@ const formatLabel = (val: string) => {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 };
+
+const PARTIAL_YEAR = 2026;
+const PARTIAL_YEAR_NOTE = 'p = partial year; 2026 data is not a full-year sample.';
+
+const isPartialYearValue = (value: string | number | null | undefined) => {
+  if (typeof value === 'number') return value === PARTIAL_YEAR;
+  if (typeof value !== 'string') return false;
+  return value === String(PARTIAL_YEAR) || value.startsWith(`${PARTIAL_YEAR}-`);
+};
+
+const formatPartialYearLabel = (value: string | number) =>
+  value === PARTIAL_YEAR || value === String(PARTIAL_YEAR) ? `${value} p` : String(value);
 
 // --- Component: Info Tooltip ---
 // Uses position:fixed so the popup escapes any overflow:hidden/auto ancestor.
@@ -161,6 +178,8 @@ export function StackedBarChart({
   const isGrouped = activeChartType === 'grouped';
   const showSingleLineArea = activeChartType === 'line' && stackKeys.length === 1;
   const chartInstanceKey = `${activeChartType}-${xAxisKey}-${stackKeys.join('|')}`;
+  const getSeriesColor = (key: string | number | undefined) =>
+    (key !== undefined ? colors[String(key)] : undefined) ?? colors.default ?? COLORS.default;
   const renderLegendItems = () =>
     visibleLegendKeys.map((key) => {
       const isSelected = activeLegendKey === key;
@@ -177,7 +196,7 @@ export function StackedBarChart({
           <div key={key} className={itemClass}>
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: colors[key] || colors.default }}
+              style={{ backgroundColor: getSeriesColor(key) }}
             />
             <span className="truncate">{formatLabel(key)}</span>
           </div>
@@ -194,7 +213,7 @@ export function StackedBarChart({
         >
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: colors[key] || colors.default }}
+            style={{ backgroundColor: getSeriesColor(key) }}
           />
           <span className="truncate">{formatLabel(key)}</span>
         </button>
@@ -202,12 +221,14 @@ export function StackedBarChart({
     });
 
   const hasMonthAxis = xAxisKey === 'month';
+  const hasPartialYear = data.some(row => isPartialYearValue(row[xAxisKey]));
   const sharedAxisProps = {
     xAxis: {
       dataKey: xAxisKey,
       axisLine: false,
       tickLine: false,
       tick: { fill: '#64748b', fontSize: hasMonthAxis ? 10 : 12 },
+      tickFormatter: (value: string | number) => formatPartialYearLabel(value),
       dy: 10,
       ...(hasMonthAxis ? { angle: -45, textAnchor: 'end' as const, height: 60 } : {}),
     },
@@ -244,12 +265,12 @@ export function StackedBarChart({
       return (
         <div className="min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
           <div className="mb-2 border-b border-slate-100 pb-2 text-xs font-semibold tracking-[0.08em] text-slate-500">
-            {label}
+            {label !== undefined ? formatPartialYearLabel(label) : label}
           </div>
           <div className="space-y-2">
             {rows.map((entry, index) => {
               const rawName = entry.name ?? (typeof entry.dataKey === 'string' ? formatLabel(entry.dataKey) : String(entry.dataKey ?? ''));
-              const color = entry.color || colors[String(entry.dataKey)] || colors.default;
+              const color = entry.color || getSeriesColor(entry.dataKey);
               const formattedValue =
                 typeof entry.value === 'number' && tooltipValueFormatter
                   ? tooltipValueFormatter(entry.value, rawName)
@@ -347,9 +368,9 @@ export function StackedBarChart({
                     <defs>
                       {stackKeys.map((key) => (
                         <linearGradient key={key} id={`line-area-${key}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={colors[key] || colors.default} stopOpacity={0.22} />
-                          <stop offset="65%" stopColor={colors[key] || colors.default} stopOpacity={0.07} />
-                          <stop offset="100%" stopColor={colors[key] || colors.default} stopOpacity={0.01} />
+                          <stop offset="0%" stopColor={getSeriesColor(key)} stopOpacity={0.22} />
+                          <stop offset="65%" stopColor={getSeriesColor(key)} stopOpacity={0.07} />
+                          <stop offset="100%" stopColor={getSeriesColor(key)} stopOpacity={0.01} />
                         </linearGradient>
                       ))}
                     </defs>
@@ -376,9 +397,9 @@ export function StackedBarChart({
                       key={key}
                       type="monotone"
                       dataKey={key}
-                      stroke={colors[key] || colors.default}
+                      stroke={getSeriesColor(key)}
                       strokeWidth={2}
-                      dot={{ r: 4, fill: colors[key] || colors.default }}
+                      dot={{ r: 4, fill: getSeriesColor(key) }}
                       name={formatLabel(key)}
                     />
                   ))}
@@ -397,7 +418,7 @@ export function StackedBarChart({
                       key={key}
                       dataKey={key}
                       stackId={isGrouped ? undefined : 'a'}
-                      fill={colors[key] || colors.default}
+                      fill={getSeriesColor(key)}
                       name={formatLabel(key)}
                     />
                   ))}
@@ -416,7 +437,9 @@ export function StackedBarChart({
       </div>
       {!exportMode && footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
-        <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-relaxed text-slate-500">{subtitle}</p>
+        <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-relaxed text-slate-500">
+          {subtitle}{hasPartialYear ? ` ${PARTIAL_YEAR_NOTE}` : ''}
+        </p>
       )}
       {exportMode && exportWatermark ? (
         <div className="pointer-events-none mt-4 border-t border-slate-100 pt-4">
@@ -501,6 +524,13 @@ export function GenericHeatmap({
   exportWatermark,
   exportMode = false,
 }: GenericHeatmapProps) {
+  const resolvedXLabelFormatter = (val: string | number) => {
+    const formatted = xLabelFormatter(val);
+    return val === PARTIAL_YEAR || val === String(PARTIAL_YEAR) ? `${formatted} p` : formatted;
+  };
+  const hasPartialYear = xLabels.some(isPartialYearValue)
+    || data.some(d => isPartialYearValue((d as { year?: string | number }).year));
+
   const rowGroupsByLabel = new Map(
     (rowGroups ?? []).map(group => [String(group.label), group])
   );
@@ -537,7 +567,7 @@ export function GenericHeatmap({
     return Math.max(max, formatted.length);
   }, 0);
   const longestXLabelLength = xLabels.reduce<number>((max, x) => {
-    const formatted = String(xLabelFormatter(x));
+    const formatted = String(resolvedXLabelFormatter(x));
     return Math.max(max, formatted.length);
   }, 0);
   const inferredLabelCol = compact
@@ -646,7 +676,7 @@ export function GenericHeatmap({
             className={`bg-secondary px-2 py-2 text-[10px] font-bold uppercase tracking-widest text-primary text-center flex items-center justify-center leading-tight ${useVerticalScroll ? 'sticky top-0 z-10' : ''}`}
             style={{ minHeight: headerMinHeight }}
           >
-            {xLabelFormatter(x)}
+            {resolvedXLabelFormatter(x)}
           </div>
         ))}
         {showTotals && (
@@ -771,7 +801,7 @@ export function GenericHeatmap({
                   key={`${x}-${y}`}
                   className={`relative group flex items-center justify-center ${isBlindSpot ? 'bg-secondary/40' : 'bg-white'}`}
                   style={{ height: cellHeight }}
-                  title={`${yLabelFormatter(y)} × ${xLabelFormatter(x)}: ${valueFormatter(val)}`}
+                  title={`${yLabelFormatter(y)} × ${resolvedXLabelFormatter(x)}: ${valueFormatter(val)}`}
                 >
                   {isBlindSpot ? (
                     // Blind spot indicator - diagonal stripes pattern
@@ -846,7 +876,9 @@ export function GenericHeatmap({
       )}
       {!exportMode && footerExtra && <div className="mt-5 border-t border-border pt-4">{footerExtra}</div>}
       {subtitle && (
-        <p className="mt-4 border-t border-border pt-4 text-sm leading-relaxed text-muted">{subtitle}</p>
+        <p className="mt-4 border-t border-border pt-4 text-sm leading-relaxed text-muted">
+          {subtitle}{hasPartialYear ? ` ${PARTIAL_YEAR_NOTE}` : ''}
+        </p>
       )}
       {exportMode && exportWatermark ? (
         <div className="pointer-events-none mt-4 border-t border-border pt-4">

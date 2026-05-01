@@ -389,6 +389,8 @@ def normalize_label_token(value: object) -> str:
     if hasattr(value, "value"):
         return str(getattr(value, "value"))
     token = str(value).strip()
+    if token == "general_ambiguous":
+        return "general_other_or_ambiguous"
     if token.startswith("MentionType."):
         return token.split(".", 1)[1]
     return token
@@ -456,14 +458,23 @@ def salvage_phase1_payload(text: str) -> dict[str, Any] | None:
     if not text:
         return None
 
-    labels = {"adoption", "risk", "vendor", "general_ambiguous", "none"}
+    label_aliases = {"general_ambiguous": "general_other_or_ambiguous"}
+    labels = {"adoption", "risk", "harm", "vendor", "general_other_or_ambiguous", "none"}
+
+    def normalize_mention_label(label: str) -> str:
+        return label_aliases.get(label, label)
+
     payload: dict[str, Any] = {}
 
     mention_types: list[str] = []
     m_types = re.search(r'"mention_types"\s*:\s*\[(.*?)\]', text, flags=re.DOTALL)
     if m_types:
         tokens = re.findall(r'"?([a-z_]+)"?', m_types.group(1))
-        mention_types = [t for t in tokens if t in labels]
+        mention_types = [
+            normalized
+            for t in tokens
+            if (normalized := normalize_mention_label(t)) in labels
+        ]
 
     confidence_scores: dict[str, float] = {}
     m_conf = re.search(r'"confidence_scores"\s*:\s*\{(.*?)\}', text, flags=re.DOTALL)
@@ -473,6 +484,7 @@ def salvage_phase1_payload(text: str) -> dict[str, Any] | None:
             m_conf.group(1),
             flags=re.DOTALL,
         ):
+            k = normalize_mention_label(k)
             if k in labels:
                 try:
                     confidence_scores[k] = float(v)
@@ -483,8 +495,11 @@ def salvage_phase1_payload(text: str) -> dict[str, Any] | None:
     if not mention_types:
         m_types_prefix = re.search(r'"mention_types"\s*:\s*\[(.*)', text, flags=re.DOTALL)
         if m_types_prefix:
-            tokens = re.findall(r'"(adoption|risk|vendor|general_ambiguous|none)"', m_types_prefix.group(1))
-            mention_types = list(tokens)
+            tokens = re.findall(
+                r'"(adoption|risk|harm|vendor|general_ambiguous|general_other_or_ambiguous|none)"',
+                m_types_prefix.group(1),
+            )
+            mention_types = [normalize_mention_label(t) for t in tokens]
 
     if not mention_types and confidence_scores:
         mention_types = list(confidence_scores.keys())
@@ -681,11 +696,11 @@ def parse_phase1_results(
             # Salvage truncated floats from raw text (e.g. "0.951111111..." → 0.95)
             if not conf_map and response_text:
                 for k, v_str in re.findall(
-                    r'"(adoption|risk|vendor|general_ambiguous|none)"\s*:\s*(-?\d+(?:\.\d{1,4})?)',
+                    r'"(adoption|risk|harm|vendor|general_ambiguous|general_other_or_ambiguous|none)"\s*:\s*(-?\d+(?:\.\d{1,4})?)',
                     response_text,
                 ):
                     try:
-                        conf_map[k] = float(v_str)
+                        conf_map[normalize_label_token(k)] = float(v_str)
                     except ValueError:
                         pass
             confidence = max(conf_map.values()) if conf_map else 0.0
