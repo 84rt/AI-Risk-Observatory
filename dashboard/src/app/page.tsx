@@ -124,9 +124,12 @@ export default function HomePage() {
               >
                 Explore Data
               </Link>
-              <span className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                Report Coming Soon
-              </span>
+              <Link
+                href="/report"
+                className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-6 py-3 text-sm font-bold uppercase tracking-widest text-muted-foreground transition-colors hover:border-accent hover:text-primary"
+              >
+                Read Report
+              </Link>
             </div>
           </div>
         </div>

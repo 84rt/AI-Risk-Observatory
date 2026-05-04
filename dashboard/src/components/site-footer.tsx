@@ -13,6 +13,7 @@ type FooterLink = {
 const primaryLinks: FooterLink[] = [
   { href: '/', label: 'Home' },
   { href: '/data', label: 'Data Dashboard' },
+  { href: '/report', label: 'Report' },
   { href: '/about', label: 'Methodology' },
 ];
 
@@ -38,10 +39,7 @@ const resourceLinks: FooterLink[] = [
     label: 'GitHub Repository',
     external: true,
   },
-  {
-    label: 'Report Coming Soon',
-    unavailable: true,
-  },
+  { href: '/report', label: 'Research Report' },
 ];
 
 function FooterLinkList({
