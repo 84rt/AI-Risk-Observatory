@@ -22,6 +22,7 @@ const formatHeroYear = (year: number) => year === PARTIAL_YEAR ? `${year} (parti
 
 export default function HeroRiskChart({ series }: HeroRiskChartProps) {
   const [hasMounted, setHasMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -31,6 +32,14 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
     return () => {
       window.cancelAnimationFrame(frame);
     };
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
   const years = Array.from(
@@ -69,7 +78,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
         </p>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-y border-slate-200/90 py-3">
+      <div className="mt-5 hidden flex-wrap items-center justify-center gap-x-6 gap-y-3 border-y border-slate-200/90 py-3 sm:flex">
         {series.map(item => {
           return (
             <div key={item.label} className="flex items-center gap-2">
@@ -110,7 +119,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
         <div className="h-[340px] sm:h-[400px]">
           {hasMounted ? (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 16, right: 140, bottom: 12, left: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 16, right: isMobile ? 8 : 140, bottom: 12, left: 0 }}>
                 <defs>
                   {series.map((item, index) => (
                     <linearGradient
@@ -256,7 +265,7 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
                       );
                     }}
                     label={({ x, y, index: pointIndex, value }) => {
-                      if (pointIndex !== chartData.length - 1 || x == null || y == null) return null;
+                      if (isMobile || pointIndex !== chartData.length - 1 || x == null || y == null) return null;
 
                       const endpointLabel = getEndpointLabel(item.label);
                       const isCyberLabel = endpointLabel === 'AI as a cybersecurity threat';
@@ -297,6 +306,34 @@ export default function HeroRiskChart({ series }: HeroRiskChartProps) {
           ) : (
             <div className="h-full w-full animate-pulse rounded-2xl bg-slate-100" aria-hidden="true" />
           )}
+        </div>
+
+        <div className="mt-3 flex flex-col items-start gap-2 sm:hidden">
+          {series.map(item => (
+            <div key={item.label} className="flex items-start gap-2">
+              <span
+                className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <div className="text-xs leading-snug">
+                {item.linkHref ? (
+                  <Link
+                    href={item.linkHref}
+                    title="see on the dashboard"
+                    aria-label={`${item.label} — see on the dashboard`}
+                    className="font-semibold text-slate-800 underline decoration-border underline-offset-4"
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-slate-800">{item.label}</span>
+                )}
+                {item.subtitle && (
+                  <span className="ml-1 text-muted-foreground">{item.subtitle}</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
